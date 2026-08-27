@@ -1,0 +1,227 @@
+msgid "plugins.generic.chatwootIntegration.displayName"
+msgstr "Chatwoot Integration"
+
+msgid "plugins.generic.chatwootIntegration.description"
+msgstr "Integrates Chatwoot live chat with OJS."
+
+msgid "plugins.generic.chatwootIntegration.settings"
+msgstr "Chatwoot Settings"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrl"
+msgstr "Chatwoot Base URL"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrl.description"
+msgstr "The base URL of your Chatwoot installation (e.g., https://app.chatwoot.com)."
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootWebsiteToken"
+msgstr "Website Token"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootWebsiteToken.description"
+msgstr "The website token from your Chatwoot inbox settings."
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootIdentityValidationSecret"
+msgstr "Identity Validation Secret"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootIdentityValidationSecret.description"
+msgstr "The HMAC secret key for identity validation (optional but recommended)."
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken"
+msgstr "API Access Token"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken.description"
+msgstr "An Agent/Admin API Access Token for advanced features like Canned Responses and Notes."
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId"
+msgstr "Inbox ID"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId.description"
+msgstr "Required for open/update conversation mode when no existing conversation is found."
+
+msgid "plugins.generic.chatwootIntegration.settings.enableWidget"
+msgstr "Enable Chat Widget"
+
+msgid "plugins.generic.chatwootIntegration.settings.enableDebugMode"
+msgstr "Enable Debug Mode"
+
+msgid "plugins.generic.chatwootIntegration.settings.enablePrivacyMode"
+msgstr "Enable Privacy Mode (Blind Review Protection)"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrlRequired"
+msgstr "Chatwoot Base URL is required."
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootWebsiteTokenRequired"
+msgstr "Chatwoot Website Token is required."
+
+msgid "plugins.generic.chatwootIntegration.settings.visibility"
+msgstr "Widget Visibility"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForGuests"
+msgstr "Hide for Guests (Unauthenticated)"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_SiteAdmin"
+msgstr "Hide for Site Admins"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_Manager"
+msgstr "Hide for Journal Managers"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_SubEditor"
+msgstr "Hide for Section Editors"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_Assistant"
+msgstr "Hide for Assistants"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_Author"
+msgstr "Hide for Authors"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_Reviewer"
+msgstr "Hide for Reviewers"
+
+msgid "plugins.generic.chatwootIntegration.settings.hideForRole_Reader"
+msgstr "Hide for Readers"
+
+msgid "plugins.generic.chatwootIntegration.settings.workflowAutomation"
+msgstr "Workflow Automation"
+
+msgid "plugins.generic.chatwootIntegration.settings.retryQueueEnabled"
+msgstr "Enable Retry Queue with Backoff"
+
+msgid "plugins.generic.chatwootIntegration.settings.maxRetryAttempts"
+msgstr "Max Retry Attempts"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventSyncMode"
+msgstr "Event Delivery Mode"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventSyncMode.note"
+msgstr "Private Note Only"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventSyncMode.openUpdate"
+msgstr "Open/Update Conversation"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventSubmissionCreated"
+msgstr "Auto Note: Submission Created"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventRevisionRequested"
+msgstr "Auto Note: Revision Requested"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventAccepted"
+msgstr "Auto Note: Accepted"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventRejected"
+msgstr "Auto Note: Rejected"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventPublicationScheduled"
+msgstr "Auto Note: Publication Scheduled"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventPublicationPublished"
+msgstr "Auto Note: Publication Published"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDecisionRecorded"
+msgstr "Auto Note: Editor Decision Recorded"
+
+msgid "plugins.generic.chatwootIntegration.settings.performance"
+msgstr "Performance & Delivery"
+
+msgid "plugins.generic.chatwootIntegration.settings.lazyLoadWidget"
+msgstr "Lazy-load Chat Widget"
+
+msgid "plugins.generic.chatwootIntegration.settings.lazyLoadTrigger"
+msgstr "Lazy-load Trigger"
+
+msgid "plugins.generic.chatwootIntegration.settings.lazyLoadTrigger.idle"
+msgstr "Browser Idle"
+
+msgid "plugins.generic.chatwootIntegration.settings.lazyLoadTrigger.interaction"
+msgstr "First User Interaction"
+
+msgid "plugins.generic.chatwootIntegration.settings.excludedPages"
+msgstr "Excluded Pages (comma-separated page names)"
+
+msgid "plugins.generic.chatwootIntegration.settings.skipBackendPages"
+msgstr "Skip Widget on Workflow Page"
+
+msgid "plugins.generic.chatwootIntegration.settings.cspSafeMode"
+msgstr "Enable CSP-safe Script Mode"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetSettingsJson"
+msgstr "Widget Settings JSON (advanced, merged into window.chatwootSettings)"
+
+msgid "plugins.generic.chatwootIntegration.settings.launcherBottomOffset"
+msgstr "Launcher Bottom Offset (px)"
+
+msgid "plugins.generic.chatwootIntegration.settings.adminTools"
+msgstr "Admin Tools & Setup"
+
+msgid "plugins.generic.chatwootIntegration.settings.enableGlobalDefaults"
+msgstr "Use Global Defaults as Fallback"
+
+msgid "plugins.generic.chatwootIntegration.settings.healthCheck"
+msgstr "Run Health Check"
+
+msgid "plugins.generic.chatwootIntegration.settings.testMessage"
+msgstr "Send Test Message"
+
+msgid "plugins.generic.chatwootIntegration.settings.exportSettings"
+msgstr "Export Settings"
+
+msgid "plugins.generic.chatwootIntegration.settings.importSettings"
+msgstr "Import Settings"
+
+msgid "plugins.generic.chatwootIntegration.settings.saveGlobalProfile"
+msgstr "Save Current as Global Profile"
+
+msgid "plugins.generic.chatwootIntegration.settings.applyGlobalProfile"
+msgstr "Apply Global Profile"
+
+msgid "plugins.generic.chatwootIntegration.settings.importExportPayload"
+msgstr "Import/Export JSON Payload"
+
+msgid "plugins.generic.chatwootIntegration.syncTemplates"
+msgstr "Sync Email Templates"
+
+msgid "plugins.generic.chatwootIntegration.error.missingSettings"
+msgstr "Error: Chatwoot Base URL or API Access Token is missing."
+
+msgid "plugins.generic.chatwootIntegration.error.noContext"
+msgstr "No active journal context found."
+
+msgid "plugins.generic.chatwootIntegration.error.noUserForTest"
+msgstr "You need to be logged in with an email address to send a test message."
+
+msgid "plugins.generic.chatwootIntegration.syncSuccess"
+msgstr "Successfully synced {$count} templates to Chatwoot."
+
+msgid "plugins.generic.chatwootIntegration.syncQueued"
+msgstr "{$count} templates were queued for retry."
+
+msgid "plugins.generic.chatwootIntegration.import.invalidJson"
+msgstr "Import payload is invalid JSON or missing the settings object."
+
+msgid "plugins.generic.chatwootIntegration.import.success"
+msgstr "Settings imported successfully."
+
+msgid "plugins.generic.chatwootIntegration.globalProfile.saved"
+msgstr "Global profile updated from current journal settings."
+
+msgid "plugins.generic.chatwootIntegration.globalProfile.applied"
+msgstr "Global profile applied to current journal settings."
+
+msgid "plugins.generic.chatwootIntegration.testMessageBody"
+msgstr "OJS Chatwoot test message sent at {$date}."
+
+msgid "plugins.generic.chatwootIntegration.testMessageSuccess"
+msgstr "Test message delivered or queued successfully."
+
+msgid "plugins.generic.chatwootIntegration.testMessageFailed"
+msgstr "Unable to send test message. Check health check details and API settings."
+
+msgid "plugins.generic.chatwootIntegration.note.editorDecision"
+msgstr "OJS Notification: Editor decision {$decisionCode} recorded for submission #{$submissionId} ({$title})."
+
+msgid "plugins.generic.chatwootIntegration.note.submissionCreated"
+msgstr "OJS Notification: Submission #{$submissionId} ({$title}) was created."
+
+msgid "plugins.generic.chatwootIntegration.note.statusChanged"
+msgstr "OJS Notification: Submission #{$submissionId} status changed to {$status}."
+
+msgid "plugins.generic.chatwootIntegration.note.publicationEvent"
+msgstr "OJS Notification: Submission #{$submissionId} publication status changed to {$status}."
