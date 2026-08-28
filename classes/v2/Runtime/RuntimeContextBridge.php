@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Runtime;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\SupportGatewayKernel;
 
 /**
@@ -41,6 +42,21 @@ final class RuntimeContextBridge
         try {
             return $this->kernel->resolveContext($request, $locale);
         } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function bootstrapAuthenticatedSupportSession(SupportContext $context): ?SupportSessionBootstrap
+    {
+        if (!$this->kernel || !$context->isAuthenticated()) {
+            return null;
+        }
+
+        try {
+            return $this->kernel->bootstrapAuthenticatedSupportSession($context);
+        } catch (\Throwable $e) {
+            // Missing migration/storage or transient DB failures must not break
+            // the legacy widget path. Diagnostics/audit wiring comes later.
             return null;
         }
     }
