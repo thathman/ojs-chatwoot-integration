@@ -6,9 +6,6 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionR
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use Illuminate\Support\Facades\DB;
 
-/**
- * OJS database-backed support session repository.
- */
 final class DatabaseSupportSessionRepository implements SupportSessionRepositoryInterface
 {
     private const TABLE = InstallSupportGatewayMigration::SESSION_TABLE;
@@ -22,9 +19,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
     {
         $record = $this->encodeRecord($session->toPersistenceRecord());
         unset($record['public_id']);
-        DB::table(self::TABLE)
-            ->where('public_id', $session->publicId())
-            ->update($record);
+        DB::table(self::TABLE)->where('public_id', $session->publicId())->update($record);
     }
 
     public function findByPublicId(string $publicId): ?SupportSession
@@ -36,6 +31,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
     public function claimBindingToken(
         string $bindingTokenHash,
         int $contextId,
+        int $userId,
         string $chatwootAccountId,
         string $chatwootContactId,
         string $chatwootConversationId,
@@ -45,6 +41,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
         return DB::transaction(function () use (
             $bindingTokenHash,
             $contextId,
+            $userId,
             $chatwootAccountId,
             $chatwootContactId,
             $chatwootConversationId,
@@ -56,6 +53,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
             $row = DB::table(self::TABLE)
                 ->where('binding_token_hash', $bindingTokenHash)
                 ->where('context_id', $contextId)
+                ->where('user_id', $userId)
                 ->whereNull('binding_consumed_at')
                 ->whereNull('revoked_at')
                 ->where('binding_expires_at', '>', $nowDb)
@@ -73,8 +71,6 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
                 return null;
             }
 
-            // Rotate any previous active session bound to this exact Chatwoot
-            // conversation before claiming the new authenticated OJS session.
             DB::table(self::TABLE)
                 ->where('context_id', $contextId)
                 ->where('chatwoot_account_id', $chatwootAccountId)
@@ -102,6 +98,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
 
             $updated = DB::table(self::TABLE)
                 ->where('public_id', $session->publicId())
+                ->where('user_id', $userId)
                 ->whereNull('binding_consumed_at')
                 ->where('binding_token_hash', $bindingTokenHash)
                 ->update($record);
@@ -124,7 +121,6 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
             ->whereNull('revoked_at')
             ->orderByDesc('id')
             ->first();
-
         return $row ? $this->hydrate($row) : null;
     }
 
@@ -156,18 +152,9 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
             ->delete();
     }
 
-    /** @param array<string,mixed> $record */
     private function encodeRecord(array $record): array
     {
-        foreach ([
-            'binding_expires_at',
-            'binding_consumed_at',
-            'created_at',
-            'last_used_at',
-            'idle_expires_at',
-            'absolute_expires_at',
-            'revoked_at',
-        ] as $key) {
+        foreach (['binding_expires_at','binding_consumed_at','created_at','last_used_at','idle_expires_at','absolute_expires_at','revoked_at'] as $key) {
             if (array_key_exists($key, $record)) {
                 $record[$key] = $record[$key] === null ? null : $this->toDatabaseTime((int) $record[$key]);
             }
@@ -197,19 +184,12 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
         );
     }
 
-    private function toDatabaseTime(int $timestamp): string
-    {
-        return gmdate('Y-m-d H:i:s', $timestamp);
-    }
+    private function toDatabaseTime(int $timestamp): string { return gmdate('Y-m-d H:i:s', $timestamp); }
 
     private function fromDatabaseTime(mixed $value): ?int
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (is_int($value)) {
-            return $value;
-        }
+        if ($value === null || $value === '') return null;
+        if (is_int($value)) return $value;
         $timestamp = strtotime((string) $value . ' UTC');
         return $timestamp === false ? null : $timestamp;
     }
