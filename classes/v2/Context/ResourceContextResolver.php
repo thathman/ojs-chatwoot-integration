@@ -14,7 +14,10 @@ final class ResourceContextResolver
     public function resolve(SupportContext $supportContext, $request, $templateManager = null): ?ResourceContext
     {
         $fromTemplate = $this->fromTemplate($supportContext, $templateManager);
-        if ($fromTemplate) {
+        if ($fromTemplate === false) {
+            return null;
+        }
+        if ($fromTemplate instanceof ResourceContext) {
             return $fromTemplate;
         }
 
@@ -26,7 +29,11 @@ final class ResourceContextResolver
         return $this->fromKnownRoute($supportContext, $request);
     }
 
-    private function fromTemplate(SupportContext $supportContext, $templateManager): ?ResourceContext
+    /**
+     * @return ResourceContext|false|null false means a template resource was
+     *                                    present but invalid/cross-context.
+     */
+    private function fromTemplate(SupportContext $supportContext, $templateManager): ResourceContext|false|null
     {
         if (!is_object($templateManager) || !method_exists($templateManager, 'getTemplateVars')) {
             return null;
@@ -39,13 +46,16 @@ final class ResourceContextResolver
                 $candidate = null;
             }
 
-            if (!is_object($candidate) || !method_exists($candidate, 'getId')) {
+            if ($candidate === null) {
                 continue;
+            }
+            if (!is_object($candidate) || !method_exists($candidate, 'getId')) {
+                return false;
             }
 
             $id = (int) $candidate->getId();
             if ($id <= 0 || !$this->matchesContext($candidate, $supportContext->contextId())) {
-                continue;
+                return false;
             }
 
             return new ResourceContext('submission', $id, 'template:' . $templateKey);
@@ -72,7 +82,7 @@ final class ResourceContextResolver
 
     private function fromKnownRoute(SupportContext $supportContext, $request): ?ResourceContext
     {
-        if (!in_array(strtolower($supportContext->page()), ['workflow', 'submission'], true)) {
+        if (strtolower($supportContext->page()) !== 'workflow') {
             return null;
         }
         if (!is_object($request) || !method_exists($request, 'getRequestedArgs')) {
@@ -89,14 +99,8 @@ final class ResourceContextResolver
             return null;
         }
 
-        foreach ($args as $arg) {
-            $id = $this->positiveInt($arg);
-            if ($id) {
-                return new ResourceContext('submission', $id, 'known_route');
-            }
-        }
-
-        return null;
+        $id = $this->positiveInt(reset($args));
+        return $id ? new ResourceContext('submission', $id, 'known_route') : null;
     }
 
     private function matchesContext(object $resource, int $contextId): bool
