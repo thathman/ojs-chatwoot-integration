@@ -1,4 +1,4 @@
-name: v2 foundation
+name: v2 validation
 
 on:
   push:
