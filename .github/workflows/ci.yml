@@ -33,6 +33,8 @@ jobs:
         run: php tests/v2/runtime-bootstrap.php
       - name: Runtime context
         run: php tests/v2/runtime-context.php
+      - name: Context projector
+        run: php tests/v2/context-projector.php
       - name: Live plugin shell
         run: php tests/v2/live-plugin.php
       - name: Release-source guards
