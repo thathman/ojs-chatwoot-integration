@@ -28,7 +28,7 @@ final class SupportIntentResolver
             return 'review_help';
         }
 
-        if (in_array($page, ['workflow', 'authorDashboard'], true) || str_contains($route, 'workflow:')) {
+        if (in_array($page, ['workflow', 'authordashboard'], true) || str_contains($route, 'workflow:')) {
             return 'manuscript_help';
         }
 
