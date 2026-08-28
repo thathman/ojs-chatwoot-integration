@@ -14,11 +14,12 @@ interface SupportSessionRepositoryInterface
 
     /**
      * Atomically consume an unexpired one-time binding token and bind the
-     * session to one exact Chatwoot account/contact/conversation tuple.
+     * session to one exact authenticated OJS user + Chatwoot conversation.
      */
     public function claimBindingToken(
         string $bindingTokenHash,
         int $contextId,
+        int $userId,
         string $chatwootAccountId,
         string $chatwootContactId,
         string $chatwootConversationId,
