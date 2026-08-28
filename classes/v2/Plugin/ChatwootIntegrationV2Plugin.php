@@ -3,15 +3,21 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Plugin;
 
 use APP\core\Application;
+use APP\plugins\generic\chatwootIntegration\ChatwootApiService;
 use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationPlugin;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\ChatwootConversationVerifier;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\LegacyWidgetIdentifierResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextProjector;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use PKP\core\JSONMessage;
 use PKP\facades\Locale;
+use PKP\plugins\Hook;
+use PKP\security\Role;
 
 /**
  * Transitional v2 runtime shell.
@@ -21,6 +27,7 @@ use PKP\facades\Locale;
  */
 class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 {
+    private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const LEGACY_EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
         'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests',
@@ -35,20 +42,35 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     private ?SupportSessionBootstrap $supportSessionBootstrap = null;
     private bool $supportSessionBootstrapAttempted = false;
     private bool $contextProjectionInjected = false;
+    private bool $supportSessionHandshakeInjected = false;
 
-    /**
-     * PKP 3.5 plugin installation hook for the v2 Support Gateway tables.
-     */
+    public function register($category, $path, $mainContextId = null)
+    {
+        $success = parent::register($category, $path, $mainContextId);
+        if ($success) {
+            Hook::add('LoadHandler', [$this, 'setSupportGatewayPageHandler']);
+        }
+        return $success;
+    }
+
+    public function setSupportGatewayPageHandler(string $hookName, array $args): bool
+    {
+        $page =& $args[0];
+        $handler =& $args[3];
+        if ($page !== self::SUPPORT_GATEWAY_PAGE) {
+            return false;
+        }
+
+        $handler = new SupportGatewayPageHandler($this);
+        return true;
+    }
+
+    /** PKP 3.5 plugin installation hook for the v2 Support Gateway tables. */
     public function getInstallMigration()
     {
         return new InstallSupportGatewayMigration();
     }
 
-    /**
-     * Resolve normalized server-side context and silently establish a short-
-     * lived V2 support identity for authenticated OJS users before delegating
-     * to the unchanged v1 widget renderer.
-     */
     public function addChatwootWidget($hookName, $args)
     {
         try {
@@ -59,6 +81,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             );
             $this->bootstrapAuthenticatedSupportSession();
             $this->injectProjectedContext($args);
+            $this->injectSupportSessionHandshake($args, $request);
         } catch (\Throwable $e) {
             $this->lastSupportContext = null;
             $this->supportSessionBootstrap = null;
@@ -68,8 +91,94 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     }
 
     /**
-     * Preserve the v1 export shape while removing credential-bearing fields.
+     * Same-origin binding endpoint. All failures are intentionally generic so
+     * this route cannot be used to enumerate OJS or Chatwoot identity state.
      */
+    public function bindSupportSessionRequest($request): JSONMessage
+    {
+        try {
+            $context = $request->getContext();
+            $user = $request->getUser();
+            if (!$context || !$user) {
+                return $this->bindingFailure();
+            }
+
+            $contextId = (int) $context->getId();
+            $userId = (int) $user->getId();
+            if ($contextId <= 0 || $userId <= 0) {
+                return $this->bindingFailure();
+            }
+
+            if (!$this->getEnabled($contextId) && !$this->getEnabled()) {
+                return $this->bindingFailure();
+            }
+
+            $bindingToken = trim((string) $request->getUserVar('bindingToken'));
+            $conversationId = $this->v2PositiveInt($request->getUserVar('conversationId'));
+            if (
+                $conversationId === null
+                || strlen($bindingToken) < 32
+                || strlen($bindingToken) > 160
+                || !preg_match('/^[A-Za-z0-9_-]+$/', $bindingToken)
+            ) {
+                return $this->bindingFailure();
+            }
+
+            $supportContext = $this->runtimeContextBridge()->resolve($request, (string) Locale::getLocale());
+            if (
+                !$supportContext
+                || !$supportContext->isAuthenticated()
+                || $supportContext->contextId() !== $contextId
+                || $supportContext->userId() !== $userId
+            ) {
+                return $this->bindingFailure();
+            }
+
+            $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+            $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+            $inboxId = (int) $this->v2EffectiveSetting($contextId, 'chatwootInboxId', 0);
+            if ($baseUrl === '' || $apiToken === '' || $inboxId <= 0) {
+                return $this->bindingFailure();
+            }
+
+            $privacy = $this->v2Bool($this->v2EffectiveSetting($contextId, 'enablePrivacyMode', false));
+            $maskedReviewer = $privacy && in_array(Role::ROLE_ID_REVIEWER, $supportContext->roleIds(), true);
+            $expectedIdentifier = (new LegacyWidgetIdentifierResolver())->resolve($userId, $contextId, $maskedReviewer);
+            if ($expectedIdentifier === '') {
+                return $this->bindingFailure();
+            }
+
+            $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+            $verified = (new ChatwootConversationVerifier($chatwoot, $inboxId))->verify(
+                $conversationId,
+                $expectedIdentifier
+            );
+            if (!$verified) {
+                return $this->bindingFailure();
+            }
+
+            $session = $this->runtimeContextBridge()->bindAuthenticatedSupportSession(
+                $bindingToken,
+                $contextId,
+                $userId,
+                (string) $verified->accountId(),
+                (string) $verified->contactId(),
+                (string) $verified->conversationId()
+            );
+            if (!$session) {
+                return $this->bindingFailure();
+            }
+
+            return new JSONMessage(true, [
+                'bound' => true,
+                'assurance' => $session->assuranceLevel(),
+                'expiresAt' => gmdate('c', $session->absoluteExpiresAt()),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->bindingFailure();
+        }
+    }
+
     public function exportSettings($request): JSONMessage
     {
         $context = $request->getContext();
@@ -93,22 +202,19 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         ]);
     }
 
-    /**
-     * Internal seam for Support API/session work. This context is not exposed
-     * as authorization state to Chatwoot.
-     */
     public function getResolvedSupportContext(): ?SupportContext
     {
         return $this->lastSupportContext;
     }
 
-    /**
-     * Ephemeral one-time binding payload generated from the authenticated OJS
-     * session. It must be exchanged server-side before protected support use.
-     */
     public function getSupportSessionBootstrap(): ?SupportSessionBootstrap
     {
         return $this->supportSessionBootstrap;
+    }
+
+    private function bindingFailure(): JSONMessage
+    {
+        return new JSONMessage(false, ['error' => 'binding_failed']);
     }
 
     private function bootstrapAuthenticatedSupportSession(): void
@@ -147,15 +253,9 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             return;
         }
 
-        $contextId = $this->lastSupportContext->contextId();
-        $nonce = '';
-        if ($this->v2Bool($this->v2EffectiveSetting($contextId, 'cspSafeMode', false))) {
-            if (method_exists($templateMgr, 'getTemplateVars')) {
-                $nonce = trim((string) ($templateMgr->getTemplateVars('cspNonce') ?? ''));
-            }
-            if ($nonce === '') {
-                return;
-            }
+        $nonce = $this->v2ResolveScriptNonce($templateMgr, $this->lastSupportContext->contextId());
+        if ($nonce === null) {
+            return;
         }
 
         $nonceAttr = $nonce !== '' ? ' nonce="' . htmlspecialchars($nonce, ENT_QUOTES, 'UTF-8') . '"' : '';
@@ -173,16 +273,88 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 
         $templateMgr->addHeader('chatwootSupportContextV2Frontend', $script, ['contexts' => ['frontend']]);
         $templateMgr->addHeader('chatwootSupportContextV2Backend', $script, ['contexts' => ['backend']]);
+        $this->contextProjectionInjected = true;
+    }
 
-        if (isset($args[2]) && is_string($args[2]) && stripos($args[2], 'data-ojs-chatwoot-context="v2"') === false) {
-            if (stripos($args[2], '</body>') !== false) {
-                $args[2] = preg_replace('/<\/body>/i', $script . "\n</body>", $args[2], 1);
-            } else {
-                $args[2] .= $script;
-            }
+    private function injectSupportSessionHandshake(array $args, $request): void
+    {
+        if (
+            $this->supportSessionHandshakeInjected
+            || !$this->supportSessionBootstrap
+            || !$this->lastSupportContext
+            || !$this->lastSupportContext->isAuthenticated()
+        ) {
+            return;
         }
 
-        $this->contextProjectionInjected = true;
+        $templateMgr = $args[0] ?? null;
+        if (!is_object($templateMgr) || !method_exists($templateMgr, 'addHeader')) {
+            return;
+        }
+
+        $nonce = $this->v2ResolveScriptNonce($templateMgr, $this->lastSupportContext->contextId());
+        if ($nonce === null) {
+            return;
+        }
+
+        $router = is_object($request) && method_exists($request, 'getRouter') ? $request->getRouter() : null;
+        if (!is_object($router) || !method_exists($router, 'url')) {
+            return;
+        }
+
+        $bindUrl = (string) $router->url(
+            $request,
+            $this->lastSupportContext->contextPath(),
+            self::SUPPORT_GATEWAY_PAGE,
+            'bind'
+        );
+        if ($bindUrl === '') {
+            return;
+        }
+
+        $ticketJson = json_encode(
+            $this->supportSessionBootstrap->bindingToken(),
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+        );
+        $bindUrlJson = json_encode(
+            $bindUrl,
+            JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES
+        );
+        if (!is_string($ticketJson) || !is_string($bindUrlJson)) {
+            return;
+        }
+
+        $nonceAttr = $nonce !== '' ? ' nonce="' . htmlspecialchars($nonce, ENT_QUOTES, 'UTF-8') . '"' : '';
+        $script = '<script' . $nonceAttr . ' data-ojs-chatwoot-binding="v2">' .
+            '(function(){' .
+            'if(window.__ojsSupportBindingV2Installed){return;}' .
+            'window.__ojsSupportBindingV2Installed=true;' .
+            'var ticket=' . $ticketJson . ';' .
+            'var endpoint=' . $bindUrlJson . ';' .
+            'var inflight=false;' .
+            'function csrf(){var m=document.querySelector("meta[name=csrf-token]");return m?m.getAttribute("content")||"":"";}' .
+            'function onMessage(ev){' .
+            'if(!ticket||inflight){return;}' .
+            'var data=(ev&&ev.detail)||{};' .
+            'var cid=parseInt(data.conversation_id,10);' .
+            'var token=csrf();' .
+            'if(!cid||!token){return;}' .
+            'inflight=true;' .
+            'var body=new URLSearchParams();body.set("bindingToken",ticket);body.set("conversationId",String(cid));' .
+            'fetch(endpoint,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/x-www-form-urlencoded;charset=UTF-8","Accept":"application/json","X-CSRF-TOKEN":token},body:body.toString()})' .
+            '.then(function(r){return r.json();})' .
+            '.then(function(j){if(j&&j.status===true){ticket="";window.removeEventListener("chatwoot:on-message",onMessage);}})' .
+            '.catch(function(){})' .
+            '.finally(function(){inflight=false;});' .
+            '}' .
+            'window.addEventListener("chatwoot:on-message",onMessage);' .
+            'var current=document.currentScript;if(current&&current.parentNode){current.parentNode.removeChild(current);}' .
+            '})();' .
+            '</script>';
+
+        $templateMgr->addHeader('chatwootSupportBindingV2Frontend', $script, ['contexts' => ['frontend']]);
+        $templateMgr->addHeader('chatwootSupportBindingV2Backend', $script, ['contexts' => ['backend']]);
+        $this->supportSessionHandshakeInjected = true;
     }
 
     private function runtimeContextBridge(): RuntimeContextBridge
@@ -190,7 +362,6 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         if (!$this->runtimeContextBridge) {
             $this->runtimeContextBridge = new RuntimeContextBridge();
         }
-
         return $this->runtimeContextBridge;
     }
 
@@ -199,8 +370,19 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         if (!$this->contextProjector) {
             $this->contextProjector = new ChatwootContextProjector();
         }
-
         return $this->contextProjector;
+    }
+
+    private function v2ResolveScriptNonce($templateMgr, int $contextId): ?string
+    {
+        if (!$this->v2Bool($this->v2EffectiveSetting($contextId, 'cspSafeMode', false))) {
+            return '';
+        }
+        if (!is_object($templateMgr) || !method_exists($templateMgr, 'getTemplateVars')) {
+            return null;
+        }
+        $nonce = trim((string) ($templateMgr->getTemplateVars('cspNonce') ?? ''));
+        return $nonce === '' ? null : $nonce;
     }
 
     private function v2EffectiveSetting(int $contextId, string $key, mixed $default = null): mixed
@@ -220,6 +402,26 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         return $default;
     }
 
+    private function v2NormalizeBaseUrl(string $url): string
+    {
+        $url = trim($url);
+        if ($url === '') {
+            return '';
+        }
+        return rtrim($url, '/');
+    }
+
+    private function v2PositiveInt(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+        if (is_string($value) && preg_match('/^[1-9][0-9]*$/', trim($value))) {
+            return (int) trim($value);
+        }
+        return null;
+    }
+
     private function v2Blank(mixed $value): bool
     {
         return $value === null || (is_string($value) && trim($value) === '');
@@ -227,15 +429,9 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 
     private function v2Bool(mixed $value): bool
     {
-        if (is_bool($value)) {
-            return $value;
-        }
-        if (is_int($value)) {
-            return $value === 1;
-        }
-        if (is_string($value)) {
-            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
-        }
+        if (is_bool($value)) return $value;
+        if (is_int($value)) return $value === 1;
+        if (is_string($value)) return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
         return (bool) $value;
     }
 }
