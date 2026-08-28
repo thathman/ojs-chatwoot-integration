@@ -34,4 +34,4 @@ jobs:
           test -f LICENSE
           test -f version.xml
           grep -q '<application>chatwootIntegration</application>' version.xml
-          grep -q 'GNU GENERAL PUBLIC LICENSE' LICENSE
+          grep -q 'SPDX-License-Identifier: GPL-3.0-or-later' LICENSE
