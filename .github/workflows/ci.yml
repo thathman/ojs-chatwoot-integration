@@ -31,6 +31,10 @@ jobs:
         run: php tests/v2/foundation.php
       - name: Runtime bootstrap
         run: php tests/v2/runtime-bootstrap.php
+      - name: Runtime context
+        run: php tests/v2/runtime-context.php
+      - name: Live plugin shell
+        run: php tests/v2/live-plugin.php
       - name: Release-source guards
         run: |
           test -f LICENSE
