@@ -6,7 +6,9 @@ use APP\core\Application;
 use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationPlugin;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextProjector;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use PKP\core\JSONMessage;
 use PKP\facades\Locale;
@@ -30,12 +32,22 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     private ?RuntimeContextBridge $runtimeContextBridge = null;
     private ?ChatwootContextProjector $contextProjector = null;
     private ?SupportContext $lastSupportContext = null;
+    private ?SupportSessionBootstrap $supportSessionBootstrap = null;
+    private bool $supportSessionBootstrapAttempted = false;
     private bool $contextProjectionInjected = false;
 
     /**
-     * Resolve the normalized server-side support context, project only safe
-     * display attributes into Chatwoot, then delegate to the unchanged v1
-     * widget renderer. Failure here must never break the legacy widget path.
+     * PKP 3.5 plugin installation hook for the v2 Support Gateway tables.
+     */
+    public function getInstallMigration()
+    {
+        return new InstallSupportGatewayMigration();
+    }
+
+    /**
+     * Resolve normalized server-side context and silently establish a short-
+     * lived V2 support identity for authenticated OJS users before delegating
+     * to the unchanged v1 widget renderer.
      */
     public function addChatwootWidget($hookName, $args)
     {
@@ -45,9 +57,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
                 $request,
                 (string) Locale::getLocale()
             );
+            $this->bootstrapAuthenticatedSupportSession();
             $this->injectProjectedContext($args);
         } catch (\Throwable $e) {
             $this->lastSupportContext = null;
+            $this->supportSessionBootstrap = null;
         }
 
         return parent::addChatwootWidget($hookName, $args);
@@ -80,12 +94,37 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     }
 
     /**
-     * Internal seam for upcoming Support API/session work. This is not exposed
-     * as an HTTP endpoint and must not be treated as authorization by itself.
+     * Internal seam for Support API/session work. This context is not exposed
+     * as authorization state to Chatwoot.
      */
     public function getResolvedSupportContext(): ?SupportContext
     {
         return $this->lastSupportContext;
+    }
+
+    /**
+     * Ephemeral one-time binding payload generated from the authenticated OJS
+     * session. It must be exchanged server-side before protected support use.
+     */
+    public function getSupportSessionBootstrap(): ?SupportSessionBootstrap
+    {
+        return $this->supportSessionBootstrap;
+    }
+
+    private function bootstrapAuthenticatedSupportSession(): void
+    {
+        if ($this->supportSessionBootstrapAttempted) {
+            return;
+        }
+        $this->supportSessionBootstrapAttempted = true;
+
+        if (!$this->lastSupportContext || !$this->lastSupportContext->isAuthenticated()) {
+            return;
+        }
+
+        $this->supportSessionBootstrap = $this->runtimeContextBridge()->bootstrapAuthenticatedSupportSession(
+            $this->lastSupportContext
+        );
     }
 
     private function injectProjectedContext(array $args): void
