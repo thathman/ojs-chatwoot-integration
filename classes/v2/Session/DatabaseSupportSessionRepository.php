@@ -8,23 +8,29 @@ use Illuminate\Support\Facades\DB;
 
 final class DatabaseSupportSessionRepository implements SupportSessionRepositoryInterface
 {
-    private const TABLE = InstallSupportGatewayMigration::SESSION_TABLE;
+    // Deferred to a method (not a class const) so merely loading/constructing
+    // this repository never forces autoload of the Illuminate-based migration
+    // class outside a real OJS runtime.
+    private static function table(): string
+    {
+        return InstallSupportGatewayMigration::SESSION_TABLE;
+    }
 
     public function create(SupportSession $session): void
     {
-        DB::table(self::TABLE)->insert($this->encodeRecord($session->toPersistenceRecord()));
+        DB::table(self::table())->insert($this->encodeRecord($session->toPersistenceRecord()));
     }
 
     public function save(SupportSession $session): void
     {
         $record = $this->encodeRecord($session->toPersistenceRecord());
         unset($record['public_id']);
-        DB::table(self::TABLE)->where('public_id', $session->publicId())->update($record);
+        DB::table(self::table())->where('public_id', $session->publicId())->update($record);
     }
 
     public function findByPublicId(string $publicId): ?SupportSession
     {
-        $row = DB::table(self::TABLE)->where('public_id', $publicId)->first();
+        $row = DB::table(self::table())->where('public_id', $publicId)->first();
         return $row ? $this->hydrate($row) : null;
     }
 
@@ -50,7 +56,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
         ): ?SupportSession {
             $nowDb = $this->toDatabaseTime($now);
 
-            $row = DB::table(self::TABLE)
+            $row = DB::table(self::table())
                 ->where('binding_token_hash', $bindingTokenHash)
                 ->where('context_id', $contextId)
                 ->where('user_id', $userId)
@@ -71,7 +77,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
                 return null;
             }
 
-            DB::table(self::TABLE)
+            DB::table(self::table())
                 ->where('context_id', $contextId)
                 ->where('chatwoot_account_id', $chatwootAccountId)
                 ->where('chatwoot_contact_id', $chatwootContactId)
@@ -96,7 +102,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
             $record = $this->encodeRecord($bound->toPersistenceRecord());
             unset($record['public_id']);
 
-            $updated = DB::table(self::TABLE)
+            $updated = DB::table(self::table())
                 ->where('public_id', $session->publicId())
                 ->where('user_id', $userId)
                 ->whereNull('binding_consumed_at')
@@ -113,7 +119,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
         string $chatwootContactId,
         string $chatwootConversationId
     ): ?SupportSession {
-        $row = DB::table(self::TABLE)
+        $row = DB::table(self::table())
             ->where('context_id', $contextId)
             ->where('chatwoot_account_id', $chatwootAccountId)
             ->where('chatwoot_contact_id', $chatwootContactId)
@@ -126,7 +132,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
 
     public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
     {
-        DB::table(self::TABLE)
+        DB::table(self::table())
             ->where('context_id', $contextId)
             ->where('user_id', $userId)
             ->whereNull('chatwoot_conversation_id')
@@ -141,7 +147,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
     public function purgeExpired(int $now): int
     {
         $nowDb = $this->toDatabaseTime($now);
-        return DB::table(self::TABLE)
+        return DB::table(self::table())
             ->where(function ($query) use ($nowDb): void {
                 $query->where('absolute_expires_at', '<=', $nowDb)
                     ->orWhere('idle_expires_at', '<=', $nowDb)

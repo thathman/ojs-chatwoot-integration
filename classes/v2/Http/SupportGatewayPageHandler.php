@@ -19,7 +19,7 @@ final class SupportGatewayPageHandler extends PageHandler
 
     public function bind($args, $request): JSONMessage
     {
-        if (!$this->csrfValid($request)) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !$this->csrfValid($request)) {
             return new JSONMessage(false, ['error' => 'binding_failed']);
         }
 
