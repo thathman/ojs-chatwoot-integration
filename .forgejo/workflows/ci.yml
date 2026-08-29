@@ -18,10 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          coverage: none
+      - name: Install PHP ${{ matrix.php }}
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq software-properties-common ca-certificates
+          add-apt-repository -y ppa:ondrej/php
+          apt-get update -qq
+          apt-get install -y -qq php${{ matrix.php }}-cli
+          update-alternatives --set php /usr/bin/php${{ matrix.php }}
       - name: PHP syntax
         run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
       - name: Foundation contracts
