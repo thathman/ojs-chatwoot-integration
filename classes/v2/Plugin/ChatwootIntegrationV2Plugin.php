@@ -11,6 +11,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportIdentitySerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\ChatwootConversationVerifier;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\LegacyWidgetIdentifierResolver;
@@ -257,6 +258,66 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             'availableActions' => $decision ? $bridge->availableActions($decision) : [],
             'disabledActions' => $decision ? $bridge->disabledActions($decision) : [],
         ], $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: establishes
+     * resource-scoped (V3) assurance for exactly one submission. This is
+     * deliberately narrow — it verifies relationship and returns the
+     * capability-derived actions that unlocks, not manuscript content.
+     * `submissionId` is only a lookup hint the server independently
+     * confirms; it is never proof of access on its own.
+     *
+     * V3 is a request-time-only decision, never persisted onto the
+     * conversation's support session — verifying submission #456 must not
+     * become a blanket claim for submission #982 or any other resource.
+     * Every reason a resource fails to verify (nonexistent, wrong journal,
+     * no relationship, a guessed ID, or the conversation never reaching V2)
+     * collapses into the same generic resourceVerified:false shape.
+     */
+    public function supportSubmissionVerifyRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'submissionVerify');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        if ($submissionId === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'submissionId is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $relationship = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        $data = $relationship
+            ? SubmissionVerificationSerializer::verified($relationship, 'v3', $actions)
+            : SubmissionVerificationSerializer::unverified($result, $actions);
+
+        SupportApiResponse::success($data, $result->correlationId());
     }
 
     /**

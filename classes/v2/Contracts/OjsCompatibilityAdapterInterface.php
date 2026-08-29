@@ -10,6 +10,7 @@ interface OjsCompatibilityAdapterInterface
     public function getUser($request);
     public function getRoleIds($user, int $contextId): array;
     public function getUserById(int $userId);
+    public function getSubmissionById(int $submissionId);
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

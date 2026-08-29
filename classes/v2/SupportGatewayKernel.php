@@ -4,6 +4,7 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\CompatibilityAdapterFactory;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ContextResolver;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\AvailableActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
@@ -21,6 +22,7 @@ final class SupportGatewayKernel
 {
     private function __construct(
         private string $ojsVersion,
+        private OjsCompatibilityAdapterInterface $adapter,
         private ContextResolver $contextResolver,
         private SubmissionRelationshipResolver $submissionRelationshipResolver,
         private CapabilityPolicyEngine $capabilityPolicyEngine,
@@ -36,6 +38,7 @@ final class SupportGatewayKernel
 
         return new self(
             $ojsVersion,
+            $adapter,
             new ContextResolver($adapter),
             new SubmissionRelationshipResolver(new OjsSubmissionRelationshipEvidenceProvider()),
             new CapabilityPolicyEngine(),
@@ -48,6 +51,7 @@ final class SupportGatewayKernel
     public function resolveContext($request, string $locale = ''): ?SupportContext { return $this->contextResolver->resolve($request, $locale); }
     public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext { return $this->contextResolver->resolveForUser($request, $userId, $locale); }
     public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship { return $this->submissionRelationshipResolver->resolve($context, $submission); }
+    public function loadSubmission(int $submissionId) { return $this->adapter->getSubmissionById($submissionId); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
