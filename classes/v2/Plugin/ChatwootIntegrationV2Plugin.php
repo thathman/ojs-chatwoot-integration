@@ -228,9 +228,34 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             return;
         }
 
+        if (!$this->supportGatewayUsable($this->lastSupportContext->contextId())) {
+            return;
+        }
+
         $this->supportSessionBootstrap = $this->runtimeContextBridge()->bootstrapAuthenticatedSupportSession(
             $this->lastSupportContext
         );
+    }
+
+    /**
+     * A binding ticket must never be minted/exposed unless the support
+     * channel it would bind to is actually usable end-to-end: the widget is
+     * enabled, and every setting the binding handshake later depends on
+     * (browser identity + server-side conversation verification) is present.
+     */
+    private function supportGatewayUsable(int $contextId): bool
+    {
+        if (!$this->getEnabled($contextId) && !$this->getEnabled()) {
+            return false;
+        }
+
+        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+        $websiteToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootWebsiteToken', ''));
+        $identitySecret = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootIdentityValidationSecret', ''));
+        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+        $inboxId = (int) $this->v2EffectiveSetting($contextId, 'chatwootInboxId', 0);
+
+        return $baseUrl !== '' && $websiteToken !== '' && $identitySecret !== '' && $apiToken !== '' && $inboxId > 0;
     }
 
     private function injectProjectedContext(array $args): void
