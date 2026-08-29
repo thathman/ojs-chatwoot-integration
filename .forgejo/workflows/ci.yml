@@ -28,24 +28,14 @@ jobs:
           update-alternatives --set php /usr/bin/php${{ matrix.php }}
       - name: PHP syntax
         run: find . -type f -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
-      - name: Foundation contracts
-        run: php tests/v2/foundation.php
-      - name: Runtime bootstrap
-        run: php tests/v2/runtime-bootstrap.php
-      - name: Runtime context
-        run: php tests/v2/runtime-context.php
-      - name: Context projector
-        run: php tests/v2/context-projector.php
-      - name: Relationship foundation
-        run: php tests/v2/relationship.php
-      - name: Capability policy
-        run: php tests/v2/capability.php
-      - name: Support session
-        run: php tests/v2/support-session.php
-      - name: Chatwoot binding
-        run: php tests/v2/chatwoot-binding.php
-      - name: Live plugin shell
-        run: php tests/v2/live-plugin.php
+      - name: v2 test suites
+        run: |
+          set -e
+          for f in tests/v2/*.php; do
+            echo "::group::$f"
+            php "$f"
+            echo "::endgroup::"
+          done
       - name: Release-source guards
         run: |
           test -f LICENSE
