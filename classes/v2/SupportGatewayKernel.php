@@ -17,13 +17,6 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 
-/**
- * Minimal composition root for v2 services.
- *
- * New services are added here only after their contracts are defined and
- * tested so the plugin class remains a thin OJS adapter instead of becoming
- * another monolith.
- */
 final class SupportGatewayKernel
 {
     private function __construct(
@@ -39,9 +32,7 @@ final class SupportGatewayKernel
     public static function forOjsVersion(string $ojsVersion): ?self
     {
         $adapter = CompatibilityAdapterFactory::forVersion($ojsVersion);
-        if (!$adapter) {
-            return null;
-        }
+        if (!$adapter) return null;
 
         return new self(
             $ojsVersion,
@@ -53,31 +44,12 @@ final class SupportGatewayKernel
         );
     }
 
-    public function ojsVersion(): string
-    {
-        return $this->ojsVersion;
-    }
+    public function ojsVersion(): string { return $this->ojsVersion; }
+    public function resolveContext($request, string $locale = ''): ?SupportContext { return $this->contextResolver->resolve($request, $locale); }
+    public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship { return $this->submissionRelationshipResolver->resolve($context, $submission); }
+    public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
-    public function resolveContext($request, string $locale = ''): ?SupportContext
-    {
-        return $this->contextResolver->resolve($request, $locale);
-    }
-
-    public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship
-    {
-        return $this->submissionRelationshipResolver->resolve($context, $submission);
-    }
-
-    public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision
-    {
-        return $this->capabilityPolicyEngine->evaluate($request);
-    }
-
-    /** @return string[] */
-    public function availableActions(CapabilityDecision $decision): array
-    {
-        return $this->availableActionMapper->map($decision);
-    }
+    public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
 
     public function bootstrapAuthenticatedSupportSession(SupportContext $context): SupportSessionBootstrap
     {
@@ -87,6 +59,7 @@ final class SupportGatewayKernel
     public function bindAuthenticatedSupportSession(
         string $bindingToken,
         int $contextId,
+        int $userId,
         string $chatwootAccountId,
         string $chatwootContactId,
         string $chatwootConversationId
@@ -94,6 +67,7 @@ final class SupportGatewayKernel
         return $this->supportSessionService->bindAuthenticatedBootstrap(
             $bindingToken,
             $contextId,
+            $userId,
             $chatwootAccountId,
             $chatwootContactId,
             $chatwootConversationId

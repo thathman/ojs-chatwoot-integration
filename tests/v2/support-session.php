@@ -23,24 +23,14 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
     /** @var array<string,SupportSession> */
     public array $sessions = [];
 
-    public function create(SupportSession $session): void
-    {
-        $this->sessions[$session->publicId()] = $session;
-    }
-
-    public function save(SupportSession $session): void
-    {
-        $this->sessions[$session->publicId()] = $session;
-    }
-
-    public function findByPublicId(string $publicId): ?SupportSession
-    {
-        return $this->sessions[$publicId] ?? null;
-    }
+    public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
+    public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
+    public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
 
     public function claimBindingToken(
         string $bindingTokenHash,
         int $contextId,
+        int $userId,
         string $chatwootAccountId,
         string $chatwootContactId,
         string $chatwootConversationId,
@@ -50,6 +40,7 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
         foreach ($this->sessions as $publicId => $session) {
             if (
                 $session->contextId() !== $contextId
+                || $session->userId() !== $userId
                 || $session->bindingTokenHash() !== $bindingTokenHash
                 || !$session->bindingAvailable($now)
             ) {
@@ -60,12 +51,7 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
                 if (
                     $otherId !== $publicId
                     && !$other->isRevoked()
-                    && $other->matchesConversationBinding(
-                        $contextId,
-                        $chatwootAccountId,
-                        $chatwootContactId,
-                        $chatwootConversationId
-                    )
+                    && $other->matchesConversationBinding($contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId)
                 ) {
                     $this->sessions[$otherId] = $other->revoked($now);
                 }
@@ -81,7 +67,6 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
             $this->sessions[$publicId] = $bound;
             return $bound;
         }
-
         return null;
     }
 
@@ -93,15 +78,7 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
     ): ?SupportSession {
         $matches = [];
         foreach ($this->sessions as $session) {
-            if (
-                !$session->isRevoked()
-                && $session->matchesConversationBinding(
-                    $contextId,
-                    $chatwootAccountId,
-                    $chatwootContactId,
-                    $chatwootConversationId
-                )
-            ) {
+            if (!$session->isRevoked() && $session->matchesConversationBinding($contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId)) {
                 $matches[] = $session;
             }
         }
@@ -112,12 +89,7 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
     public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
     {
         foreach ($this->sessions as $publicId => $session) {
-            if (
-                $session->contextId() === $contextId
-                && $session->userId() === $userId
-                && !$session->isBound()
-                && !$session->isRevoked()
-            ) {
+            if ($session->contextId() === $contextId && $session->userId() === $userId && !$session->isBound() && !$session->isRevoked()) {
                 $this->sessions[$publicId] = $session->revoked($now);
             }
         }
@@ -159,34 +131,20 @@ sessionCheck($stored?->bindingTokenHash() === hash('sha256', $bootstrap->binding
 sessionCheck($stored?->bindingTokenHash() !== $bootstrap->bindingToken(), 'plaintext binding token must not be persisted');
 sessionCheck($bootstrap->browserPayload()['contract'] === 'one_time_binding', 'bootstrap payload should state one-time binding contract');
 
-$crossContext = $service->bindAuthenticatedBootstrap(
-    $bootstrap->bindingToken(),
-    8,
-    '1',
-    '100',
-    '500'
-);
+$crossContext = $service->bindAuthenticatedBootstrap($bootstrap->bindingToken(), 8, 42, '1', '100', '500');
 sessionCheck($crossContext === null, 'binding token must be journal/context bound');
 sessionCheck($repo->findByPublicId($bootstrap->sessionRef())?->bindingAvailable($now) === true, 'failed cross-context bind must not consume token');
 
-$bound = $service->bindAuthenticatedBootstrap(
-    $bootstrap->bindingToken(),
-    7,
-    '1',
-    '100',
-    '500'
-);
+$crossUser = $service->bindAuthenticatedBootstrap($bootstrap->bindingToken(), 7, 43, '1', '100', '500');
+sessionCheck($crossUser === null, 'binding token must be bound to the currently authenticated OJS user');
+sessionCheck($repo->findByPublicId($bootstrap->sessionRef())?->bindingAvailable($now) === true, 'failed cross-user bind must not consume token');
+
+$bound = $service->bindAuthenticatedBootstrap($bootstrap->bindingToken(), 7, 42, '1', '100', '500');
 sessionCheck($bound !== null && $bound->isBound(), 'valid token should bind exact Chatwoot conversation');
 sessionCheck($bound?->bindingTokenHash() === null, 'consumed binding token hash should be removed from active session');
 sessionCheck($bound?->bindingConsumedAt() === $now, 'binding consumption time should be recorded');
 
-$replay = $service->bindAuthenticatedBootstrap(
-    $bootstrap->bindingToken(),
-    7,
-    '1',
-    '100',
-    '500'
-);
+$replay = $service->bindAuthenticatedBootstrap($bootstrap->bindingToken(), 7, 42, '1', '100', '500');
 sessionCheck($replay === null, 'one-time binding token must reject replay');
 
 $resolved = $service->resolveConversation(7, '1', '100', '500');
@@ -197,13 +155,7 @@ sessionCheck($service->resolveConversation(8, '1', '100', '500') === null, 'diff
 
 $now += 5;
 $replacementBootstrap = $service->bootstrapAuthenticated($authenticated);
-$replacement = $service->bindAuthenticatedBootstrap(
-    $replacementBootstrap->bindingToken(),
-    7,
-    '1',
-    '100',
-    '500'
-);
+$replacement = $service->bindAuthenticatedBootstrap($replacementBootstrap->bindingToken(), 7, 42, '1', '100', '500');
 sessionCheck($replacement !== null, 'fresh authenticated bootstrap should bind same conversation');
 sessionCheck($repo->findByPublicId($bootstrap->sessionRef())?->isRevoked() === true, 'new binding should rotate/revoke older conversation session');
 
@@ -213,23 +165,17 @@ sessionCheck($service->revoke($replacementBootstrap->sessionRef()) === false, 'r
 
 $shortNow = 2_000_000_000;
 $shortRepo = new InMemorySupportSessionRepository();
-$shortService = new SupportSessionService(
-    $shortRepo,
-    static function () use (&$shortNow): int { return $shortNow; },
-    10,
-    20,
-    5
-);
+$shortService = new SupportSessionService($shortRepo, static function () use (&$shortNow): int { return $shortNow; }, 10, 20, 5);
 $shortBootstrap = $shortService->bootstrapAuthenticated($authenticated);
 $shortNow += 6;
 sessionCheck(
-    $shortService->bindAuthenticatedBootstrap($shortBootstrap->bindingToken(), 7, '1', '100', '700') === null,
+    $shortService->bindAuthenticatedBootstrap($shortBootstrap->bindingToken(), 7, 42, '1', '100', '700') === null,
     'expired one-time binding token must fail closed'
 );
 
 $freshBootstrap = $shortService->bootstrapAuthenticated($authenticated);
 $boundAt = $shortNow;
-$freshBound = $shortService->bindAuthenticatedBootstrap($freshBootstrap->bindingToken(), 7, '1', '100', '701');
+$freshBound = $shortService->bindAuthenticatedBootstrap($freshBootstrap->bindingToken(), 7, 42, '1', '100', '701');
 sessionCheck($freshBound !== null, 'fresh short-lived bootstrap should bind');
 $absolute = $freshBound?->absoluteExpiresAt() ?? 0;
 $shortNow = $boundAt + 9;
@@ -244,7 +190,7 @@ sessionCheck(!str_contains($migrationSource, "->string('binding_token',"), 'migr
 
 $repositorySource = (string) file_get_contents($root . '/classes/v2/Session/DatabaseSupportSessionRepository.php');
 sessionCheck(str_contains($repositorySource, 'lockForUpdate()'), 'database binding claim must lock row transactionally');
-sessionCheck(str_contains($repositorySource, 'DB::transaction'), 'database binding claim must be transactional');
+sessionCheck(str_contains($repositorySource, "where('user_id', \$userId)"), 'database binding claim must constrain current OJS user');
 
 $pluginSource = (string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
 sessionCheck(str_contains($pluginSource, 'getInstallMigration'), 'live plugin must register support session migration');

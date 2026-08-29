@@ -7,12 +7,6 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionR
 use Closure;
 use LogicException;
 
-/**
- * Creates and validates short-lived support sessions.
- *
- * Authenticated OJS bootstrap is V2. Submission/resource access remains a
- * separate V3 relationship/capability decision.
- */
 final class SupportSessionService
 {
     public const METHOD_AUTHENTICATED_SESSION = 'authenticated_session';
@@ -33,7 +27,6 @@ final class SupportSessionService
         if ($this->bindingTtlSeconds > $this->absoluteTtlSeconds || $this->idleTtlSeconds > $this->absoluteTtlSeconds) {
             throw new LogicException('Binding/idle TTL cannot exceed absolute session TTL.');
         }
-
         $this->clock = $clock ? Closure::fromCallable($clock) : static fn (): int => time();
     }
 
@@ -53,7 +46,7 @@ final class SupportSessionService
         $absoluteExpiresAt = $now + $this->absoluteTtlSeconds;
         $idleExpiresAt = min($now + $this->idleTtlSeconds, $absoluteExpiresAt);
 
-        $session = new SupportSession(
+        $this->repository->create(new SupportSession(
             $publicId,
             $context->contextId(),
             $context->userId(),
@@ -70,9 +63,7 @@ final class SupportSessionService
             $idleExpiresAt,
             $absoluteExpiresAt,
             null
-        );
-
-        $this->repository->create($session);
+        ));
 
         return new SupportSessionBootstrap(
             $publicId,
@@ -86,6 +77,7 @@ final class SupportSessionService
     public function bindAuthenticatedBootstrap(
         string $bindingToken,
         int $contextId,
+        int $userId,
         string $chatwootAccountId,
         string $chatwootContactId,
         string $chatwootConversationId
@@ -98,6 +90,7 @@ final class SupportSessionService
         if (
             $bindingToken === ''
             || $contextId <= 0
+            || $userId <= 0
             || $chatwootAccountId === ''
             || $chatwootContactId === ''
             || $chatwootConversationId === ''
@@ -106,11 +99,10 @@ final class SupportSessionService
         }
 
         $now = $this->now();
-        $bindingTokenHash = hash('sha256', $bindingToken);
-
         return $this->repository->claimBindingToken(
-            $bindingTokenHash,
+            hash('sha256', $bindingToken),
             $contextId,
+            $userId,
             $chatwootAccountId,
             $chatwootContactId,
             $chatwootConversationId,
@@ -160,26 +152,12 @@ final class SupportSessionService
     public function revoke(string $publicId): bool
     {
         $session = $this->repository->findByPublicId(trim($publicId));
-        if (!$session || $session->isRevoked()) {
-            return false;
-        }
-
+        if (!$session || $session->isRevoked()) return false;
         $this->repository->save($session->revoked($this->now()));
         return true;
     }
 
-    public function purgeExpired(): int
-    {
-        return $this->repository->purgeExpired($this->now());
-    }
-
-    private function now(): int
-    {
-        return (int) ($this->clock)();
-    }
-
-    private function randomToken(int $bytes): string
-    {
-        return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
-    }
+    public function purgeExpired(): int { return $this->repository->purgeExpired($this->now()); }
+    private function now(): int { return (int) ($this->clock)(); }
+    private function randomToken(int $bytes): string { return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '='); }
 }
