@@ -48,6 +48,21 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         return $ids;
     }
 
+    /**
+     * Re-derives a live user by ID, independent of any request/session.
+     *
+     * Used to refresh a support session's roles at call time instead of
+     * trusting whatever roles a user held at bind time.
+     */
+    public function getUserById(int $userId)
+    {
+        if ($userId <= 0 || !class_exists('\PKP\user\Repo')) {
+            return null;
+        }
+
+        return \PKP\user\Repo::user()->get($userId);
+    }
+
     public function getRequestedPage($request): string
     {
         return is_object($request) && method_exists($request, 'getRequestedPage')

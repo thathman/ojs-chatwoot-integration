@@ -3,6 +3,8 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Runtime;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\SupportGatewayKernel;
@@ -67,6 +69,56 @@ final class RuntimeContextBridge
             );
         } catch (\Throwable $e) {
             return null;
+        }
+    }
+
+    public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext
+    {
+        if (!$this->kernel || $userId <= 0) return null;
+        try {
+            return $this->kernel->resolveContextForUser($request, $userId, $locale);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function resolveBoundSupportSession(
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId
+    ): ?SupportSession {
+        if (!$this->kernel || $contextId <= 0) return null;
+        try {
+            return $this->kernel->resolveBoundSupportSession(
+                $contextId,
+                $chatwootAccountId,
+                $chatwootContactId,
+                $chatwootConversationId
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function evaluateCapabilities(CapabilityRequest $request): ?CapabilityDecision
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->evaluateCapabilities($request);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /** @return string[] */
+    public function availableActions(CapabilityDecision $decision): array
+    {
+        if (!$this->kernel) return [];
+        try {
+            return $this->kernel->availableActions($decision);
+        } catch (\Throwable $e) {
+            return [];
         }
     }
 
