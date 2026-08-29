@@ -12,6 +12,10 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\DatabaseSupportSessionRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 
 /**
  * Minimal composition root for v2 services.
@@ -27,7 +31,8 @@ final class SupportGatewayKernel
         private ContextResolver $contextResolver,
         private SubmissionRelationshipResolver $submissionRelationshipResolver,
         private CapabilityPolicyEngine $capabilityPolicyEngine,
-        private AvailableActionMapper $availableActionMapper
+        private AvailableActionMapper $availableActionMapper,
+        private SupportSessionService $supportSessionService
     ) {
     }
 
@@ -43,7 +48,8 @@ final class SupportGatewayKernel
             new ContextResolver($adapter),
             new SubmissionRelationshipResolver(new OjsSubmissionRelationshipEvidenceProvider()),
             new CapabilityPolicyEngine(),
-            new AvailableActionMapper()
+            new AvailableActionMapper(),
+            new SupportSessionService(new DatabaseSupportSessionRepository())
         );
     }
 
@@ -71,5 +77,40 @@ final class SupportGatewayKernel
     public function availableActions(CapabilityDecision $decision): array
     {
         return $this->availableActionMapper->map($decision);
+    }
+
+    public function bootstrapAuthenticatedSupportSession(SupportContext $context): SupportSessionBootstrap
+    {
+        return $this->supportSessionService->bootstrapAuthenticated($context);
+    }
+
+    public function bindAuthenticatedSupportSession(
+        string $bindingToken,
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId
+    ): ?SupportSession {
+        return $this->supportSessionService->bindAuthenticatedBootstrap(
+            $bindingToken,
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId
+        );
+    }
+
+    public function resolveBoundSupportSession(
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId
+    ): ?SupportSession {
+        return $this->supportSessionService->resolveConversation(
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId
+        );
     }
 }

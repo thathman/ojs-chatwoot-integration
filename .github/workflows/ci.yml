@@ -39,6 +39,8 @@ jobs:
         run: php tests/v2/relationship.php
       - name: Capability policy
         run: php tests/v2/capability.php
+      - name: Support session
+        run: php tests/v2/support-session.php
       - name: Live plugin shell
         run: php tests/v2/live-plugin.php
       - name: Release-source guards
