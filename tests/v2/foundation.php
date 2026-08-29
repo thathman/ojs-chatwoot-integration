@@ -4,13 +4,7 @@ declare(strict_types=1);
 
 $root = dirname(__DIR__, 2);
 
-require_once $root . '/classes/v2/Contracts/OjsCompatibilityAdapterInterface.php';
-require_once $root . '/classes/v2/Compatibility/Ojs35CompatibilityAdapter.php';
-require_once $root . '/classes/v2/Compatibility/CompatibilityAdapterFactory.php';
-require_once $root . '/classes/v2/Context/SupportContext.php';
-require_once $root . '/classes/v2/Context/ContextResolver.php';
-require_once $root . '/classes/v2/SupportGatewayKernel.php';
-require_once $root . '/classes/v2/Settings/ExportPolicy.php';
+require_once $root . '/classes/v2/bootstrap.php';
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\CompatibilityAdapterFactory;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\Ojs35CompatibilityAdapter;

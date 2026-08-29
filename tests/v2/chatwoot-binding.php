@@ -108,6 +108,7 @@ bindingCheck(str_contains($pluginSource, 'ChatwootConversationVerifier'), 'endpo
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/SupportGatewayPageHandler.php');
 bindingCheck(str_contains($handlerSource, 'HTTP_X_CSRF_TOKEN'), 'handler must fail closed on missing CSRF even in addition to PKP middleware');
 bindingCheck(str_contains($handlerSource, 'hash_equals'), 'handler CSRF comparison must be timing-safe');
+bindingCheck(str_contains($handlerSource, "REQUEST_METHOD"), 'handler must accept POST only');
 
 $apiSource = (string) file_get_contents($root . '/ChatwootApiService.php');
 bindingCheck(str_contains($apiSource, 'getConversation'), 'server Chatwoot API adapter must expose conversation lookup');
