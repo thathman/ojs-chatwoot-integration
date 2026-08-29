@@ -122,5 +122,16 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array<int,array{action:string,reason:string}> */
+    public function disabledActions(CapabilityDecision $decision): array
+    {
+        if (!$this->kernel) return [];
+        try {
+            return $this->kernel->disabledActions($decision);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

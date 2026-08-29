@@ -22,6 +22,14 @@ final class AvailableActionMapper
         'support.escalate' => 'contact_editorial_office',
     ];
 
+    /** Denial reasons safe to surface to a Captain-facing client — internal plumbing states are excluded. */
+    private const SAFE_DENIAL_REASONS = [
+        'authentication_required',
+        'verification_required',
+        'relationship_required',
+        'feature_unavailable',
+    ];
+
     /** @return string[] */
     public function map(CapabilityDecision $decision): array
     {
@@ -34,5 +42,26 @@ final class AvailableActionMapper
         $actions = array_values(array_unique($actions));
         sort($actions);
         return $actions;
+    }
+
+    /**
+     * Actions that are currently unavailable for a reason worth telling
+     * Captain about (e.g. "verify further to unlock this"), as opposed to
+     * internal plumbing states like an unenabled provider.
+     *
+     * @return array<int,array{action:string,reason:string}>
+     */
+    public function mapDenied(CapabilityDecision $decision): array
+    {
+        $result = [];
+        foreach ($decision->denied() as $capability => $reason) {
+            if (!isset(self::ACTIONS[$capability]) || !in_array($reason, self::SAFE_DENIAL_REASONS, true)) {
+                continue;
+            }
+            $result[] = ['action' => self::ACTIONS[$capability], 'reason' => $reason];
+        }
+
+        usort($result, static fn (array $a, array $b): int => $a['action'] <=> $b['action']);
+        return $result;
     }
 }

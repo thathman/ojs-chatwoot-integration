@@ -12,6 +12,8 @@ Initial namespace: `/support-gateway/v1/...` (exact OJS PageHandler route may va
 
 Breaking response/semantic changes require a new API major version. OJS plugin version and Support API version are related but not identical.
 
+**As actually implemented:** the OJS 3.5 route is `/ojsSupportGateway/<status|identity|actions>` (same `SupportGatewayPageHandler` that already serves the browser-facing `/bind` route, registered via `LoadHandler`). `apiVersion` in the response envelope (see §5) is the versioning mechanism described above; the URL path itself does not currently carry a version segment. `/bind` is a distinct, same-origin, CSRF-protected, PKP-`JSONMessage` route for the browser handshake — it is not part of this Captain-facing service API and does not use the envelope in §5.
+
 ## 3. Consumer classes
 
 - `chatwoot_captain_public`

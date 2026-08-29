@@ -53,7 +53,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [ ] **IDN-003** Create support session migration/repository.
 - [ ] **IDN-004** Prototype secure OJS-session ↔ Chatwoot conversation binding.
 - [ ] **IDN-005** Write ADR selecting authenticated-session handshake.
-- [ ] **IDN-006** Implement logged-in OJS silent V2 identity path.
+- [x] **IDN-006** Implement logged-in OJS silent V2 identity path. — authenticated OJS session bootstraps a V2 support session with no PIN/email step (`SupportSessionService::bootstrapAuthenticated`).
 - [ ] **IDN-007** Implement OJS verification-code Mailable/template.
 - [ ] **IDN-008** Implement verification request endpoint.
 - [ ] **IDN-009** Implement verification confirm endpoint.
@@ -97,14 +97,14 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## API — REST Support API
 
-- [ ] **API-001** Implement API route/PageHandler strategy per supported OJS versions.
-- [ ] **API-002** Implement service authentication.
-- [ ] **API-003** Require HTTPS/config check for production.
-- [ ] **API-004** Implement correlation/request IDs.
-- [ ] **API-005** Implement common response/error envelope.
-- [ ] **API-006** Implement request validation/unknown-field rejection.
-- [ ] **API-007** Implement REST rate limits.
-- [ ] **API-008** `ojs_get_support_identity`.
+- [x] **API-001** Implement API route/PageHandler strategy per supported OJS versions. — `LoadHandler` + `SupportGatewayPageHandler`, same pattern as `/bind`; status/identity/actions operations.
+- [x] **API-002** Implement service authentication. — `ServiceTokenAuthenticator`, Bearer token, comma-separated for rotation, constant-time comparison.
+- [x] **API-003** Require HTTPS/config check for production. — `SupportApiRequestResolver::transportSecure()`; accepts direct HTTPS or `X-Forwarded-Proto: https` from a fronting reverse proxy. No trusted-proxy allowlist yet (see its docblock).
+- [x] **API-004** Implement correlation/request IDs. — `CorrelationId`; echoes a caller-supplied `X-Correlation-Id` when it matches a safe pattern, otherwise generates one.
+- [x] **API-005** Implement common response/error envelope. — `SupportApiResponse` (`{ok,data,meta}` / `{ok,error,meta}`), used by status/identity/actions. `/bind` intentionally keeps PKP `JSONMessage` (browser handshake, separate transport).
+- [ ] **API-006** Implement request validation/unknown-field rejection. — required-field presence is validated; extra/unknown fields are not yet rejected.
+- [ ] **API-007** Implement REST rate limits. — best-effort fixed-window limiter (`RateLimiter`) exists and is wired in, but fails open without APCu and is per-worker only; not yet a real cross-worker ceiling.
+- [x] **API-008** `ojs_get_support_identity`. — `POST /ojsSupportGateway/identity`, sanitized via `SupportIdentitySerializer` (no email, no raw relationship evidence, no raw OJS object).
 - [ ] **API-009** `ojs_list_my_submissions`.
 - [ ] **API-010** `ojs_get_submission_support`.
 - [ ] **API-011** `ojs_get_required_actions`.
@@ -232,10 +232,10 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## AUD — Audit & Observability
 
-- [ ] **AUD-001** Audit migration/repository.
-- [ ] **AUD-002** Correlation IDs across REST/events/Chatwoot.
+- [ ] **AUD-001** Audit migration/repository. — placeholder sink only (`ErrorLogSupportApiAuditLogger` writes to `error_log()`); no persisted/queryable audit table yet.
+- [x] **AUD-002** Correlation IDs across REST/events/Chatwoot. — Support API side only so far (`CorrelationId`); not yet threaded through the event/Chatwoot side of the plugin.
 - [ ] **AUD-003** Verification lifecycle audit.
-- [ ] **AUD-004** Protected read allow/deny audit.
+- [x] **AUD-004** Protected read allow/deny audit. — `SupportApiRequestResolver` records every allow/deny decision (with reason code) through `SupportApiAuditLoggerInterface`.
 - [ ] **AUD-005** Staff mutation audit.
 - [ ] **AUD-006** Secret/PII log redaction tests.
 - [ ] **AUD-007** Configurable retention/purge.

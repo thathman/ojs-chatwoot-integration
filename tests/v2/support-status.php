@@ -38,6 +38,8 @@ namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
 
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -186,7 +188,10 @@ namespace {
 
     // --- Scenario: bound, live author session -> verified with author-scoped actions ---
     $repo = new InMemorySupportSessionRepository();
-    $now = 1_000_000_000;
+    // Real current time, not an arbitrary fixed epoch: the resolver end-to-end
+    // checks below call the real SupportSession::isExpired(time()), so a
+    // session bound relative to a stale fake "now" would appear expired.
+    $now = time();
     $service = new SupportSessionService($repo, static fn (): int => $now);
 
     $context42 = new \APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext(7, 'journal-a', 42, [65538], 'index', 'index', 'en');
@@ -234,23 +239,66 @@ namespace {
         'a different journal context must not resolve a session bound to another journal'
     );
 
-    // --- Source-level checks for the service-auth + wiring in the plugin/handler ---
+    // --- SupportApiRequestResolver end-to-end (catches wiring/argument-order bugs the source checks below cannot) ---
+    $_SERVER['HTTPS'] = 'on';
+    $resolver = new SupportApiRequestResolver($bridge);
+
+    $_SERVER['HTTP_AUTHORIZATION'] = '';
+    $noAuth = $resolver->resolve(new FakeRequest(), 'corr-a', 7, 'service-secret', '1', '100', '500', 'status');
+    statusCheck($noAuth instanceof SupportApiFailure, 'missing service token must produce a real failure, not a generic unverified success');
+    statusCheck($noAuth->httpStatus === 401, 'missing service token must fail with 401');
+    statusCheck($noAuth->correlationId === 'corr-a', 'failure must preserve the caller-visible correlation ID');
+
+    $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer wrong-secret';
+    $wrongAuth = $resolver->resolve(new FakeRequest(), 'corr-b', 7, 'service-secret', '1', '100', '500', 'status');
+    statusCheck($wrongAuth instanceof SupportApiFailure && $wrongAuth->httpStatus === 401, 'wrong service token must fail with 401');
+
+    $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer service-secret';
+    $missingTuple = $resolver->resolve(new FakeRequest(), 'corr-c', 7, 'service-secret', '', '100', '500', 'status');
+    statusCheck($missingTuple instanceof SupportApiFailure && $missingTuple->httpStatus === 400, 'a malformed conversation tuple must fail with 400, not 500 or 200');
+
+    $unverifiedResult = $resolver->resolve(new FakeRequest(), 'corr-d', 7, 'service-secret', '1', '100', '999', 'status');
+    statusCheck(
+        !($unverifiedResult instanceof SupportApiFailure) && $unverifiedResult->verified() === false,
+        'an unknown conversation tuple must resolve to a generic unverified context, not an error'
+    );
+
+    $verifiedResult = $resolver->resolve(new FakeRequest(), 'corr-e', 7, 'service-secret', '1', '100', '500', 'status');
+    statusCheck(
+        !($verifiedResult instanceof SupportApiFailure) && $verifiedResult->verified() === true,
+        'the actually-bound conversation must resolve as verified through the resolver'
+    );
+    statusCheck($verifiedResult->identity()->roleIds() === [65538], 'resolver-produced identity must carry live re-derived roles');
+
+    unset($_SERVER['HTTPS']);
+    $insecure = $resolver->resolve(new FakeRequest(), 'corr-f', 7, 'service-secret', '1', '100', '500', 'status');
+    statusCheck($insecure instanceof SupportApiFailure, 'a plain-HTTP request must be rejected before service auth is even checked');
+    $_SERVER['HTTPS'] = 'on';
+
+    $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+    unset($_SERVER['HTTPS']);
+    $viaProxy = $resolver->resolve(new FakeRequest(), 'corr-g', 7, 'service-secret', '1', '100', '500', 'status');
+    statusCheck(!($viaProxy instanceof SupportApiFailure), 'a reverse-proxy-terminated HTTPS connection (X-Forwarded-Proto) must be accepted');
+    unset($_SERVER['HTTP_X_FORWARDED_PROTO'], $_SERVER['HTTP_AUTHORIZATION']);
+
+    // --- Source-level checks for wiring in the plugin/handler ---
     $pluginSource = (string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
     statusCheck(str_contains($pluginSource, 'function supportStatusRequest'), 'plugin must implement the conversation-bound status endpoint');
-    statusCheck(str_contains($pluginSource, 'HTTP_AUTHORIZATION'), 'status endpoint must require a Bearer service token');
-    statusCheck(str_contains($pluginSource, 'hash_equals($expected, $provided)'), 'service token comparison must be timing-safe');
-    statusCheck(str_contains($pluginSource, "chatwootSupportApiToken"), 'service token must come from per-journal configuration, not a hardcoded value');
-    statusCheck(
-        str_contains($pluginSource, "if (\$expected === '') {\n            return false;"),
-        'missing service token configuration must fail closed'
-    );
+    statusCheck(str_contains($pluginSource, 'function supportIdentityRequest'), 'plugin must implement the identity endpoint');
+    statusCheck(str_contains($pluginSource, 'function supportActionsRequest'), 'plugin must implement the actions endpoint');
+    statusCheck(str_contains($pluginSource, 'chatwootSupportApiToken'), 'service token must come from per-journal configuration, not a hardcoded value');
+    statusCheck(str_contains($pluginSource, 'SupportApiRequestResolver'), 'endpoints must share the same request-resolution pipeline');
+    statusCheck(str_contains($pluginSource, 'SupportApiResponse::success'), 'endpoints must emit through the shared Support API responder');
 
     $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/SupportGatewayPageHandler.php');
     statusCheck(str_contains($handlerSource, 'function status('), 'handler must register the status operation');
+    statusCheck(str_contains($handlerSource, 'function identity('), 'handler must register the identity operation');
+    statusCheck(str_contains($handlerSource, 'function actions('), 'handler must register the actions operation');
     statusCheck(
-        preg_match('/function status\(\$args, \$request\): JSONMessage\s*\{\s*if \(\(\$_SERVER\[.REQUEST_METHOD.\]/', $handlerSource) === 1,
-        'status endpoint must accept POST only'
+        substr_count($handlerSource, '$this->requirePost();') === 3,
+        'status/identity/actions must all be POST-only'
     );
+    statusCheck(str_contains($handlerSource, "function bind(\$args, \$request): JSONMessage"), '/bind must keep the PKP JSONMessage transport for the browser handshake');
 
     fwrite(STDOUT, "Support status API tests passed\n");
 }
