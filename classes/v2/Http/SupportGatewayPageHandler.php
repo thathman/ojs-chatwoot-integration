@@ -2,6 +2,9 @@
 
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Http;
 
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiErrorCode;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin;
 use PKP\controllers\page\PageHandler;
 use PKP\core\JSONMessage;
@@ -27,17 +30,40 @@ final class SupportGatewayPageHandler extends PageHandler
     }
 
     /**
-     * Server-to-server endpoint for Chatwoot Captain. Not same-origin, so it
-     * is never CSRF-checked; it is service-authenticated instead (see
-     * ChatwootIntegrationV2Plugin::supportStatusRequest()).
+     * Server-to-server endpoints for Chatwoot Captain: cheap verification
+     * probe, sanitized identity, and capability-derived actions. Not
+     * same-origin, so they are never CSRF-checked; they are
+     * service-authenticated instead, and emit the Support API JSON envelope
+     * (see SupportApiResponse) rather than PKP's JSONMessage.
      */
-    public function status($args, $request): JSONMessage
+    public function status($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportStatusRequest($request);
+    }
+
+    public function identity($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportIdentityRequest($request);
+    }
+
+    public function actions($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportActionsRequest($request);
+    }
+
+    private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
-            return new JSONMessage(false, ['error' => 'request_failed']);
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'This endpoint only accepts POST.',
+                CorrelationId::fromRequestOrGenerate(),
+                405
+            );
         }
-
-        return $this->plugin->supportStatusRequest($request);
     }
 
     private function csrfValid($request): bool

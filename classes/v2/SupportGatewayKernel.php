@@ -51,6 +51,7 @@ final class SupportGatewayKernel
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
+    public function disabledActions(CapabilityDecision $decision): array { return $this->availableActionMapper->mapDenied($decision); }
 
     public function bootstrapAuthenticatedSupportSession(SupportContext $context): SupportSessionBootstrap
     {
