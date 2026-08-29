@@ -82,6 +82,7 @@ namespace {
     $plugin->setTestSetting(7, 'chatwootIdentityValidationSecret', 'must-not-export-either');
     $plugin->setTestSetting(7, 'enableWidget', true);
     $plugin->setTestSetting(7, 'chatwootInboxId', 4);
+    $plugin->setTestSetting(7, 'chatwootSupportApiToken', 'must-not-export-support-token');
 
     $message = $plugin->exportSettings(new FakeExportRequest());
     pluginCheck($message->status === true, 'export should still succeed');
@@ -93,10 +94,14 @@ namespace {
     pluginCheck(($settings['enableWidget'] ?? null) === true, 'ordinary settings should export');
     pluginCheck(!array_key_exists('chatwootApiAccessToken', $settings), 'API access token must be removed');
     pluginCheck(!array_key_exists('chatwootIdentityValidationSecret', $settings), 'identity secret must be removed');
+    pluginCheck(!array_key_exists('chatwootSupportApiToken', $settings), 'support API token must be removed');
 
     $redacted = $message->content['redactedKeys'] ?? [];
     sort($redacted);
-    pluginCheck($redacted === ['chatwootApiAccessToken', 'chatwootIdentityValidationSecret'], 'export should identify redacted keys without exposing their values');
+    pluginCheck(
+        $redacted === ['chatwootApiAccessToken', 'chatwootIdentityValidationSecret', 'chatwootSupportApiToken'],
+        'export should identify redacted keys without exposing their values'
+    );
 
     $method = new \ReflectionMethod($plugin, 'addChatwootWidget');
     pluginCheck($method->getDeclaringClass()->getName() === ChatwootIntegrationV2Plugin::class, 'live plugin should intercept widget rendering for v2 context capture');
