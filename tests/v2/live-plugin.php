@@ -16,6 +16,11 @@ namespace PKP\plugins {
         {
             return $this->testSettings[(int) $contextId][(string) $key] ?? null;
         }
+
+        public function getEnabled($contextId = null)
+        {
+            return (bool) ($this->testSettings[(int) $contextId]['enableWidget'] ?? false);
+        }
     }
 }
 
@@ -76,6 +81,7 @@ namespace {
     $plugin->setTestSetting(7, 'chatwootApiAccessToken', 'must-not-export');
     $plugin->setTestSetting(7, 'chatwootIdentityValidationSecret', 'must-not-export-either');
     $plugin->setTestSetting(7, 'enableWidget', true);
+    $plugin->setTestSetting(7, 'chatwootInboxId', 4);
 
     $message = $plugin->exportSettings(new FakeExportRequest());
     pluginCheck($message->status === true, 'export should still succeed');
@@ -97,6 +103,47 @@ namespace {
 
     $index = file_get_contents($root . '/index.php');
     pluginCheck(str_contains((string) $index, 'ChatwootIntegrationV2Plugin'), 'plugin wrapper should instantiate the transitional v2 shell');
+
+    $usable = new \ReflectionMethod($plugin, 'supportGatewayUsable');
+    pluginCheck(
+        $usable->invoke($plugin, 7) === true,
+        'binding ticket should be mintable once the full support channel config is present'
+    );
+
+    $incompletePlugin = new ChatwootIntegrationV2Plugin();
+    $incompletePlugin->setTestSetting(9, 'enableWidget', true);
+    $incompletePlugin->setTestSetting(9, 'chatwootBaseUrl', 'https://chat.example.test');
+    $incompletePlugin->setTestSetting(9, 'chatwootWebsiteToken', 'public-widget-token');
+    // chatwootApiAccessToken, chatwootIdentityValidationSecret and chatwootInboxId left unset.
+    $usableIncomplete = new \ReflectionMethod($incompletePlugin, 'supportGatewayUsable');
+    pluginCheck(
+        $usableIncomplete->invoke($incompletePlugin, 9) === false,
+        'binding ticket must never be minted when server-verification config is incomplete'
+    );
+
+    $disabledPlugin = new ChatwootIntegrationV2Plugin();
+    $disabledPlugin->setTestSetting(11, 'enableWidget', false);
+    $disabledPlugin->setTestSetting(11, 'chatwootBaseUrl', 'https://chat.example.test');
+    $disabledPlugin->setTestSetting(11, 'chatwootWebsiteToken', 'public-widget-token');
+    $disabledPlugin->setTestSetting(11, 'chatwootApiAccessToken', 'server-token');
+    $disabledPlugin->setTestSetting(11, 'chatwootIdentityValidationSecret', 'hmac-secret');
+    $disabledPlugin->setTestSetting(11, 'chatwootInboxId', 4);
+    $usableDisabled = new \ReflectionMethod($disabledPlugin, 'supportGatewayUsable');
+    pluginCheck(
+        $usableDisabled->invoke($disabledPlugin, 11) === false,
+        'binding ticket must never be minted when the widget itself is disabled'
+    );
+
+    $pluginSource = (string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
+    $widgetMethod = substr(
+        $pluginSource,
+        strpos($pluginSource, 'function addChatwootWidget'),
+        strpos($pluginSource, 'private function bootstrapAuthenticatedSupportSession') - strpos($pluginSource, 'function addChatwootWidget')
+    );
+    pluginCheck(
+        preg_match('/\}\s*catch[^}]*\}\s*return parent::addChatwootWidget/s', $widgetMethod) === 1,
+        'legacy v1 widget rendering must run unconditionally even if v2 support-session bootstrap throws'
+    );
 
     fwrite(STDOUT, "Live plugin tests passed\n");
 }
