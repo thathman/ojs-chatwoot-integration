@@ -70,14 +70,14 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## REL — Relationship Resolver
 
-- [ ] **REL-001** Define normalized relationship enum/model.
-- [ ] **REL-002** Resolve author/submitter relationship.
-- [ ] **REL-003** Resolve reviewer relationship per review assignment.
-- [ ] **REL-004** Resolve editor/sub-editor/assistant/manager/site-admin relationship.
+- [x] **REL-001** Define normalized relationship enum/model. — `ResourceRelationship` (types set, not single role).
+- [x] **REL-002** Resolve author/submitter relationship. — via workflow-stage access (`OjsSubmissionRelationshipEvidenceProvider`).
+- [x] **REL-003** Resolve reviewer relationship per review assignment. — actual `Repo::reviewAssignment()` lookup, not the journal-level Reviewer role.
+- [x] **REL-004** Resolve editor/sub-editor/assistant/manager/site-admin relationship.
 - [ ] **REL-005** Resolve reader/subscriber relationship if used.
-- [ ] **REL-006** Confirm context/resource ownership before relationship evaluation.
-- [ ] **REL-007** Multi-role resource-specific relationship tests.
-- [ ] **REL-008** Horizontal IDOR tests.
+- [x] **REL-006** Confirm context/resource ownership before relationship evaluation. — `SubmissionRelationshipResolver` fails closed on a cross-journal submission.
+- [x] **REL-007** Multi-role resource-specific relationship tests. — `tests/v2/submission-verify.php` (author+reviewer same submission, plural, not collapsed).
+- [x] **REL-008** Horizontal IDOR tests. — `tests/v2/submission-verify.php` (guessed submission ID, cross-journal submission, unrelated user all resolve to empty/no-error).
 
 ## POL — Capability & Privacy Policy
 
@@ -105,7 +105,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [ ] **API-006** Implement request validation/unknown-field rejection. — required-field presence is validated; extra/unknown fields are not yet rejected.
 - [ ] **API-007** Implement REST rate limits. — best-effort fixed-window limiter (`RateLimiter`) exists and is wired in, but fails open without APCu and is per-worker only; not yet a real cross-worker ceiling.
 - [x] **API-008** `ojs_get_support_identity`. — `POST /ojsSupportGateway/identity`, sanitized via `SupportIdentitySerializer` (no email, no raw relationship evidence, no raw OJS object).
-- [ ] **API-009** `ojs_list_my_submissions`.
+- [ ] **API-009** `ojs_list_my_submissions`. — next planned slice; `POST /ojsSupportGateway/submissionVerify` (this slice) establishes the resource-scoped V3 relationship/capability path it will need, but does not itself list anything.
 - [ ] **API-010** `ojs_get_submission_support`.
 - [ ] **API-011** `ojs_get_required_actions`.
 - [ ] **API-012** `ojs_get_payment_status`.
@@ -264,7 +264,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 - [ ] **SEC-001** Threat-model review before Phase 2 merge.
 - [ ] **SEC-002** Forged Chatwoot header test.
-- [ ] **SEC-003** Cross-journal IDOR test.
+- [x] **SEC-003** Cross-journal IDOR test. — `tests/v2/submission-verify.php` (submission in another journal resolves no relationship; earlier chatwoot-binding tests cover the conversation-binding side).
 - [ ] **SEC-004** Cross-conversation session replay test.
 - [ ] **SEC-005** OTP brute-force/rate-limit test.
 - [ ] **SEC-006** Prompt-injection/tool-abuse test.

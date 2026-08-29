@@ -63,6 +63,21 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         return \PKP\user\Repo::user()->get($userId);
     }
 
+    /**
+     * Loads a submission by ID only — never trusts a journal/context claim
+     * that came with the ID. Callers must independently confirm the
+     * submission's own contextId matches the caller's journal (see
+     * SubmissionRelationshipResolver::resolve()).
+     */
+    public function getSubmissionById(int $submissionId)
+    {
+        if ($submissionId <= 0 || !class_exists('\APP\facades\Repo')) {
+            return null;
+        }
+
+        return \APP\facades\Repo::submission()->get($submissionId);
+    }
+
     public function getRequestedPage($request): string
     {
         return is_object($request) && method_exists($request, 'getRequestedPage')

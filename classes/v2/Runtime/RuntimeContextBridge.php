@@ -5,6 +5,7 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Runtime;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\SupportGatewayKernel;
@@ -130,6 +131,32 @@ final class RuntimeContextBridge
             return $this->kernel->disabledActions($decision);
         } catch (\Throwable $e) {
             return [];
+        }
+    }
+
+    /**
+     * Loads a submission server-side by ID only. The ID is merely a request
+     * parameter — it is never proof of access. Callers must still resolve a
+     * resource relationship (resolveSubmissionRelationship()) before
+     * treating any part of the result as authorization.
+     */
+    public function loadSubmission(int $submissionId)
+    {
+        if (!$this->kernel || $submissionId <= 0) return null;
+        try {
+            return $this->kernel->loadSubmission($submissionId);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->resolveSubmissionRelationship($context, $submission);
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 
