@@ -37,6 +37,8 @@ jobs:
         run: php tests/v2/context-projector.php
       - name: Relationship foundation
         run: php tests/v2/relationship.php
+      - name: Resource context
+        run: php tests/v2/resource-context.php
       - name: Capability policy
         run: php tests/v2/capability.php
       - name: Support session
