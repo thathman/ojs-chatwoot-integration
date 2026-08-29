@@ -138,6 +138,10 @@ Fields should be sufficient for conversational selection:
 
 V3 resource relationship required.
 
+**As actually implemented:** the V3 establishment step itself now exists as `POST /ojsSupportGateway/submissionVerify` (input: the conversation tuple + `submissionId`; see docs/v2/ADRS.md for why this stays deliberately narrow). It returns only relationship/capability state — `verified`, `resourceVerified`, `assurance`, `resource {type,id}`, `relationships[]`, `availableActions[]` — never submission content. `ojs_get_submission_support` below is a distinct, not-yet-built endpoint that would consume an already-V3-verified request to return the actual support DTO described here.
+
+V3 is a request-time-only decision, computed fresh for each submission on each call — it is never persisted onto the conversation's support session, so verifying one submission never grants blanket access to another.
+
 Returns:
 
 - normalized support state;
