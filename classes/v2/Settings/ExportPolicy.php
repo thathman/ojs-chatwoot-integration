@@ -15,6 +15,7 @@ final class ExportPolicy
     private const SENSITIVE_KEYS = [
         'chatwootApiAccessToken',
         'chatwootIdentityValidationSecret',
+        'chatwootSupportApiToken',
     ];
 
     /**

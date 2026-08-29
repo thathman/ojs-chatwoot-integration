@@ -11,6 +11,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextPr
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
@@ -30,6 +31,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const LEGACY_EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+        'chatwootSupportApiToken',
         'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests',
         'hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576',
         'enableGlobalDefaults','retryQueueEnabled','maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
@@ -177,6 +179,114 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         } catch (\Throwable $e) {
             return $this->bindingFailure();
         }
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: given a service token
+     * and the Chatwoot conversation tuple, returns support-safe verification
+     * status, identity assurance and available actions for that conversation.
+     *
+     * The conversation tuple is only ever used to look up a previously
+     * server-verified binding (see bindSupportSessionRequest()); it is never
+     * treated as authoritative identity by itself. An unbound/expired/unknown
+     * conversation is not an error — it returns a generic "unverified" status
+     * so this endpoint cannot be used to enumerate bindings.
+     */
+    public function supportStatusRequest($request): JSONMessage
+    {
+        try {
+            $context = $request->getContext();
+            if (!$context) {
+                return $this->supportStatusFailure();
+            }
+
+            $contextId = (int) $context->getId();
+            if ($contextId <= 0 || !$this->serviceAuthValid($contextId)) {
+                return $this->supportStatusFailure();
+            }
+
+            $chatwootAccountId = trim((string) $request->getUserVar('chatwootAccountId'));
+            $chatwootContactId = trim((string) $request->getUserVar('chatwootContactId'));
+            $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
+            if ($chatwootAccountId === '' || $chatwootContactId === '' || $chatwootConversationId === '') {
+                return $this->supportStatusFailure();
+            }
+
+            $bridge = $this->runtimeContextBridge();
+            $baseContext = $bridge->resolve($request, (string) Locale::getLocale());
+            if (!$baseContext || $baseContext->contextId() !== $contextId) {
+                return $this->supportStatusFailure();
+            }
+
+            $session = $bridge->resolveBoundSupportSession(
+                $contextId,
+                $chatwootAccountId,
+                $chatwootContactId,
+                $chatwootConversationId
+            );
+
+            $supportContext = $baseContext;
+            $assurance = 'v0';
+            $verified = false;
+            $expiresAt = null;
+
+            if ($session && !$session->isExpired(time())) {
+                $freshContext = $bridge->resolveContextForUser($request, $session->userId(), (string) Locale::getLocale());
+                if ($freshContext && $freshContext->isAuthenticated() && $freshContext->contextId() === $contextId) {
+                    $supportContext = $freshContext;
+                    $assurance = $session->assuranceLevel();
+                    $verified = true;
+                    $expiresAt = $session->idleExpiresAt();
+                }
+            }
+
+            $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+                $assurance,
+                $supportContext
+            ));
+            $actions = $decision ? $bridge->availableActions($decision) : [];
+
+            $data = [
+                'verified' => $verified,
+                'assurance' => $assurance,
+                'availableActions' => $actions,
+            ];
+            if ($verified) {
+                $data['journal'] = $supportContext->contextPath();
+                $data['expiresAt'] = gmdate('c', $expiresAt);
+            }
+
+            return new JSONMessage(true, $data);
+        } catch (\Throwable $e) {
+            return $this->supportStatusFailure();
+        }
+    }
+
+    private function supportStatusFailure(): JSONMessage
+    {
+        return new JSONMessage(false, ['error' => 'request_failed']);
+    }
+
+    /** Bearer-token service auth. Never trusts Chatwoot-supplied identity alone. */
+    private function serviceAuthValid(int $contextId): bool
+    {
+        $expected = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootSupportApiToken', ''));
+        if ($expected === '') {
+            return false;
+        }
+
+        $header = trim((string) (
+            $_SERVER['HTTP_AUTHORIZATION']
+            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+            ?? ''
+        ));
+        if (!str_starts_with($header, 'Bearer ')) {
+            return false;
+        }
+
+        $provided = trim(substr($header, 7));
+        return $provided !== '' && hash_equals($expected, $provided);
     }
 
     public function exportSettings($request): JSONMessage

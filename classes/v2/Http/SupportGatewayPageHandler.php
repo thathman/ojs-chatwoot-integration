@@ -26,6 +26,20 @@ final class SupportGatewayPageHandler extends PageHandler
         return $this->plugin->bindSupportSessionRequest($request);
     }
 
+    /**
+     * Server-to-server endpoint for Chatwoot Captain. Not same-origin, so it
+     * is never CSRF-checked; it is service-authenticated instead (see
+     * ChatwootIntegrationV2Plugin::supportStatusRequest()).
+     */
+    public function status($args, $request): JSONMessage
+    {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            return new JSONMessage(false, ['error' => 'request_failed']);
+        }
+
+        return $this->plugin->supportStatusRequest($request);
+    }
+
     private function csrfValid($request): bool
     {
         if (!is_object($request) || !method_exists($request, 'getSession')) {

@@ -87,6 +87,10 @@
 			{fbvElement type="text" id="chatwootInboxId" value=$chatwootInboxId label="plugins.generic.chatwootIntegration.settings.chatwootInboxId.description"}
 		{/fbvFormSection}
 
+		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"}
+			{fbvElement type="text" id="chatwootSupportApiToken" value=$chatwootSupportApiToken label="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.description"}
+		{/fbvFormSection}
+
 		{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.visibility"}
 			{fbvElement type="checkbox" id="enableWidget" value="1" checked=$enableWidget label="plugins.generic.chatwootIntegration.settings.enableWidget"}
 			{fbvElement type="checkbox" id="enablePrivacyMode" value="1" checked=$enablePrivacyMode label="plugins.generic.chatwootIntegration.settings.enablePrivacyMode"}

@@ -46,6 +46,7 @@ final class SupportGatewayKernel
 
     public function ojsVersion(): string { return $this->ojsVersion; }
     public function resolveContext($request, string $locale = ''): ?SupportContext { return $this->contextResolver->resolve($request, $locale); }
+    public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext { return $this->contextResolver->resolveForUser($request, $userId, $locale); }
     public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship { return $this->submissionRelationshipResolver->resolve($context, $submission); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 

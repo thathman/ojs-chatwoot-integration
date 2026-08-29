@@ -25,6 +25,7 @@ class ChatwootSettingsForm extends Form
 
         $keys = [
             'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+            'chatwootSupportApiToken',
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
@@ -46,6 +47,7 @@ class ChatwootSettingsForm extends Form
     {
         $vars = [
             'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+            'chatwootSupportApiToken',
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
@@ -99,6 +101,7 @@ class ChatwootSettingsForm extends Form
             'chatwootIdentityValidationSecret' => 'string',
             'chatwootApiAccessToken' => 'string',
             'chatwootInboxId' => 'int',
+            'chatwootSupportApiToken' => 'string',
             'enableWidget' => 'bool',
             'enableDebugMode' => 'bool',
             'enablePrivacyMode' => 'bool',
