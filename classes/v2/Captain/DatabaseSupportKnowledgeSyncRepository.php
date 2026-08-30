@@ -16,14 +16,9 @@ final class DatabaseSupportKnowledgeSyncRepository implements SupportKnowledgeSy
         return InstallSupportGatewayMigration::KNOWLEDGE_SYNC_TABLE;
     }
 
-    public function find(int $contextId, string $locale, string $resourceType): ?CaptainSyncState
+    public function find(int $contextId, string $locale, string $resourceType, string $resourceKey = ''): ?CaptainSyncState
     {
-        $row = DB::table(self::table())
-            ->where('context_id', $contextId)
-            ->where('locale', $locale)
-            ->where('resource_type', $resourceType)
-            ->first();
-
+        $row = $this->scoped($contextId, $locale, $resourceType, $resourceKey)->first();
         return $row ? $this->hydrate($row) : null;
     }
 
@@ -33,6 +28,7 @@ final class DatabaseSupportKnowledgeSyncRepository implements SupportKnowledgeSy
             'context_id' => $state->contextId(),
             'locale' => $state->locale(),
             'resource_type' => $state->resourceType(),
+            'resource_key' => $state->resourceKey(),
             'remote_resource_id' => $state->remoteResourceId(),
             'last_successful_fingerprint' => $state->lastSuccessfulFingerprint(),
             'last_successful_sync_at' => $state->lastSuccessfulSyncAt() !== null ? $this->toDatabaseTime($state->lastSuccessfulSyncAt()) : null,
@@ -40,22 +36,22 @@ final class DatabaseSupportKnowledgeSyncRepository implements SupportKnowledgeSy
             'updated_at' => $this->toDatabaseTime($state->updatedAt()),
         ];
 
-        $existing = DB::table(self::table())
-            ->where('context_id', $state->contextId())
-            ->where('locale', $state->locale())
-            ->where('resource_type', $state->resourceType())
-            ->first();
-
+        $existing = $this->scoped($state->contextId(), $state->locale(), $state->resourceType(), $state->resourceKey())->first();
         if ($existing) {
-            DB::table(self::table())
-                ->where('context_id', $state->contextId())
-                ->where('locale', $state->locale())
-                ->where('resource_type', $state->resourceType())
-                ->update($record);
+            $this->scoped($state->contextId(), $state->locale(), $state->resourceType(), $state->resourceKey())->update($record);
             return;
         }
 
         DB::table(self::table())->insert($record);
+    }
+
+    private function scoped(int $contextId, string $locale, string $resourceType, string $resourceKey)
+    {
+        return DB::table(self::table())
+            ->where('context_id', $contextId)
+            ->where('locale', $locale)
+            ->where('resource_type', $resourceType)
+            ->where('resource_key', $resourceKey);
     }
 
     private function hydrate(object $row): CaptainSyncState
@@ -64,6 +60,7 @@ final class DatabaseSupportKnowledgeSyncRepository implements SupportKnowledgeSy
             (int) $row->context_id,
             (string) $row->locale,
             (string) $row->resource_type,
+            (string) ($row->resource_key ?? ''),
             $row->remote_resource_id !== null ? (string) $row->remote_resource_id : null,
             $row->last_successful_fingerprint !== null ? (string) $row->last_successful_fingerprint : null,
             $this->fromDatabaseTime($row->last_successful_sync_at),

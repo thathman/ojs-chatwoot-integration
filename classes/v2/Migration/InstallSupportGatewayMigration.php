@@ -115,10 +115,14 @@ final class InstallSupportGatewayMigration extends Migration
      * One row per provisioned remote Chatwoot/Captain resource, keyed by
      * (context, locale, resource type) — never keyed by name/URL, since a
      * name/URL match is never proof of plugin ownership (docs/v2/KNOWLEDGE_DIAGNOSTICS.md
-     * §6 Captain provisioning). `resource_type` starts with
-     * `captain_document` (Captain Document provisioning) and is reused,
-     * not re-migrated, for future resource types (Custom Tools, Scenarios)
-     * that follow the same create-or-sync/fingerprint-compare shape.
+     * §6 Captain provisioning). `resource_type` is a coarse category
+     * (`captain_document`, `captain_custom_tool`, ...); `resource_key`
+     * disambiguates multiple resources of the same type (each canonical
+     * Custom Tool has its own key, e.g. `ojs_diagnose_submission` —
+     * Documents have exactly one per context/locale today, so they use
+     * the empty string). Reused, not re-migrated, for future resource
+     * types (Scenarios) that follow the same create-or-sync/
+     * fingerprint-compare shape.
      */
     private function upKnowledgeSync(): void
     {
@@ -132,13 +136,14 @@ final class InstallSupportGatewayMigration extends Migration
             $table->bigInteger('context_id')->index();
             $table->string('locale', 28);
             $table->string('resource_type', 32);
+            $table->string('resource_key', 64)->default('');
             $table->string('remote_resource_id', 64)->nullable();
             $table->string('last_successful_fingerprint', 64)->nullable();
             $table->dateTime('last_successful_sync_at')->nullable();
             $table->string('last_error_code', 64)->nullable();
             $table->dateTime('updated_at')->index();
 
-            $table->unique(['context_id', 'locale', 'resource_type'], 'cw_knowledge_sync_identity');
+            $table->unique(['context_id', 'locale', 'resource_type', 'resource_key'], 'cw_knowledge_sync_identity');
         });
     }
 

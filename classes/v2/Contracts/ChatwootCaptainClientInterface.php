@@ -34,4 +34,25 @@ interface ChatwootCaptainClientInterface
     public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array;
 
     public function syncCaptainDocument(string $documentId): bool;
+
+    /**
+     * All Custom Tools currently configured on the account (verified
+     * against `chatwoot/chatwoot` `develop`
+     * `enterprise/app/controllers/api/v1/accounts/captain/custom_tools_controller.rb`'s
+     * `index` action — unpaginated in practice, since the account-wide cap
+     * is 15 tools, `Captain::CustomTool::MAX_PER_ACCOUNT`). Used only to
+     * detect an unmanaged tool by title before ever creating one.
+     *
+     * @return array<int,array{id:int|string,title:string}>
+     */
+    public function listCaptainCustomTools(): array;
+
+    /**
+     * @param array{title:string,description:string,endpoint_url:string,http_method:string,auth_type:string,auth_config:array<string,string>,param_schema:array<int,array{name:string,type:string,description:string,required:bool}>,request_template:?string,response_template:?string} $definition
+     * @return array{id:int|string}|null
+     */
+    public function createCaptainCustomTool(array $definition): ?array;
+
+    /** @param array<string,mixed> $definition Same shape as createCaptainCustomTool(). */
+    public function updateCaptainCustomTool(string $toolId, array $definition): bool;
 }

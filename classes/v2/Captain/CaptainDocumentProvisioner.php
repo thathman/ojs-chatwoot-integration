@@ -43,7 +43,7 @@ final class CaptainDocumentProvisioner
         int $now
     ): CaptainSyncResult {
         $fingerprint = $compilation->fingerprint();
-        $state = $this->syncRepository->find($compilation->contextId(), $compilation->locale(), CaptainSyncState::RESOURCE_DOCUMENT);
+        $state = $this->syncRepository->find($compilation->contextId(), $compilation->locale(), CaptainSyncState::RESOURCE_DOCUMENT, '');
 
         if ($state !== null && $state->isOwned()) {
             return $this->resync($state, $fingerprint, $now);
@@ -83,6 +83,7 @@ final class CaptainDocumentProvisioner
                 $compilation->contextId(),
                 $compilation->locale(),
                 CaptainSyncState::RESOURCE_DOCUMENT,
+                '',
                 'unmanaged_document_exists',
                 $now
             ));
@@ -96,6 +97,7 @@ final class CaptainDocumentProvisioner
                 $compilation->contextId(),
                 $compilation->locale(),
                 CaptainSyncState::RESOURCE_DOCUMENT,
+                '',
                 'create_failed',
                 $now
             ));
@@ -106,6 +108,7 @@ final class CaptainDocumentProvisioner
             $compilation->contextId(),
             $compilation->locale(),
             CaptainSyncState::RESOURCE_DOCUMENT,
+            '',
             (string) $remoteId,
             $fingerprint,
             $now

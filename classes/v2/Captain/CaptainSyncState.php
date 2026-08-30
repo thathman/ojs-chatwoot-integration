@@ -4,19 +4,25 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Captain;
 
 /**
  * Local ownership/fingerprint record for one provisioned Chatwoot Captain
- * resource, keyed by (contextId, locale, resourceType) —
+ * resource, keyed by (contextId, locale, resourceType, resourceKey) —
  * docs/v2/KNOWLEDGE_DIAGNOSTICS.md §6. This record, not a name/URL match,
  * is the only proof this codebase ever treats as "we created this remote
  * resource." Immutable; every mutation returns a new instance.
+ *
+ * `resourceKey` disambiguates multiple resources sharing one
+ * `resourceType` (each canonical Custom Tool has its own key); a
+ * singleton resource type (Documents, today) uses `''`.
  */
 final class CaptainSyncState
 {
     public const RESOURCE_DOCUMENT = 'captain_document';
+    public const RESOURCE_CUSTOM_TOOL = 'captain_custom_tool';
 
     public function __construct(
         private int $contextId,
         private string $locale,
         private string $resourceType,
+        private string $resourceKey,
         private ?string $remoteResourceId,
         private ?string $lastSuccessfulFingerprint,
         private ?int $lastSuccessfulSyncAt,
@@ -25,25 +31,25 @@ final class CaptainSyncState
     ) {
     }
 
-    public static function created(int $contextId, string $locale, string $resourceType, string $remoteResourceId, string $fingerprint, int $now): self
+    public static function created(int $contextId, string $locale, string $resourceType, string $resourceKey, string $remoteResourceId, string $fingerprint, int $now): self
     {
-        return new self($contextId, $locale, $resourceType, $remoteResourceId, $fingerprint, $now, null, $now);
+        return new self($contextId, $locale, $resourceType, $resourceKey, $remoteResourceId, $fingerprint, $now, null, $now);
     }
 
-    /** No remote resource was created/adopted — a reason code only (e.g. an unmanaged document already exists at the target URL). */
-    public static function unresolved(int $contextId, string $locale, string $resourceType, string $reasonCode, int $now): self
+    /** No remote resource was created/adopted — a reason code only (e.g. an unmanaged resource already exists with the same identifying name). */
+    public static function unresolved(int $contextId, string $locale, string $resourceType, string $resourceKey, string $reasonCode, int $now): self
     {
-        return new self($contextId, $locale, $resourceType, null, null, null, $reasonCode, $now);
+        return new self($contextId, $locale, $resourceType, $resourceKey, null, null, null, $reasonCode, $now);
     }
 
     public function withSuccess(string $fingerprint, int $now): self
     {
-        return new self($this->contextId, $this->locale, $this->resourceType, $this->remoteResourceId, $fingerprint, $now, null, $now);
+        return new self($this->contextId, $this->locale, $this->resourceType, $this->resourceKey, $this->remoteResourceId, $fingerprint, $now, null, $now);
     }
 
     public function withError(string $reasonCode, int $now): self
     {
-        return new self($this->contextId, $this->locale, $this->resourceType, $this->remoteResourceId, $this->lastSuccessfulFingerprint, $this->lastSuccessfulSyncAt, $reasonCode, $now);
+        return new self($this->contextId, $this->locale, $this->resourceType, $this->resourceKey, $this->remoteResourceId, $this->lastSuccessfulFingerprint, $this->lastSuccessfulSyncAt, $reasonCode, $now);
     }
 
     public function contextId(): int
@@ -59,6 +65,11 @@ final class CaptainSyncState
     public function resourceType(): string
     {
         return $this->resourceType;
+    }
+
+    public function resourceKey(): string
+    {
+        return $this->resourceKey;
     }
 
     public function remoteResourceId(): ?string
