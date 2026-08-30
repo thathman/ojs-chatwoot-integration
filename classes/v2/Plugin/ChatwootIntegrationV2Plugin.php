@@ -33,6 +33,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
@@ -319,6 +321,153 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         $diagnosis = AccountDiagnosticEngine::diagnose($scope, $accountFields['disabled'], $accountFields['dateValidated']);
 
         SupportApiResponse::success(DiagnosticResultSerializer::verified($diagnosis, $actions), $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: creates a structured
+     * human handoff — a Chatwoot private note summarizing exactly what the
+     * gateway already safely knows (ojs_escalate_support in
+     * docs/v2/API_MCP_SPEC.md §7.12). Gated on `support.escalate`
+     * (deliberately V0/unauthenticated, same as every other version of
+     * this capability — a human handoff must remain available even when
+     * verification itself is failing, which is often exactly why one is
+     * needed).
+     *
+     * "Does not grant additional data access": every fact folded into the
+     * summary is independently re-checked against the exact same
+     * capability the dedicated endpoint for that fact enforces
+     * (submission.read_own_support_status/read_own_required_actions/
+     * read_own_publication_status/read_own_payment_status) — this can
+     * never surface more to a human agent's note than the verified caller
+     * could already read themselves through those endpoints. `reason` is
+     * the one caller-supplied field; it is capped and stripped of control
+     * characters (see HandoffSummaryFormatter) but never otherwise
+     * trusted as authoritative about OJS state.
+     *
+     * The private note always targets the conversation tuple the caller
+     * supplied for this same request (the same chatwootAccountId/
+     * chatwootConversationId every Support API call already carries) —
+     * never a caller-supplied "post to conversation X" override. Posting
+     * is best-effort: a Chatwoot API failure never fails the whole
+     * request, since the important outcome for Captain is "the escalation
+     * was recorded," not "Chatwoot's note API happened to succeed."
+     */
+    public function supportEscalateRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'escalate');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $reason = trim((string) $request->getUserVar('reason'));
+        if ($reason === '') {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'reason is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $result->assurance(),
+            $result->identity()
+        ));
+        if (!$decision || !$decision->allows('support.escalate')) {
+            SupportApiResponse::error(SupportApiErrorCode::CAPABILITY_DENIED, 'Escalation is not available.', $result->correlationId(), 403);
+        }
+
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        $relationship = null;
+        $supportState = null;
+        $requiredActions = [];
+        $publicationFacts = null;
+        $paymentFacts = null;
+
+        if ($submissionId !== null && $result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                    $resourceDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+                        'v3',
+                        $result->identity(),
+                        $relationship
+                    ));
+
+                    if ($resourceDecision && $resourceDecision->allows('submission.read_own_support_status')) {
+                        $supportState = $this->supportStateForDiagnostics($bridge, $submission);
+                    }
+                    if ($resourceDecision && $resourceDecision->allows('submission.read_own_required_actions') && $supportState !== null) {
+                        $requiredActions = array_values(array_unique(array_merge(
+                            $relationship->has('author') ? RequiredActionMapper::forAuthor($supportState) : [],
+                            $relationship->has('reviewer') ? RequiredActionMapper::forReviewer($bridge->getReviewAssignmentStatuses($submissionId, $result->identity()->userId() ?? 0)) : []
+                        )));
+                    }
+                    if ($resourceDecision && $resourceDecision->allows('submission.read_own_publication_status') && $supportState !== null) {
+                        $publicationFacts = ['status' => $supportState === 'published' || $supportState === 'scheduled_for_publication' ? $supportState : 'not_yet_published', 'doi' => null];
+                        $publicationDoi = $bridge->getPublicationFields($submission)['doi'];
+                        $publicationFacts['doi'] = ($supportState === 'published' || $supportState === 'scheduled_for_publication') ? $publicationDoi : null;
+                    }
+                    if ($resourceDecision && $resourceDecision->allows('submission.read_own_payment_status')) {
+                        $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
+                        $paymentStatus = 'not_applicable';
+                        if ($feeInfo['enabled']) {
+                            $paid = $bridge->hasPaidPublicationFee($result->identity()->userId() ?? 0, $submissionId);
+                            $paymentStatus = $paid ? 'paid' : 'unpaid';
+                        }
+                        $paymentFacts = ['feeEnabled' => $feeInfo['enabled'], 'status' => $paymentStatus];
+                    }
+                }
+            }
+        }
+
+        $summary = HandoffSummaryFormatter::build(
+            SupportIdentitySerializer::serialize($result),
+            $relationship,
+            $supportState,
+            $requiredActions,
+            $publicationFacts,
+            $paymentFacts,
+            $reason
+        );
+
+        $chatwootAccountId = trim((string) $request->getUserVar('chatwootAccountId'));
+        $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
+        $idempotencyKey = trim((string) $request->getUserVar('idempotencyKey'));
+        if ($idempotencyKey === '') {
+            $idempotencyKey = hash('sha256', $chatwootAccountId . ':' . $chatwootConversationId . ':' . $reason . ':' . ($submissionId ?? 0));
+        }
+
+        $noteCreated = false;
+        $duplicate = false;
+        $guard = new EscalationIdempotencyGuard();
+        if (!$guard->claim($chatwootAccountId . ':' . $chatwootConversationId . ':' . $idempotencyKey)) {
+            $duplicate = true;
+        } elseif ($chatwootAccountId !== '' && $chatwootConversationId !== '') {
+            try {
+                $contextId = $result->identity()->contextId();
+                $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+                $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+                if ($baseUrl !== '' && $apiToken !== '') {
+                    $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+                    $noteCreated = (bool) $chatwoot->createConversationNote($chatwootConversationId, HandoffSummaryFormatter::renderNoteText($summary));
+                }
+            } catch (\Throwable $e) {
+                $noteCreated = false;
+            }
+        }
+
+        SupportApiResponse::success([
+            'escalated' => true,
+            'noteCreated' => $noteCreated,
+            'duplicate' => $duplicate,
+            'summary' => $summary,
+        ], $result->correlationId());
     }
 
     /**
