@@ -127,6 +127,92 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         }
     }
 
+    /**
+     * Verified against pkp-lib stable-3_5_0 classes/publication/PKPPublication.php
+     * (getDoi()) and ojs classes/publication/Publication.php (getIssueId()).
+     *
+     * @return array{doi:?string,issueId:?int}
+     */
+    public function getPublicationFields($submission): array
+    {
+        if (!is_object($submission) || !method_exists($submission, 'getCurrentPublication')) {
+            return ['doi' => null, 'issueId' => null];
+        }
+
+        try {
+            $publication = $submission->getCurrentPublication();
+            if (!is_object($publication)) {
+                return ['doi' => null, 'issueId' => null];
+            }
+            $doi = method_exists($publication, 'getDoi') ? $publication->getDoi() : null;
+            $issueId = method_exists($publication, 'getIssueId') ? $publication->getIssueId() : null;
+            return [
+                'doi' => is_string($doi) && $doi !== '' ? $doi : null,
+                'issueId' => is_numeric($issueId) ? (int) $issueId : null,
+            ];
+        } catch (\Throwable $e) {
+            return ['doi' => null, 'issueId' => null];
+        }
+    }
+
+    /**
+     * Verified against pkp-lib stable-3_5_0 ojs classes/issue/Issue.php
+     * (getVolume/getNumber/getYear/getPublished) and Repository.php (get()).
+     *
+     * @return array{volume:?int,number:?int,year:?int,published:bool}|null
+     */
+    public function getIssueInfo(int $issueId): ?array
+    {
+        if ($issueId <= 0 || !class_exists('\APP\facades\Repo')) {
+            return null;
+        }
+
+        try {
+            $issue = \APP\facades\Repo::issue()->get($issueId);
+            if (!is_object($issue)) {
+                return null;
+            }
+            $volume = method_exists($issue, 'getVolume') ? $issue->getVolume() : null;
+            $number = method_exists($issue, 'getNumber') ? $issue->getNumber() : null;
+            $year = method_exists($issue, 'getYear') ? $issue->getYear() : null;
+            return [
+                'volume' => is_numeric($volume) ? (int) $volume : null,
+                'number' => is_numeric($number) ? (int) $number : null,
+                'year' => is_numeric($year) ? (int) $year : null,
+                'published' => method_exists($issue, 'getPublished') ? (bool) $issue->getPublished() : false,
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Verified against pkp-lib stable-3_5_0 ojs pages/article/ArticleHandler.php,
+     * which builds the public article URL the same way:
+     * $request->getDispatcher()->url($request, ROUTE_PAGE, null, 'article', 'view', [$submission->getBestId()]).
+     * Never called unless the caller has already confirmed the submission is
+     * actually published (see supportPublicationStatusRequest()) — this
+     * method itself does not check status, since it has no state fields
+     * to check without an extra query the caller already has cheaper access to.
+     */
+    public function getPublicSubmissionUrl($request, $submission): ?string
+    {
+        if (!is_object($request) || !is_object($submission) || !method_exists($submission, 'getBestId')) {
+            return null;
+        }
+
+        try {
+            $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
+            if (!is_object($dispatcher) || !method_exists($dispatcher, 'url')) {
+                return null;
+            }
+            $url = $dispatcher->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, null, 'article', 'view', [$submission->getBestId()]);
+            return is_string($url) && $url !== '' ? $url : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     // Verified against pkp-lib stable-3_5_0 classes/core/PKPApplication.php
     private const WORKFLOW_STAGE_ID_INTERNAL_REVIEW = 2;
     private const WORKFLOW_STAGE_ID_EXTERNAL_REVIEW = 3;

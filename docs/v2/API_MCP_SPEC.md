@@ -185,6 +185,10 @@ No provider secret, card/payment credential or unrelated transaction details.
 
 Returns safe publication, issue, DOI and public URL information for an authorized submission/article.
 
+**As actually implemented:** `POST /ojsSupportGateway/publicationStatus`, gated on `submission.read_own_publication_status` (V3 + author/reviewer relationship). Establishes its own request-time V3 the same way `submissionVerify`/`submissionSupport`/`requiredActions` do.
+
+Deliberately conservative: `doi`, `publicUrl`, and `issue` are only ever populated when the submission's own normalized support state (via the shared `SupportStateMapper`) is exactly `published` or `scheduled_for_publication`. Every other state returns `status: 'not_yet_published'` with no other fields — this codebase has no evidence those identifiers exist yet for an unpublished item. `publicUrl` is further restricted to `published` only, since `scheduled_for_publication` means the article is not yet visible to the public (verified against `pkp-lib`/`ojs` `stable-3_5_0` — `Publication::getDoi()`, `Publication::getIssueId()`, `Issue::getVolume()/getNumber()/getYear()/getPublished()`, and the same `$request->getDispatcher()->url(..., 'article', 'view', [$submission->getBestId()])` call `ArticleHandler` itself uses to build the public article URL). Issue metadata is only surfaced when the linked `Issue` itself reports `getPublished() === true` — a fail-safe layer independent of the submission's own status, in case an article's status and its containing issue's publish state ever diverge.
+
 ### 7.9 `ojs_diagnose_account`
 
 Privacy-preserving account/login support diagnostic. Never becomes an arbitrary account lookup endpoint.

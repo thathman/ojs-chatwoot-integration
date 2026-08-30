@@ -32,6 +32,14 @@ interface OjsCompatibilityAdapterInterface
     /** @return int[] */
     public function getReviewAssignmentStatuses(int $submissionId, int $userId): array;
 
+    /** @return array{doi:?string,issueId:?int} */
+    public function getPublicationFields($submission): array;
+
+    /** @return array{volume:?int,number:?int,year:?int,published:bool}|null */
+    public function getIssueInfo(int $issueId): ?array;
+
+    public function getPublicSubmissionUrl($request, $submission): ?string;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }
