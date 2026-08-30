@@ -199,6 +199,19 @@ Deliberately conservative: `doi`, `publicUrl`, and `issue` are only ever populat
 
 Privacy-preserving account/login support diagnostic. Never becomes an arbitrary account lookup endpoint.
 
+**As actually implemented:** `POST /ojsSupportGateway/accountDiagnostics`, gated on `account.diagnose_own` (V2 — no resource relationship, since this diagnoses the caller's own account only). Input is a `scope` (`account_access`/`login`/`password_reset`/`profile`); there is no email/username/userId parameter, structurally enforced by a source-level test.
+
+Uses the new shared diagnostic contract, `classes/v2/Diagnostics/DiagnosticResult.php` — `status` (`confirmed`/`likely`/`unknown`/`needs_human`), `code`, `summary`, `evidenceCodes[]`, `nextActions[]`, `retryable` — reused by every diagnostic scope, present and future, so `ojs_diagnose_submission` will speak the same shape rather than inventing its own.
+
+`AccountDiagnosticEngine` (verified against `pkp-lib` stable-3_5_0 `User::getDisabled()`/`getDateValidated()`, never `getDisabledReason()` — free-form admin text, unsafe to surface):
+
+- `account_access`: `confirmed` `ACCOUNT_DISABLED`/`ACCOUNT_ACTIVE` from `getDisabled()`; `unknown` if that field can't be read.
+- `login`: always `confirmed` `LOGIN_OK` — reaching this diagnostic at all requires an authenticated V2 session, which is itself direct proof login currently works. Cannot explain a past failure; no such evidence exists.
+- `password_reset`: always `unknown` — no OJS evidence about email delivery or reset-link validity is available.
+- `profile`: `confirmed` `EMAIL_VALIDATED` only when `getDateValidated()` is present; a `null` value is deliberately left `unknown` rather than confirmed as a problem, since it's ambiguous (genuinely unvalidated vs. predates the field vs. admin-created account).
+
+Deliberately conservative per the status hierarchy: most rules land on `confirmed` or `unknown`; none currently use `likely` or `needs_human` — those are reserved for scopes with genuinely circumstantial or judgment-requiring evidence, which none of the four current scopes have.
+
 ### 7.10 `ojs_diagnose_submission`
 
 Runs deterministic submission-flow/support diagnostics for an authorized identity/resource or public pre-submission context.

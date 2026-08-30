@@ -45,6 +45,9 @@ interface OjsCompatibilityAdapterInterface
 
     public function hasPaidPublicationFee(int $userId, int $submissionId): bool;
 
+    /** @return array{disabled:?bool,dateValidated:?string} */
+    public function getUserAccountFields(int $userId): array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

@@ -29,6 +29,7 @@ final class CoreCapabilityProvider implements CapabilityProviderInterface
 
         if ($request->supportContext()->isAuthenticated()) {
             $capabilities[] = 'account.read_own_support_state';
+            $capabilities[] = 'account.diagnose_own';
             $capabilities[] = 'submission.list_own';
         }
 

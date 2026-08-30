@@ -117,6 +117,17 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportPaymentStatusRequest($request);
     }
 
+    /**
+     * Conceptually ojs_diagnose_account in docs/v2/API_MCP_SPEC.md §7.9;
+     * implemented as a single operation segment (accountDiagnostics) for
+     * the same reason the other Support API operations are, above.
+     */
+    public function accountDiagnostics($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportAccountDiagnosticsRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
