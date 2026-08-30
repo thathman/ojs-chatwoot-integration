@@ -13,15 +13,21 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\State;
  * guess a specific state from incomplete data (see PRODUCT_BIBLE.md's
  * Support State Engine principle, echoed in this class's own contract).
  *
- * Deliberately dropped from this slice (would require deeper evidence than
- * status/stageId alone can prove):
+ * "revision_requested" is now supported for review-stage submissions,
+ * driven by the current review round's own `status` column (maintained
+ * live by ReviewRoundDAO — never recomputed here). Only the single
+ * REVISIONS_REQUESTED round status maps to it; other round statuses
+ * (resubmit-for-review, pending recommendations, etc.) still fall back to
+ * "review_in_progress" rather than guessing a finer distinction.
+ *
+ * Still deliberately dropped from this slice:
  * - "draft" (an incomplete, still-in-wizard submission) — OJS 3.5 tracks
- *   this via `submissionProgress`, not verified/used here yet.
- * - "revision_requested" / "revision_received" — requires the current
- *   review round's decision, not merely which stage the submission sits in.
- * Both return "review_in_progress"/"submitted"/"unknown" today rather than
- * a fabricated guess; a future State Engine slice should add real support
- * for them without changing this class's fail-safe contract.
+ *   this via `submissionProgress`, but a draft has no stage assignment yet,
+ *   so it is not even reachable through the relationship-based candidate
+ *   discovery this endpoint uses. Supporting it needs a separate candidate
+ *   discovery path, not just a mapper change.
+ * - "revision_received" — requires revision-file evidence this slice does
+ *   not read.
  */
 final class SupportStateMapper
 {
@@ -38,7 +44,10 @@ final class SupportStateMapper
     private const WORKFLOW_STAGE_ID_EDITING = 4;
     private const WORKFLOW_STAGE_ID_PRODUCTION = 5;
 
-    public static function map(?int $status, ?int $stageId): string
+    // Verified against pkp-lib stable-3_5_0 classes/submission/reviewRound/ReviewRound.php
+    private const REVIEW_ROUND_STATUS_REVISIONS_REQUESTED = 1;
+
+    public static function map(?int $status, ?int $stageId, ?int $reviewRoundStatus = null): string
     {
         if ($status === self::STATUS_DECLINED) {
             return 'declined';
@@ -53,7 +62,9 @@ final class SupportStateMapper
         if ($status === self::STATUS_QUEUED) {
             return match ($stageId) {
                 self::WORKFLOW_STAGE_ID_SUBMISSION => 'submitted',
-                self::WORKFLOW_STAGE_ID_INTERNAL_REVIEW, self::WORKFLOW_STAGE_ID_EXTERNAL_REVIEW => 'review_in_progress',
+                self::WORKFLOW_STAGE_ID_INTERNAL_REVIEW, self::WORKFLOW_STAGE_ID_EXTERNAL_REVIEW => $reviewRoundStatus === self::REVIEW_ROUND_STATUS_REVISIONS_REQUESTED
+                    ? 'revision_requested'
+                    : 'review_in_progress',
                 self::WORKFLOW_STAGE_ID_EDITING => 'copyediting_in_progress',
                 self::WORKFLOW_STAGE_ID_PRODUCTION => 'production_in_progress',
                 default => 'unknown',
