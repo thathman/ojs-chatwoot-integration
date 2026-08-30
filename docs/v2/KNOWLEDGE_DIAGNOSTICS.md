@@ -266,14 +266,56 @@ they diverge from a naive reading of "provisioning":
    never adopted, never duplicated.
 
 Ownership is proven only by a local record (`chatwoot_support_knowledge_sync`,
-keyed by `(context_id, locale, resource_type)`) — a name/URL match at the
-remote API is never treated as proof of ownership, per the freeze
-directive. No delete/destroy call exists in this provisioner at all yet.
+keyed by `(context_id, locale, resource_type, resource_key)`) — a
+name/URL match at the remote API is never treated as proof of ownership,
+per the freeze directive. No delete/destroy call exists in this
+provisioner at all yet.
 
-Custom Tool and Scenario provisioning (CWO-010/011) are not implemented
-yet, though the real Chatwoot routes for both are already confirmed to
-exist (`resources :custom_tools` with a `test` action, and `resources
-:scenarios` nested under `assistants`).
+**As actually implemented (CWO-010), Custom Tools:** `CaptainCustomToolProvisioner`
++ `CanonicalToolCatalog` — a fixed 12-tool set (API-019), one per Support
+API endpoint that makes sense as an LLM-callable tool, never one per
+provider or per journal fact. Verified against real
+`enterprise/app/models/captain/custom_tool.rb` (`auth_type` enum
+`none`/`bearer`/`basic`/`api_key`, a 15-tool account-wide cap) and
+`enterprise/app/models/concerns/toolable.rb` (Liquid `request_template`
+rendering with `strict_variables: true`). Two consequences worth being
+explicit about:
+
+1. **Unlike Documents, Custom Tools have a real update endpoint** — so
+   "idempotent create-or-sync" here is a genuine create-or-update, keyed
+   on a fingerprint over the whole remote-facing definition. A
+   `chatwootSupportApiToken` rotation is treated as a real definition
+   change and pushes an update, never silently ignored as a no-op.
+2. **Every canonical tool parameter is `required: true`**, even a
+   logically-optional one (e.g. `verificationRequest`'s `method`) —
+   because Liquid's `strict_variables` mode raises on an undefined
+   variable, and a param the LLM legitimately chose not to supply is
+   undefined, not merely blank, in the template's rendering context.
+   Requiring every field (with the description telling the LLM to pass
+   an empty string when it does not apply) sidesteps that failure mode
+   entirely rather than fighting Liquid's strictness.
+
+Each tool's `auth_config.token` is this journal's own
+`chatwootSupportApiToken` — the same Bearer token
+`ServiceTokenAuthenticator` already verifies on every Support API call —
+never a raw OJS/database credential, never an admin credential.
+
+**A real integration bug was found and fixed while building this:**
+Chatwoot's Custom Tool HTTP client always sends `Content-Type:
+application/json` for any request with a body (verified against
+`enterprise/lib/captain/tools/http_tool.rb` — unconditional, no
+opt-out), but every existing Support API endpoint read input only via
+`$request->getUserVar()`, which is backed by `PKPRequest::getUserVars()`
+— `array_merge($_GET, $_POST)` (verified against `pkp-lib` `stable-3_5_0`
+`classes/core/PKPRequest.php`) — and PHP never populates `$_POST` for a
+raw JSON body. Without a fix, every field on every provisioned tool call
+would have appeared missing. Fixed with `JsonRequestBodyParser`, which
+bridges a JSON body into `$_POST` (never overwriting an existing key, and
+only for scalar values) before any endpoint reads `getUserVar()`.
+
+Scenario provisioning (CWO-011) is not implemented yet, though the real
+Chatwoot route already confirmed to exist is `resources :scenarios`
+nested under `assistants`.
 
 ## 7. Recommended Captain scenarios
 
