@@ -216,6 +216,19 @@ Deliberately conservative per the status hierarchy: most rules land on `confirme
 
 Runs deterministic submission-flow/support diagnostics for an authorized identity/resource or public pre-submission context.
 
+**As actually implemented:** `POST /ojsSupportGateway/submissionDiagnostics`, gated on `submission.diagnose_own` (V3 + author/reviewer relationship). Establishes its own request-time V3 the same way the other submission-scoped endpoints do. Input is a `submissionId` plus a `scope`.
+
+Deliberately does not create a second workflow interpreter — `SubmissionDiagnosticEngine` is a thin wrapper over the existing domain services this codebase already built for the dedicated endpoints:
+
+- `submission_access`: `confirmed` `SUBMISSION_ACCESS_CONFIRMED` from the relationship the endpoint already established (author/reviewer); the endpoint never even reaches the engine without one, since an empty relationship falls back to the same generic unverified shape every other endpoint uses.
+- `submission_progress`: wraps `SupportStateMapper`'s state, mapped to a targeted code rather than echoed verbatim — e.g. `revision_requested` → `confirmed` `REVISION_REQUIRED` with `submit_revisions` as a next action, matching the worked example in the original spec discussion exactly.
+- `required_action`: wraps `RequiredActionMapper::forAuthor()`/`forReviewer()` — `confirmed` `ACTION_REQUIRED` (with the actions themselves as `nextActions`) or `confirmed` `NO_ACTION_REQUIRED`.
+- `review_access`: `confirmed` `REVIEWER_ASSIGNMENT_FOUND` only for an actual reviewer relationship with real `ReviewAssignment` evidence; an author-only identity gets `unknown` `NOT_A_REVIEWER`, never fabricated reviewer status.
+- `publication`: the same 3-way `published`/`scheduled_for_publication`/otherwise split `ojs_get_publication_status` uses.
+- `payment`: independently re-evaluates `submission.read_own_payment_status` — the exact same capability check the dedicated payment endpoint performs, with the same live-derived `payment_status` feature flag — before revealing anything. If that capability is denied (the `payment_support` journal policy still defaults off in production), this scope returns `unknown` `PAYMENT_STATUS_UNAVAILABLE`, never a workaround. This is the one scope most likely to be probed for a capability bypass, so it is the one most explicitly tested to prove it cannot become one.
+
+Every scope's `unknown`/`needs_human` fallback is deliberate: this codebase does not fabricate a diagnosis from ambiguous or missing evidence. None of the six current scopes use `likely` yet.
+
 ### 7.11 `ojs_get_available_actions`
 
 Returns capability-derived action names rather than asking the model to guess what it may do.

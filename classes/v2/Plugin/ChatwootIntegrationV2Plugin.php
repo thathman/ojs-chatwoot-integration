@@ -31,6 +31,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBri
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
@@ -716,6 +718,144 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             PaymentStatusSerializer::verified($relationship, $feeInfo, $status, $actions),
             $result->correlationId()
         );
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: deterministic
+     * submission-flow diagnostics (ojs_diagnose_submission in
+     * docs/v2/API_MCP_SPEC.md §7.10), gated on `submission.diagnose_own`
+     * (V3 + author/reviewer relationship). Establishes its own
+     * request-time V3 the same way the other submission-scoped endpoints
+     * do.
+     *
+     * Deliberately does not create a second workflow interpreter — every
+     * scope is a thin wrapper over the existing domain services
+     * (SubmissionRelationshipResolver, SupportStateMapper,
+     * RequiredActionMapper, publication/payment fields) this codebase
+     * already built for the dedicated endpoints. The `payment` scope in
+     * particular independently re-evaluates `submission.read_own_payment_status`
+     * exactly like the dedicated payment endpoint does, so this can never
+     * become a backdoor that reveals more than that endpoint would in the
+     * current configuration (the `payment_support` policy still defaults
+     * off, with no admin toggle built yet).
+     */
+    public function supportSubmissionDiagnosticsRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'submissionDiagnostics');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $scope = trim((string) $request->getUserVar('scope'));
+        if (!in_array($scope, SubmissionDiagnosticEngine::SCOPES, true)) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'scope must be one of: ' . implode(', ', SubmissionDiagnosticEngine::SCOPES),
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        if ($submissionId === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'submissionId is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $relationship = null;
+        $submission = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        if (!$relationship || !$decision || !$decision->allows('submission.diagnose_own')) {
+            SupportApiResponse::success(DiagnosticResultSerializer::unverified($result, $actions), $result->correlationId());
+        }
+
+        $userId = $result->identity()->userId() ?? 0;
+        $diagnosis = match ($scope) {
+            SubmissionDiagnosticEngine::SCOPE_SUBMISSION_ACCESS => SubmissionDiagnosticEngine::diagnoseSubmissionAccess($relationship->types()),
+
+            SubmissionDiagnosticEngine::SCOPE_SUBMISSION_PROGRESS => SubmissionDiagnosticEngine::diagnoseSubmissionProgress(
+                $this->supportStateForDiagnostics($bridge, $submission)
+            ),
+
+            SubmissionDiagnosticEngine::SCOPE_PUBLICATION => SubmissionDiagnosticEngine::diagnosePublication(
+                $this->supportStateForDiagnostics($bridge, $submission)
+            ),
+
+            SubmissionDiagnosticEngine::SCOPE_REQUIRED_ACTION => SubmissionDiagnosticEngine::diagnoseRequiredAction(array_values(array_unique(array_merge(
+                $relationship->has('author') ? RequiredActionMapper::forAuthor($this->supportStateForDiagnostics($bridge, $submission)) : [],
+                $relationship->has('reviewer') ? RequiredActionMapper::forReviewer($bridge->getReviewAssignmentStatuses($submissionId, $userId)) : []
+            )))),
+
+            SubmissionDiagnosticEngine::SCOPE_REVIEW_ACCESS => SubmissionDiagnosticEngine::diagnoseReviewAccess(
+                $relationship->has('reviewer'),
+                $relationship->has('reviewer') ? $bridge->getReviewAssignmentStatuses($submissionId, $userId) : []
+            ),
+
+            SubmissionDiagnosticEngine::SCOPE_PAYMENT => $this->diagnosePaymentForSubmission($bridge, $request, $result, $relationship, $submissionId, $userId),
+
+            default => DiagnosticResult::unknown('UNKNOWN_SCOPE', 'This diagnostic scope is not recognized.'),
+        };
+
+        SupportApiResponse::success(DiagnosticResultSerializer::verified($diagnosis, $actions), $result->correlationId());
+    }
+
+    private function supportStateForDiagnostics($bridge, $submission): string
+    {
+        $stateFields = $bridge->getSubmissionStateFields($submission);
+        return SupportStateMapper::map(
+            $stateFields['status'],
+            $stateFields['stageId'],
+            $stateFields['reviewRoundStatus'],
+            $stateFields['submissionProgress']
+        );
+    }
+
+    /**
+     * Independently re-evaluates submission.read_own_payment_status exactly
+     * like supportPaymentStatusRequest() does — this must never grant more
+     * than the dedicated endpoint would for the same identity/submission.
+     */
+    private function diagnosePaymentForSubmission($bridge, $request, $result, $relationship, int $submissionId, int $userId): DiagnosticResult
+    {
+        $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
+        $paymentDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            'v3',
+            $result->identity(),
+            $relationship,
+            ['payment_status' => $feeInfo['enabled']]
+        ));
+        $paymentAllowed = $paymentDecision && $paymentDecision->allows('submission.read_own_payment_status');
+
+        $paid = null;
+        if ($paymentAllowed && $feeInfo['enabled']) {
+            $paid = $bridge->hasPaidPublicationFee($userId, $submissionId);
+        }
+
+        return SubmissionDiagnosticEngine::diagnosePayment($paymentAllowed, $feeInfo['enabled'], $paid);
     }
 
     /**

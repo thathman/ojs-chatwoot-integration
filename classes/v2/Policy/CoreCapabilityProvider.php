@@ -39,6 +39,7 @@ final class CoreCapabilityProvider implements CapabilityProviderInterface
         }
 
         if ($relationship->has('author')) {
+            $capabilities[] = 'submission.diagnose_own';
             $capabilities[] = 'submission.read_own_support_status';
             $capabilities[] = 'submission.read_own_required_actions';
             $capabilities[] = 'submission.read_own_publication_status';
@@ -47,6 +48,7 @@ final class CoreCapabilityProvider implements CapabilityProviderInterface
         }
 
         if ($relationship->has('reviewer')) {
+            $capabilities[] = 'submission.diagnose_own';
             $capabilities[] = 'submission.read_own_support_status';
             $capabilities[] = 'submission.read_own_required_actions';
             $capabilities[] = 'submission.read_own_publication_status';

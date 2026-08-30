@@ -52,6 +52,14 @@ final class CapabilityCatalog
             'policy' => 'submission_support',
             'policyDefault' => true,
         ],
+        'submission.diagnose_own' => [
+            'minVerification' => 3,
+            'requiresAuthenticatedIdentity' => true,
+            'relationships' => ['author', 'reviewer'],
+            'feature' => null,
+            'policy' => 'submission_support',
+            'policyDefault' => true,
+        ],
         'submission.read_own_support_status' => [
             'minVerification' => 3,
             'requiresAuthenticatedIdentity' => true,
