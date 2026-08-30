@@ -13,6 +13,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaymentStatusSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PublicationStatusSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\RequiredActionsSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
@@ -579,6 +580,89 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 
         SupportApiResponse::success(
             PublicationStatusSerializer::verified($relationship, $supportState, $publicationFields['doi'], $publicUrl, $issue, $actions),
+            $result->correlationId()
+        );
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: returns public fee
+     * facts (fee enabled, amount, currency) plus, when authorized, a
+     * verified submission's paid/unpaid status (ojs_get_payment_status in
+     * docs/v2/API_MCP_SPEC.md §7.7). Gated on
+     * `submission.read_own_payment_status` (V3 + author relationship;
+     * reviewers are not part of that capability's declared relationships).
+     *
+     * Unlike every other submission-scoped endpoint, the public fee facts
+     * are returned regardless of verification — they describe the
+     * journal's own configuration, not any specific user or submission,
+     * and revealing them cannot leak anything about who is asking.
+     *
+     * `submission.read_own_payment_status` also requires the
+     * `payment_support` journal policy (see CapabilityCatalog), which
+     * defaults to false and has no admin toggle built yet — so the
+     * submission-specific `status` branch is intentionally unreachable in
+     * production until a future settings UI exists to opt a journal in.
+     * That is a deliberate conservative default, not a bug: this endpoint
+     * ships correctly wired to it rather than silently overriding it.
+     *
+     * `payment_status` itself is derived live from OJS's own
+     * OJSPaymentManager (isConfigured() + publicationEnabled()) — never a
+     * plugin setting of its own — so the feature flag always reflects
+     * whatever the journal's real payment configuration currently is.
+     */
+    public function supportPaymentStatusRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'paymentStatus');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        if ($submissionId === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'submissionId is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
+
+        $relationship = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship,
+            ['payment_status' => $feeInfo['enabled']]
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        if (!$relationship || !$decision || !$decision->allows('submission.read_own_payment_status')) {
+            SupportApiResponse::success(PaymentStatusSerializer::unverified($result, $feeInfo, $actions), $result->correlationId());
+        }
+
+        $status = 'not_applicable';
+        if ($feeInfo['enabled']) {
+            $paid = $bridge->hasPaidPublicationFee($result->identity()->userId() ?? 0, $submissionId);
+            $status = $paid ? 'paid' : 'unpaid';
+        }
+
+        SupportApiResponse::success(
+            PaymentStatusSerializer::verified($relationship, $feeInfo, $status, $actions),
             $result->correlationId()
         );
     }

@@ -106,6 +106,17 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportPublicationStatusRequest($request);
     }
 
+    /**
+     * Conceptually ojs_get_payment_status in docs/v2/API_MCP_SPEC.md §7.7;
+     * implemented as a single operation segment (paymentStatus) for the
+     * same reason the other submission-scoped operations are, above.
+     */
+    public function paymentStatus($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportPaymentStatusRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {

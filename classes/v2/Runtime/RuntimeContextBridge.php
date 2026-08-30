@@ -242,5 +242,37 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array{enabled:bool,amount:?float,currency:?string} */
+    public function getPaymentFeeInfo($context): array
+    {
+        $fallback = ['enabled' => false, 'amount' => null, 'currency' => null];
+        if (!$this->kernel) return $fallback;
+        try {
+            return $this->kernel->getPaymentFeeInfo($context);
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
+    public function hasPaidPublicationFee(int $userId, int $submissionId): bool
+    {
+        if (!$this->kernel) return false;
+        try {
+            return $this->kernel->hasPaidPublicationFee($userId, $submissionId);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    public function getContext($request)
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->getContext($request);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

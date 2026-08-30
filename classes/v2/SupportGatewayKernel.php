@@ -67,6 +67,9 @@ final class SupportGatewayKernel
     public function getPublicationFields($submission): array { return $this->adapter->getPublicationFields($submission); }
     public function getIssueInfo(int $issueId): ?array { return $this->adapter->getIssueInfo($issueId); }
     public function getPublicSubmissionUrl($request, $submission): ?string { return $this->adapter->getPublicSubmissionUrl($request, $submission); }
+    public function getPaymentFeeInfo($context): array { return $this->adapter->getPaymentFeeInfo($context); }
+    public function hasPaidPublicationFee(int $userId, int $submissionId): bool { return $this->adapter->hasPaidPublicationFee($userId, $submissionId); }
+    public function getContext($request) { return $this->adapter->getContext($request); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
