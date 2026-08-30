@@ -10,6 +10,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\SupportGatewayKernel;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
 
 final class RuntimeContextBridge
 {
@@ -312,6 +313,16 @@ final class RuntimeContextBridge
         if (!$this->kernel) return null;
         try {
             return $this->kernel->getAirixSubmissionFeeProvider($context);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function compileKnowledge($context, $request, int $contextId, string $locale): ?KnowledgeCompilation
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->compileKnowledge($context, $request, $contextId, $locale);
         } catch (\Throwable $e) {
             return null;
         }

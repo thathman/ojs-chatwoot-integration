@@ -25,6 +25,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\LegacyWidgetIden
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextProjector;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -57,6 +59,15 @@ use PKP\security\Role;
 class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 {
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
+    private const SUPPORT_KNOWLEDGE_PAGE = 'support-knowledge';
+
+    /** Generated knowledge category => KnowledgeFact key prefix (docs/v2/KNOWLEDGE_DIAGNOSTICS.md §4). */
+    private const KNOWLEDGE_CATEGORIES = [
+        'about' => 'journal.',
+        'submissions' => 'submission.',
+        'review' => 'review.',
+        'policies' => 'policy.',
+    ];
     private const LEGACY_EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
         'chatwootSupportApiToken',
@@ -87,12 +98,18 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     {
         $page =& $args[0];
         $handler =& $args[3];
-        if ($page !== self::SUPPORT_GATEWAY_PAGE) {
-            return false;
+
+        if ($page === self::SUPPORT_GATEWAY_PAGE) {
+            $handler = new SupportGatewayPageHandler($this);
+            return true;
         }
 
-        $handler = new SupportGatewayPageHandler($this);
-        return true;
+        if ($page === self::SUPPORT_KNOWLEDGE_PAGE) {
+            $handler = new SupportKnowledgePageHandler($this);
+            return true;
+        }
+
+        return false;
     }
 
     /** PKP 3.5 plugin installation hook for the v2 Support Gateway tables. */
@@ -689,6 +706,75 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         header('Content-Type: text/html; charset=UTF-8');
         echo $this->v2RenderVerificationLinkPage($verified);
         exit;
+    }
+
+    /**
+     * Public, unauthenticated GET root of generated journal knowledge
+     * (docs/v2/KNOWLEDGE_DIAGNOSTICS.md §4). Never touches a
+     * SupportSession/Chatwoot conversation/OJS user/capability — the
+     * compiler behind this has no such inputs to consult (see
+     * KnowledgeCompiler, KnowledgeProviderInterface).
+     */
+    public function supportKnowledgeIndexRequest($request): void
+    {
+        $context = $request->getContext();
+        $journalName = $context && method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : 'Journal';
+
+        $navLinks = [];
+        foreach (array_keys(self::KNOWLEDGE_CATEGORIES) as $category) {
+            $navLinks[ucfirst($category)] = $this->v2KnowledgeCategoryUrl($request, $category);
+        }
+
+        header('Content-Type: text/html; charset=UTF-8');
+        echo KnowledgeHtmlRenderer::renderIndex($journalName, $navLinks);
+        exit;
+    }
+
+    /**
+     * One generated knowledge category page (about/submissions/review/policies).
+     * $category must be one of self::KNOWLEDGE_CATEGORIES's keys — an
+     * unrecognized category renders an empty-but-valid page rather than a
+     * fatal, since this is reached directly from a public URL.
+     */
+    public function supportKnowledgeCategoryRequest($request, string $category): void
+    {
+        $context = $request->getContext();
+        $journalName = $context && method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : 'Journal';
+        $contextId = $context && method_exists($context, 'getId') ? (int) $context->getId() : 0;
+        $prefix = self::KNOWLEDGE_CATEGORIES[$category] ?? null;
+
+        $facts = [];
+        $locale = (string) Locale::getLocale();
+        if ($prefix !== null && $contextId > 0) {
+            $compilation = $this->runtimeContextBridge()->compileKnowledge($context, $request, $contextId, $locale);
+            if ($compilation) {
+                $facts = $compilation->factsWithKeyPrefix($prefix);
+                $locale = $compilation->locale();
+            }
+        }
+
+        $navLinks = [];
+        foreach (array_keys(self::KNOWLEDGE_CATEGORIES) as $navCategory) {
+            $navLinks[ucfirst($navCategory)] = $this->v2KnowledgeCategoryUrl($request, $navCategory);
+        }
+
+        header('Content-Type: text/html; charset=UTF-8');
+        echo KnowledgeHtmlRenderer::renderCategory($journalName, ucfirst($category), $facts, $navLinks, $locale);
+        exit;
+    }
+
+    private function v2KnowledgeCategoryUrl($request, string $category): string
+    {
+        try {
+            $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
+            $context = $request->getContext();
+            if (!is_object($dispatcher) || !$context || !method_exists($context, 'getPath')) {
+                return '';
+            }
+            return (string) $dispatcher->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), self::SUPPORT_KNOWLEDGE_PAGE, $category);
+        } catch (\Throwable $e) {
+            return '';
+        }
     }
 
     private function v2RenderVerificationLinkPage(bool $verified): string
