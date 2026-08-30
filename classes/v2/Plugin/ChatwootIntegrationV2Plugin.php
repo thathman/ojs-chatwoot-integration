@@ -24,13 +24,16 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\ChatwootConversa
 use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\LegacyWidgetIdentifierResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextProjector;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainCustomToolProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainDocumentProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\DatabaseSupportKnowledgeSyncRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
@@ -847,6 +850,67 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         }
     }
 
+    /**
+     * Idempotent Captain Custom Tool provisioning (CanonicalToolCatalog,
+     * CaptainCustomToolProvisioner) — same not-yet-wired-to-a-route/cron
+     * caveat as provisionCaptainKnowledgeDocument() above. Requires
+     * `chatwootSupportApiToken` (the same Bearer token
+     * ServiceTokenAuthenticator already verifies on every Support API
+     * call) in addition to the base Chatwoot credentials.
+     *
+     * @return array<string,CaptainSyncResult>|null
+     */
+    public function provisionCaptainCustomTools($request): ?array
+    {
+        $context = $request->getContext();
+        if (!$context || !method_exists($context, 'getId')) {
+            return null;
+        }
+        $contextId = (int) $context->getId();
+
+        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+        $serviceToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootSupportApiToken', ''));
+        if ($baseUrl === '' || $apiToken === '' || $serviceToken === '') {
+            return null;
+        }
+
+        $operationUrls = [];
+        foreach (CanonicalToolCatalog::all() as $tool) {
+            $url = $this->v2SupportGatewayUrl($request, $tool->operation());
+            if ($url !== '') {
+                $operationUrls[$tool->operation()] = $url;
+            }
+        }
+        if ($operationUrls === []) {
+            return null;
+        }
+
+        $locale = (string) Locale::getLocale();
+
+        try {
+            $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+            $provisioner = new CaptainCustomToolProvisioner($chatwoot, new DatabaseSupportKnowledgeSyncRepository());
+            return $provisioner->provisionAll($contextId, $locale, $operationUrls, $serviceToken, time());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function v2SupportGatewayUrl($request, string $operation): string
+    {
+        try {
+            $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
+            $context = $request->getContext();
+            if (!is_object($dispatcher) || !$context || !method_exists($context, 'getPath')) {
+                return '';
+            }
+            return (string) $dispatcher->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), self::SUPPORT_GATEWAY_PAGE, $operation);
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
     private function v2RenderVerificationLinkPage(bool $verified): string
     {
         $heading = $verified ? 'Verification successful' : 'Verification link invalid or expired';
@@ -1553,6 +1617,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     private function resolveSupportApiRequest($request, string $endpoint): SupportApiRequestContext|SupportApiFailure
     {
         $correlationId = CorrelationId::fromRequestOrGenerate();
+        JsonRequestBodyParser::mergeIntoPostOnce();
 
         try {
             $context = $request->getContext();

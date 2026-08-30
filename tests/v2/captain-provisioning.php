@@ -27,14 +27,14 @@ final class InMemorySyncRepository implements SupportKnowledgeSyncRepositoryInte
     /** @var array<string,CaptainSyncState> */
     public array $states = [];
 
-    public function find(int $contextId, string $locale, string $resourceType): ?CaptainSyncState
+    public function find(int $contextId, string $locale, string $resourceType, string $resourceKey = ''): ?CaptainSyncState
     {
-        return $this->states["{$contextId}:{$locale}:{$resourceType}"] ?? null;
+        return $this->states["{$contextId}:{$locale}:{$resourceType}:{$resourceKey}"] ?? null;
     }
 
     public function save(CaptainSyncState $state): void
     {
-        $this->states["{$state->contextId()}:{$state->locale()}:{$state->resourceType()}"] = $state;
+        $this->states["{$state->contextId()}:{$state->locale()}:{$state->resourceType()}:{$state->resourceKey()}"] = $state;
     }
 }
 
@@ -63,6 +63,21 @@ final class FakeCaptainClient implements ChatwootCaptainClientInterface
         $this->syncCalls++;
         $this->lastSyncedDocumentId = $documentId;
         return $this->syncResult;
+    }
+
+    public function listCaptainCustomTools(): array
+    {
+        return [];
+    }
+
+    public function createCaptainCustomTool(array $definition): ?array
+    {
+        return null;
+    }
+
+    public function updateCaptainCustomTool(string $toolId, array $definition): bool
+    {
+        return false;
     }
 }
 

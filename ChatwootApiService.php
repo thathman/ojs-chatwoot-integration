@@ -185,4 +185,28 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         $result = $this->requestJson('POST', "accounts/{$this->accountId}/captain/documents/{$documentId}/sync");
         return (bool) $result['ok'];
     }
+
+    public function listCaptainCustomTools(): array {
+        $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/custom_tools");
+        if (!$result['ok']) return [];
+        $data = $result['data'] ?? [];
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        return array_values(array_filter($payload, 'is_array'));
+    }
+
+    public function createCaptainCustomTool(array $definition): ?array {
+        $result = $this->requestJson('POST', "accounts/{$this->accountId}/captain/custom_tools", [
+            'json' => ['custom_tool' => $definition],
+        ]);
+        if (!$result['ok']) return null;
+        $data = $result['data'] ?? [];
+        return is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : null);
+    }
+
+    public function updateCaptainCustomTool(string $toolId, array $definition): bool {
+        $result = $this->requestJson('PATCH', "accounts/{$this->accountId}/captain/custom_tools/{$toolId}", [
+            'json' => ['custom_tool' => $definition],
+        ]);
+        return (bool) $result['ok'];
+    }
 }
