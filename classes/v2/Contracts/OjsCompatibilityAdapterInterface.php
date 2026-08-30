@@ -48,6 +48,11 @@ interface OjsCompatibilityAdapterInterface
     /** @return array{disabled:?bool,dateValidated:?string} */
     public function getUserAccountFields(int $userId): array;
 
+    /** The claimed email is a lookup key only, never identity. */
+    public function getUserByEmail(string $email): ?object;
+
+    public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

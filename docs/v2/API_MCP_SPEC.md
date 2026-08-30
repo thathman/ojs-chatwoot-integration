@@ -105,11 +105,26 @@ Inputs:
 
 Output is always anti-enumeration-safe.
 
+**As actually implemented:** `POST /ojsSupportGateway/verificationRequest`. Inputs: `email` (a lookup key only, never identity), `purpose` (`account_support` | `submission_support`), optional `method` (`pin` | `link`, defaults to `pin`). PIN and secure link share one challenge engine — `VerificationChallengeService` — not two separate verification systems (see `docs/v2/ADRS.md` ADR-005).
+
+Anti-enumeration is enforced structurally: the endpoint has exactly one success response call site (`{ok:true, data:{verificationRequested:true}}`), and every branch — email not found, account disabled (PKP's own `getByEmail(..., allowDisabled: false)` already makes these indistinguishable), rate-limited, cooldown, or a mail-send exception — falls through to it silently. Response *content* is proven identical by a source-level test; response *timing* is not equalized (no artificial delay on the "not found" path) — a known, documented gap, not a claim of full anti-timing-analysis.
+
+Rate limiting (all silent, all collapsing into the same response): a per-challenge attempt lockout (default 5), a resend cooldown (default 60s) that also supersedes the prior unconsumed challenge for the same context+conversation+purpose, and rolling per-conversation and per-identity limits (default 5/hour each).
+
+The verification email is sent via `SupportVerificationMailable` through PKP's own `Mail::send()` (the journal's real configured mail transport), never a manuscript title, submission ID, or other resource detail — verification proves the OJS account only.
+
 ### 7.2 `ojs_confirm_verification`
 
 Inputs: challenge reference + user-provided code (or equivalent flow token).
 
 Output: verification success/failure state; never returns stored secret.
+
+**As actually implemented:** two paths through the same challenge engine:
+
+- **PIN**: `POST /ojsSupportGateway/verificationConfirm` — inputs `challenge`, `pin`, `purpose`, plus the same conversation tuple every Support API call carries. Consumption is atomic (`DatabaseVerificationChallengeRepository::attemptConsume()`, row-locked in a single transaction; a simultaneous replay can only produce one success). A binding mismatch (wrong journal, wrong conversation, wrong purpose) is deliberately indistinguishable from a wrong PIN — both fail the same way and both count against the attempt lockout, never silently ignored.
+- **Secure link**: `GET /ojsSupportGateway/verify?challenge=...&token=...` — a plain browser GET, not part of the service-authenticated pipeline (a browser can't supply a Bearer token). The URL carries only the opaque challenge reference and a high-entropy token — never a user ID, email, capability, role, submission ID, or Chatwoot API token. Binding comes entirely from the challenge's own server-side stored conversation tuple (set at request time) — the link works from any device/browser by design, since its security is the token's entropy plus single-use consumption, not "the right browser opened it."
+
+On success, both paths establish a normal V2 `SupportSession` directly (`SupportSessionService::establishFromExternalVerification()`) — already bound to the conversation, no separate binding-token step, and any other session already bound to that exact conversation is revoked. Successful verification is always V2, never V3, even when `purpose` was submission-related — resource-scoped assurance is always a separate, later step (`submissionVerify`).
 
 ### 7.3 `ojs_get_support_identity`
 

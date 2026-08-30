@@ -286,5 +286,102 @@ final class RuntimeContextBridge
         }
     }
 
+    public function getUserByEmail(string $email): ?object
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->getUserByEmail($email);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->getVerificationLinkUrl($request, $publicReference, $token);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function requestVerificationChallenge(
+        int $contextId,
+        int $userId,
+        string $purpose,
+        string $method,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $pepper
+    ): ?\APP\plugins\generic\chatwootIntegration\classes\v2\Verification\PreparedChallenge {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->requestVerificationChallenge(
+                $contextId, $userId, $purpose, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $pepper
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function confirmVerificationPin(
+        string $publicReference,
+        string $pin,
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $purpose,
+        string $pepper
+    ): \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome {
+        $failed = \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::failed(
+            \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::STATUS_NOT_FOUND
+        );
+        if (!$this->kernel) return $failed;
+        try {
+            return $this->kernel->confirmVerificationPin(
+                $publicReference, $pin, $contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $purpose, $pepper
+            );
+        } catch (\Throwable $e) {
+            return $failed;
+        }
+    }
+
+    public function confirmVerificationLinkToken(
+        string $publicReference,
+        string $token,
+        int $contextId
+    ): \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome {
+        $failed = \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::failed(
+            \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::STATUS_NOT_FOUND
+        );
+        if (!$this->kernel) return $failed;
+        try {
+            return $this->kernel->confirmVerificationLinkToken($publicReference, $token, $contextId);
+        } catch (\Throwable $e) {
+            return $failed;
+        }
+    }
+
+    public function establishSupportSessionFromExternalVerification(
+        int $contextId,
+        int $userId,
+        string $method,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId
+    ): ?SupportSession {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->establishSupportSessionFromExternalVerification(
+                $contextId, $userId, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

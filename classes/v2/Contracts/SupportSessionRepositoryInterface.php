@@ -36,5 +36,20 @@ interface SupportSessionRepositoryInterface
 
     public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void;
 
+    /**
+     * Revoke any other active session already bound to this exact Chatwoot
+     * conversation — used when external verification establishes a fresh,
+     * already-bound session directly (no separate binding-token step,
+     * since the conversation is already known at confirm time).
+     */
+    public function revokeOthersForConversation(
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $exceptPublicId,
+        int $now
+    ): void;
+
     public function purgeExpired(int $now): int;
 }

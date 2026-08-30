@@ -159,6 +159,7 @@ namespace {
         }
 
         public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
         public function purgeExpired(int $now): int { return 0; }
     }
 
@@ -295,8 +296,8 @@ namespace {
     statusCheck(str_contains($handlerSource, 'function identity('), 'handler must register the identity operation');
     statusCheck(str_contains($handlerSource, 'function actions('), 'handler must register the actions operation');
     statusCheck(
-        substr_count($handlerSource, '$this->requirePost();') === 12,
-        'status/identity/actions/accountDiagnostics/submissionDiagnostics/escalate/submissionVerify/submissions/submissionSupport/requiredActions/publicationStatus/paymentStatus must all be POST-only'
+        substr_count($handlerSource, '$this->requirePost();') === 14,
+        'status/identity/actions/accountDiagnostics/submissionDiagnostics/escalate/verificationRequest/verificationConfirm/submissionVerify/submissions/submissionSupport/requiredActions/publicationStatus/paymentStatus must all be POST-only (verify, the browser-facing GET link handler, is deliberately excluded)'
     );
     statusCheck(str_contains($handlerSource, "function bind(\$args, \$request): JSONMessage"), '/bind must keep the PKP JSONMessage transport for the browser handshake');
 

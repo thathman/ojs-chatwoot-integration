@@ -399,4 +399,59 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             return $fallback;
         }
     }
+
+    /**
+     * Builds the secure verification link URL. Verified against pkp-lib
+     * stable-3_5_0 (the same $request->getDispatcher()->url() call
+     * getPublicSubmissionUrl() uses). The query string carries only the
+     * opaque challenge reference and the high-entropy token — never a user
+     * ID, email, capability, role, or submission ID.
+     */
+    public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string
+    {
+        if (!is_object($request)) {
+            return null;
+        }
+
+        try {
+            $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
+            if (!is_object($dispatcher) || !method_exists($dispatcher, 'url')) {
+                return null;
+            }
+            $url = $dispatcher->url(
+                $request,
+                \PKP\core\PKPApplication::ROUTE_PAGE,
+                null,
+                'ojsSupportGateway',
+                'verify',
+                null,
+                ['challenge' => $publicReference, 'token' => $token]
+            );
+            return is_string($url) && $url !== '' ? $url : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * The claimed email is a lookup key only, never identity — the caller
+     * must treat a null return as generically "verification requested"
+     * anyway (anti-enumeration), never surface "no such account." Verified
+     * against pkp-lib stable-3_5_0 classes/user/Repository.php
+     * getByEmail(): `allowDisabled` defaults false, so a disabled account's
+     * email correctly resolves to null here too — indistinguishable from a
+     * nonexistent one, with no extra logic needed in this codebase.
+     */
+    public function getUserByEmail(string $email): ?object
+    {
+        if (trim($email) === '' || !class_exists('\PKP\user\Repo')) {
+            return null;
+        }
+
+        try {
+            return \PKP\user\Repo::user()->getByEmail(trim($email));
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
 }

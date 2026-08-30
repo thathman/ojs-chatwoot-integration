@@ -151,6 +151,41 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportEscalateRequest($request);
     }
 
+    /**
+     * Conceptually ojs_request_verification in docs/v2/API_MCP_SPEC.md
+     * §7.1; implemented as a single operation segment
+     * (verificationRequest) for the same reason the other Support API
+     * operations are, above.
+     */
+    public function verificationRequest($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportVerificationRequestRequest($request);
+    }
+
+    /**
+     * Conceptually ojs_confirm_verification (PIN path) in
+     * docs/v2/API_MCP_SPEC.md §7.2; implemented as a single operation
+     * segment (verificationConfirm) for the same reason the other
+     * Support API operations are, above.
+     */
+    public function verificationConfirm($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportVerificationConfirmRequest($request);
+    }
+
+    /**
+     * Browser-facing GET counterpart of verificationConfirm for the
+     * secure-link path — deliberately not POST-only and not part of the
+     * service-authenticated pipeline; see
+     * ChatwootIntegrationV2Plugin::verifyLinkRequest()'s own docblock.
+     */
+    public function verify($args, $request): void
+    {
+        $this->plugin->verifyLinkRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {

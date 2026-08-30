@@ -262,6 +262,7 @@ namespace {
         }
 
         public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
         public function purgeExpired(int $now): int { return 0; }
     }
 
@@ -336,8 +337,20 @@ namespace {
     accountDiagnosticsCheck(str_contains($pluginSource, 'function supportAccountDiagnosticsRequest'), 'plugin must implement the account-diagnostics endpoint');
     accountDiagnosticsCheck(str_contains($pluginSource, 'DiagnosticResultSerializer'), 'endpoint must use the shared diagnostic serializer');
     accountDiagnosticsCheck(str_contains($pluginSource, 'account.diagnose_own'), 'endpoint must gate on account.diagnose_own');
+
+    // Scoped to this method's own body only (up to the next method
+    // declaration) — a file-wide lazy regex would falsely trip on
+    // unrelated later methods (e.g. verification) that legitimately read
+    // an email for a completely different, already-anti-enumeration-safe
+    // purpose.
+    $methodStart = strpos($pluginSource, 'function supportAccountDiagnosticsRequest');
+    accountDiagnosticsCheck($methodStart !== false, 'must be able to locate the account-diagnostics method body for the source-level check below');
+    $nextMethodStart = strpos($pluginSource, 'public function', $methodStart + 1);
+    $methodBody = $nextMethodStart !== false
+        ? substr($pluginSource, $methodStart, $nextMethodStart - $methodStart)
+        : substr($pluginSource, $methodStart);
     accountDiagnosticsCheck(
-        !preg_match('/supportAccountDiagnosticsRequest.*?getUserVar\([\'"](email|username|userId|user_id)[\'"]\)/s', $pluginSource),
+        !preg_match('/getUserVar\([\'"](email|username|userId|user_id)[\'"]\)/', $methodBody),
         'the account-diagnostics endpoint must never read a caller-supplied email/username/userId — it diagnoses only the verified caller\'s own account'
     );
 

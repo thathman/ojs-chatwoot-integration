@@ -10,6 +10,8 @@ use LogicException;
 final class SupportSessionService
 {
     public const METHOD_AUTHENTICATED_SESSION = 'authenticated_session';
+    public const METHOD_EXTERNAL_PIN = 'external_pin';
+    public const METHOD_EXTERNAL_LINK = 'external_link';
     public const ASSURANCE_AUTHENTICATED_SESSION = 'v2';
 
     private Closure $clock;
@@ -109,6 +111,57 @@ final class SupportSessionService
             $now,
             $now + $this->idleTtlSeconds
         );
+    }
+
+    /**
+     * Establishes a normal V2 session directly from a just-consumed
+     * external verification challenge — deliberately not the same
+     * bootstrap-then-bind two-step dance bootstrapAuthenticated()/
+     * bindAuthenticatedBootstrap() use, since the Chatwoot conversation is
+     * already known (it was validated when the challenge was requested),
+     * so there is nothing left to separately "claim." Successful
+     * verification establishes V2, never V3 — resource-scoped assurance is
+     * still a separate step (submissionVerify) even if the verification
+     * purpose was submission-related (see docs/v2/ADRS.md ADR-005).
+     */
+    public function establishFromExternalVerification(
+        int $contextId,
+        int $userId,
+        string $method,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId
+    ): SupportSession {
+        $now = $this->now();
+        $this->repository->revokeActiveUnboundForUser($contextId, $userId, $now);
+
+        $publicId = bin2hex(random_bytes(16));
+        $absoluteExpiresAt = $now + $this->absoluteTtlSeconds;
+        $idleExpiresAt = min($now + $this->idleTtlSeconds, $absoluteExpiresAt);
+
+        $session = new SupportSession(
+            $publicId,
+            $contextId,
+            $userId,
+            $method,
+            self::ASSURANCE_AUTHENTICATED_SESSION,
+            null,
+            null,
+            null,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $now,
+            $now,
+            $idleExpiresAt,
+            $absoluteExpiresAt,
+            null
+        );
+
+        $this->repository->create($session);
+        $this->repository->revokeOthersForConversation($contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $publicId, $now);
+
+        return $session;
     }
 
     public function resolveConversation(

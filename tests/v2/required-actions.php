@@ -352,6 +352,7 @@ namespace {
         }
 
         public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
         public function purgeExpired(int $now): int { return 0; }
     }
 

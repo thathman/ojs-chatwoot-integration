@@ -17,6 +17,11 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Session\DatabaseSupportSe
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\DatabaseVerificationChallengeRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\PreparedChallenge;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationChallengeService;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationSecretHasher;
 
 final class SupportGatewayKernel
 {
@@ -27,7 +32,8 @@ final class SupportGatewayKernel
         private SubmissionRelationshipResolver $submissionRelationshipResolver,
         private CapabilityPolicyEngine $capabilityPolicyEngine,
         private AvailableActionMapper $availableActionMapper,
-        private SupportSessionService $supportSessionService
+        private SupportSessionService $supportSessionService,
+        private VerificationChallengeService $verificationChallengeService
     ) {
     }
 
@@ -43,7 +49,8 @@ final class SupportGatewayKernel
             new SubmissionRelationshipResolver(new OjsSubmissionRelationshipEvidenceProvider()),
             new CapabilityPolicyEngine(),
             new AvailableActionMapper(),
-            new SupportSessionService(new DatabaseSupportSessionRepository())
+            new SupportSessionService(new DatabaseSupportSessionRepository()),
+            new VerificationChallengeService(new DatabaseVerificationChallengeRepository(), new VerificationSecretHasher())
         );
     }
 
@@ -71,6 +78,8 @@ final class SupportGatewayKernel
     public function hasPaidPublicationFee(int $userId, int $submissionId): bool { return $this->adapter->hasPaidPublicationFee($userId, $submissionId); }
     public function getContext($request) { return $this->adapter->getContext($request); }
     public function getUserAccountFields(int $userId): array { return $this->adapter->getUserAccountFields($userId); }
+    public function getUserByEmail(string $email): ?object { return $this->adapter->getUserByEmail($email); }
+    public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string { return $this->adapter->getVerificationLinkUrl($request, $publicReference, $token); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
@@ -110,6 +119,54 @@ final class SupportGatewayKernel
             $chatwootAccountId,
             $chatwootContactId,
             $chatwootConversationId
+        );
+    }
+
+    public function requestVerificationChallenge(
+        int $contextId,
+        int $userId,
+        string $purpose,
+        string $method,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $pepper
+    ): ?PreparedChallenge {
+        return $this->verificationChallengeService->requestChallenge(
+            $contextId, $userId, $purpose, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $pepper
+        );
+    }
+
+    public function confirmVerificationPin(
+        string $publicReference,
+        string $pin,
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $purpose,
+        string $pepper
+    ): ChallengeAttemptOutcome {
+        return $this->verificationChallengeService->confirmPin(
+            $publicReference, $pin, $contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $purpose, $pepper
+        );
+    }
+
+    public function confirmVerificationLinkToken(string $publicReference, string $token, int $contextId): ChallengeAttemptOutcome
+    {
+        return $this->verificationChallengeService->confirmLinkToken($publicReference, $token, $contextId);
+    }
+
+    public function establishSupportSessionFromExternalVerification(
+        int $contextId,
+        int $userId,
+        string $method,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId
+    ): SupportSession {
+        return $this->supportSessionService->establishFromExternalVerification(
+            $contextId, $userId, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId
         );
     }
 }

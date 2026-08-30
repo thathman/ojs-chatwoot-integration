@@ -29,12 +29,18 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportG
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationChallenge;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailContentBuilder;
+use Illuminate\Support\Facades\Mail;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
@@ -468,6 +474,232 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             'duplicate' => $duplicate,
             'summary' => $summary,
         ], $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: requests an external
+     * PIN or secure-link verification challenge (ojs_request_verification
+     * in docs/v2/API_MCP_SPEC.md §7.1), for a user who has not reached V2
+     * through an authenticated OJS session (e.g. arriving via WhatsApp,
+     * email, or an external Chatwoot widget instance).
+     *
+     * The claimed `email` is a lookup key only, never identity. Regardless
+     * of whether the email exists, the account is disabled, mail cannot be
+     * sent, or the request is throttled, the public response is always the
+     * same generic shape — anti-enumeration is enforced structurally here,
+     * not by convention: every branch below falls through to the exact
+     * same `SupportApiResponse::success(['verificationRequested' => true])`
+     * call, and any failure along the way (lookup miss, rate limit,
+     * mail-send exception) is swallowed silently rather than surfaced.
+     *
+     * Successful verification establishes V2 only (see
+     * supportVerificationConfirmRequest) — never V3, even when `purpose`
+     * is submission-related; resource-scoped assurance is always a
+     * separate, later step.
+     */
+    public function supportVerificationRequestRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'verificationRequest');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $email = trim((string) $request->getUserVar('email'));
+        $purpose = trim((string) $request->getUserVar('purpose'));
+        if ($email === '' || !in_array($purpose, VerificationChallenge::PURPOSES, true)) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'email and a valid purpose are required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $method = trim((string) $request->getUserVar('method'));
+        $method = $method === VerificationChallenge::METHOD_LINK ? VerificationChallenge::METHOD_LINK : VerificationChallenge::METHOD_PIN;
+
+        $contextId = $result->identity()->contextId();
+        $chatwootAccountId = trim((string) $request->getUserVar('chatwootAccountId'));
+        $chatwootContactId = trim((string) $request->getUserVar('chatwootContactId'));
+        $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
+
+        try {
+            if ($chatwootAccountId !== '' && $chatwootContactId !== '' && $chatwootConversationId !== '') {
+                $bridge = $this->runtimeContextBridge();
+                $user = $bridge->getUserByEmail($email);
+
+                if ($user) {
+                    $pepper = $this->v2VerificationPepper($contextId);
+                    $prepared = $bridge->requestVerificationChallenge(
+                        $contextId,
+                        (int) $user->getId(),
+                        $purpose,
+                        $method,
+                        $chatwootAccountId,
+                        $chatwootContactId,
+                        $chatwootConversationId,
+                        $pepper
+                    );
+
+                    if ($prepared !== null) {
+                        $context = $bridge->getContext($request);
+                        if (is_object($context)) {
+                            $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : '';
+                            $ttlMinutes = max(1, (int) ceil(($prepared->challenge()->expiresAt() - time()) / 60));
+                            $subject = VerificationEmailContentBuilder::subject($journalName);
+
+                            $body = null;
+                            if ($prepared->challenge()->method() === VerificationChallenge::METHOD_LINK) {
+                                $url = $bridge->getVerificationLinkUrl($request, $prepared->challenge()->publicReference(), $prepared->plaintextSecret());
+                                if ($url !== null) {
+                                    $body = VerificationEmailContentBuilder::linkBody($journalName, $url, $ttlMinutes);
+                                }
+                            } else {
+                                $body = VerificationEmailContentBuilder::pinBody($journalName, $prepared->plaintextSecret(), $ttlMinutes);
+                            }
+
+                            if ($body !== null) {
+                                Mail::send(new SupportVerificationMailable($context, $user, $subject, $body));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // A mail-send (or any other) failure here must never change
+            // the public response — it would otherwise leak that an
+            // account genuinely exists.
+        }
+
+        SupportApiResponse::success(['verificationRequested' => true], $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: confirms a PIN
+     * against a previously requested challenge (ojs_confirm_verification
+     * in docs/v2/API_MCP_SPEC.md §7.2) and, on success, establishes a
+     * normal V2 support session bound to this exact conversation. Never
+     * returns the stored secret, and collapses every distinct failure
+     * reason (wrong PIN, expired, revoked, superseded, locked out, wrong
+     * conversation, wrong purpose, unknown reference) into the same
+     * generic `verified: false` — the secure-link confirmation path
+     * (verifyLinkRequest) is the browser-facing sibling of this endpoint.
+     */
+    public function supportVerificationConfirmRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'verificationConfirm');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $challengeReference = trim((string) $request->getUserVar('challenge'));
+        $purpose = trim((string) $request->getUserVar('purpose'));
+        $pin = trim((string) $request->getUserVar('pin'));
+        if ($challengeReference === '' || !in_array($purpose, VerificationChallenge::PURPOSES, true) || $pin === '') {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'challenge, purpose, and pin are required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $contextId = $result->identity()->contextId();
+        $chatwootAccountId = trim((string) $request->getUserVar('chatwootAccountId'));
+        $chatwootContactId = trim((string) $request->getUserVar('chatwootContactId'));
+        $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
+
+        $bridge = $this->runtimeContextBridge();
+        $pepper = $this->v2VerificationPepper($contextId);
+        $outcome = $bridge->confirmVerificationPin(
+            $challengeReference,
+            $pin,
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $purpose,
+            $pepper
+        );
+
+        if (!$outcome->isConsumed() || !$outcome->challenge()) {
+            SupportApiResponse::success(['verified' => false], $result->correlationId());
+        }
+
+        $challenge = $outcome->challenge();
+        $session = $bridge->establishSupportSessionFromExternalVerification(
+            $contextId,
+            $challenge->userId(),
+            SupportSessionService::METHOD_EXTERNAL_PIN,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId
+        );
+
+        SupportApiResponse::success([
+            'verified' => true,
+            'assurance' => $session ? $session->assuranceLevel() : SupportSessionService::ASSURANCE_AUTHENTICATED_SESSION,
+        ], $result->correlationId());
+    }
+
+    /**
+     * Browser-facing GET endpoint for the secure verification link
+     * (ojs_confirm_verification's link variant, docs/v2/API_MCP_SPEC.md
+     * §7.2) — deliberately not part of the service-authenticated Support
+     * API pipeline, since a browser cannot supply a Bearer token. Not
+     * CSRF-protected and not restricted to same-origin/the original
+     * browser session: the link may legitimately be opened on a different
+     * device than the one chatting, and its security comes entirely from
+     * the token's own entropy, single-use consumption, and the
+     * conversation binding already stored server-side on the challenge
+     * (see VerificationChallengeService::confirmLinkToken()) — never from
+     * requiring the "right" browser to click it.
+     *
+     * Always renders the same generic page shape on failure (expired,
+     * wrong journal, unknown reference, already used, etc.) — anti-
+     * enumeration applies to this browser-facing page exactly as it does
+     * to every JSON endpoint.
+     */
+    public function verifyLinkRequest($request): void
+    {
+        $challengeReference = trim((string) $request->getUserVar('challenge'));
+        $token = trim((string) $request->getUserVar('token'));
+        $context = $request->getContext();
+        $contextId = $context ? (int) $context->getId() : 0;
+
+        $verified = false;
+        if ($challengeReference !== '' && $token !== '' && $contextId > 0) {
+            $bridge = $this->runtimeContextBridge();
+            $outcome = $bridge->confirmVerificationLinkToken($challengeReference, $token, $contextId);
+
+            if ($outcome->isConsumed() && $outcome->challenge()) {
+                $challenge = $outcome->challenge();
+                $bridge->establishSupportSessionFromExternalVerification(
+                    $contextId,
+                    $challenge->userId(),
+                    SupportSessionService::METHOD_EXTERNAL_LINK,
+                    $challenge->chatwootAccountId(),
+                    $challenge->chatwootContactId(),
+                    $challenge->chatwootConversationId()
+                );
+                $verified = true;
+            }
+        }
+
+        header('Content-Type: text/html; charset=UTF-8');
+        echo $this->v2RenderVerificationLinkPage($verified);
+        exit;
+    }
+
+    private function v2RenderVerificationLinkPage(bool $verified): string
+    {
+        $heading = $verified ? 'Verification successful' : 'Verification link invalid or expired';
+        $message = $verified
+            ? 'You can return to your conversation.'
+            : 'This verification link is no longer valid. Please request a new one from the conversation.';
+
+        return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' . htmlspecialchars($heading, ENT_QUOTES, 'UTF-8') . '</title></head>'
+            . '<body><h1>' . htmlspecialchars($heading, ENT_QUOTES, 'UTF-8') . '</h1><p>' . htmlspecialchars($message, ENT_QUOTES, 'UTF-8') . '</p></body></html>';
     }
 
     /**
@@ -1405,6 +1637,22 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             return '';
         }
         return rtrim($url, '/');
+    }
+
+    /**
+     * Auto-generated once per journal, stored via the plugin's own
+     * settings (a different table from the verification challenge table
+     * itself) — used as the HMAC key for PIN hashing (see
+     * VerificationSecretHasher). Never returned in any API response.
+     */
+    private function v2VerificationPepper(int $contextId): string
+    {
+        $pepper = trim((string) $this->getSetting($contextId, 'chatwootVerificationPepper'));
+        if ($pepper === '') {
+            $pepper = bin2hex(random_bytes(32));
+            $this->updateSetting($contextId, 'chatwootVerificationPepper', $pepper, 'string');
+        }
+        return $pepper;
     }
 
     private function v2PositiveInt(mixed $value): ?int
