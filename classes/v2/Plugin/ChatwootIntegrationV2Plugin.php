@@ -27,6 +27,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -60,17 +62,6 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 {
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const SUPPORT_KNOWLEDGE_PAGE = 'support-knowledge';
-
-    /** Generated knowledge category => KnowledgeFact key prefix (docs/v2/KNOWLEDGE_DIAGNOSTICS.md §4). */
-    private const KNOWLEDGE_CATEGORIES = [
-        'about' => 'journal.',
-        'submissions' => 'submission.',
-        'review' => 'review.',
-        'fees' => 'fee.',
-        'publication' => 'publication.',
-        'pages' => 'officialPage.',
-        'policies' => 'policy.',
-    ];
     private const LEGACY_EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
         'chatwootSupportApiToken',
@@ -724,8 +715,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         $journalName = $context && method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : 'Journal';
 
         $navLinks = [];
-        foreach (array_keys(self::KNOWLEDGE_CATEGORIES) as $category) {
-            $navLinks[ucfirst($category)] = $this->v2KnowledgeCategoryUrl($request, $category);
+        foreach (KnowledgeRouteCatalog::categories() as $category) {
+            $navLinks[ucfirst($category)] = $this->v2KnowledgePageUrl($request, $category);
         }
 
         header('Content-Type: text/html; charset=UTF-8');
@@ -734,17 +725,18 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
     }
 
     /**
-     * One generated knowledge category page (about/submissions/review/policies).
-     * $category must be one of self::KNOWLEDGE_CATEGORIES's keys — an
-     * unrecognized category renders an empty-but-valid page rather than a
-     * fatal, since this is reached directly from a public URL.
+     * One generated knowledge category page (about/submissions/review/fees/
+     * publication/pages/accounts/policies — see KnowledgeRouteCatalog).
+     * $category must be one of KnowledgeRouteCatalog::CATEGORIES's keys —
+     * an unrecognized category renders an empty-but-valid page rather than
+     * a fatal, since this is reached directly from a public URL.
      */
     public function supportKnowledgeCategoryRequest($request, string $category): void
     {
         $context = $request->getContext();
         $journalName = $context && method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : 'Journal';
         $contextId = $context && method_exists($context, 'getId') ? (int) $context->getId() : 0;
-        $prefix = self::KNOWLEDGE_CATEGORIES[$category] ?? null;
+        $prefix = KnowledgeRouteCatalog::keyPrefixFor($category);
 
         $facts = [];
         $locale = (string) Locale::getLocale();
@@ -757,8 +749,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         }
 
         $navLinks = [];
-        foreach (array_keys(self::KNOWLEDGE_CATEGORIES) as $navCategory) {
-            $navLinks[ucfirst($navCategory)] = $this->v2KnowledgeCategoryUrl($request, $navCategory);
+        foreach (KnowledgeRouteCatalog::categories() as $navCategory) {
+            $navLinks[ucfirst($navCategory)] = $this->v2KnowledgePageUrl($request, $navCategory);
         }
 
         header('Content-Type: text/html; charset=UTF-8');
@@ -766,7 +758,26 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         exit;
     }
 
-    private function v2KnowledgeCategoryUrl($request, string $category): string
+    /**
+     * `/support-knowledge/sitemap.xml` — enumerates exactly the same
+     * KnowledgeRouteCatalog category list the root page links, plus the
+     * root itself. Never a Support API/verification/admin/submission URL:
+     * this method has no way to reach any of those in the first place.
+     */
+    public function supportKnowledgeSitemapRequest($request): void
+    {
+        $urls = [$this->v2KnowledgePageUrl($request, null)];
+        foreach (KnowledgeRouteCatalog::categories() as $category) {
+            $urls[] = $this->v2KnowledgePageUrl($request, $category);
+        }
+        $urls = array_values(array_filter($urls, static fn (string $url): bool => $url !== ''));
+
+        header('Content-Type: application/xml; charset=UTF-8');
+        echo KnowledgeSitemapRenderer::render($urls);
+        exit;
+    }
+
+    private function v2KnowledgePageUrl($request, ?string $category): string
     {
         try {
             $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;

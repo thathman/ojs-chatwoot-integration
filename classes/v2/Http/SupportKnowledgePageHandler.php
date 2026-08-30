@@ -56,6 +56,26 @@ final class SupportKnowledgePageHandler extends PageHandler
         $this->plugin->supportKnowledgeCategoryRequest($request, 'pages');
     }
 
+    public function accounts($args, $request): void
+    {
+        $this->plugin->supportKnowledgeCategoryRequest($request, 'accounts');
+    }
+
+    /**
+     * `/support-knowledge/sitemap` — deliberately not `sitemap.xml`: PKP's
+     * page/operation routing dispatches the URL's operation segment
+     * directly to a same-named PHP method, and `.` is not a legal PHP
+     * method-name character, so a literal `sitemap.xml` URL segment
+     * cannot map to any handler method. The `Content-Type: application/xml`
+     * response header (see ChatwootIntegrationV2Plugin::supportKnowledgeSitemapRequest())
+     * is what actually matters to a sitemap consumer — the URL itself is
+     * not required to end in `.xml`.
+     */
+    public function sitemap($args, $request): void
+    {
+        $this->plugin->supportKnowledgeSitemapRequest($request);
+    }
+
     public function policies($args, $request): void
     {
         $this->plugin->supportKnowledgeCategoryRequest($request, 'policies');
