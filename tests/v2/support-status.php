@@ -295,8 +295,8 @@ namespace {
     statusCheck(str_contains($handlerSource, 'function identity('), 'handler must register the identity operation');
     statusCheck(str_contains($handlerSource, 'function actions('), 'handler must register the actions operation');
     statusCheck(
-        substr_count($handlerSource, '$this->requirePost();') === 5,
-        'status/identity/actions/submissionVerify/submissions must all be POST-only'
+        substr_count($handlerSource, '$this->requirePost();') === 6,
+        'status/identity/actions/submissionVerify/submissions/submissionSupport must all be POST-only'
     );
     statusCheck(str_contains($handlerSource, "function bind(\$args, \$request): JSONMessage"), '/bind must keep the PKP JSONMessage transport for the browser handshake');
 

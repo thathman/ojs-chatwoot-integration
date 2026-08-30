@@ -13,6 +13,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportIdentitySerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\ChatwootConversationVerifier;
@@ -321,6 +322,85 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             : SubmissionVerificationSerializer::unverified($result, $actions);
 
         SupportApiResponse::success($data, $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: returns the actual
+     * support DTO for exactly one submission (ojs_get_submission_support
+     * in docs/v2/API_MCP_SPEC.md §7.5), gated on `submission.read_own_support_status`
+     * (V3 + author/reviewer relationship). Establishes its own request-time
+     * V3 assurance the same way submissionVerify() does — never trusts a
+     * caller-supplied assurance claim, and never persists V3 onto the
+     * conversation's support session.
+     *
+     * Deliberately narrow: normalized support state, one safe explanatory
+     * sentence, and capability-derived available actions only. Required
+     * actions (ojs_get_required_actions), publication detail
+     * (ojs_get_publication_status), and milestone dates are separate,
+     * not-yet-built endpoints — this one does not anticipate their shape.
+     */
+    public function supportSubmissionSupportRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'submissionSupport');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        if ($submissionId === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'submissionId is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $relationship = null;
+        $submission = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        if (!$relationship || !$decision || !$decision->allows('submission.read_own_support_status')) {
+            // Fail safely into the same generic shape whether the submission
+            // doesn't exist, belongs to another journal, has no relationship
+            // to this identity, or the conversation never reached V2 — never
+            // distinguishable from each other.
+            SupportApiResponse::success(SubmissionSupportSerializer::unverified($result, $actions), $result->correlationId());
+        }
+
+        $stateFields = $bridge->getSubmissionStateFields($submission);
+        $supportState = SupportStateMapper::map(
+            $stateFields['status'],
+            $stateFields['stageId'],
+            $stateFields['reviewRoundStatus'],
+            $stateFields['submissionProgress']
+        );
+
+        SupportApiResponse::success(SubmissionSupportSerializer::verified(
+            $relationship,
+            $bridge->getSubmissionTitle($submission),
+            $supportState,
+            SupportStateMapper::explain($supportState),
+            $actions
+        ), $result->correlationId());
     }
 
     /**

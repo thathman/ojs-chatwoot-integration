@@ -85,4 +85,27 @@ final class SupportStateMapper
 
         return 'unknown';
     }
+
+    /**
+     * One safe, generic sentence per normalized state — never mentions
+     * reviewer identities, internal discussions, or anything beyond what a
+     * support conversation may say to the submission's own author/reviewer.
+     * "unknown" (including any future state this class doesn't recognize
+     * yet) gets a deliberately vague fallback rather than a guess.
+     */
+    public static function explain(string $state): string
+    {
+        return match ($state) {
+            'draft' => 'This submission has not been completed yet — it is still in progress in the submission wizard.',
+            'submitted' => 'This submission has been received and is awaiting an editorial decision on next steps.',
+            'review_in_progress' => 'This submission is currently under review.',
+            'revision_requested' => 'The editors have requested revisions for this submission.',
+            'copyediting_in_progress' => 'This submission has been accepted and is in copyediting.',
+            'production_in_progress' => 'This submission is in production, being prepared for publication.',
+            'published' => 'This submission has been published.',
+            'declined' => 'A decision has been made not to proceed with this submission.',
+            'scheduled_for_publication' => 'This submission has been scheduled for an upcoming publication.',
+            default => 'The current status of this submission could not be determined safely.',
+        };
+    }
 }

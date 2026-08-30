@@ -106,7 +106,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [ ] **API-007** Implement REST rate limits. — best-effort fixed-window limiter (`RateLimiter`) exists and is wired in, but fails open without APCu and is per-worker only; not yet a real cross-worker ceiling.
 - [x] **API-008** `ojs_get_support_identity`. — `POST /ojsSupportGateway/identity`, sanitized via `SupportIdentitySerializer` (no email, no raw relationship evidence, no raw OJS object).
 - [x] **API-009** `ojs_list_my_submissions`. — `POST /ojsSupportGateway/submissions`, gated on `submission.list_own`, candidates from the OJS-native submission collector filtered through `SubmissionRelationshipResolver`. No milestone/date field yet.
-- [ ] **API-010** `ojs_get_submission_support`.
+- [x] **API-010** `ojs_get_submission_support`. — `POST /ojsSupportGateway/submissionSupport`, establishes its own request-time V3 the same way `submissionVerify` does, gated on `submission.read_own_support_status`. Returns normalized support state, one safe explanatory sentence (`SupportStateMapper::explain()`), title, relationships, and capability-derived actions. Required actions, publication detail, and milestone dates are separate not-yet-built endpoints (API-011/API-012/API-013) — this one does not anticipate their shape.
 - [ ] **API-011** `ojs_get_required_actions`.
 - [ ] **API-012** `ojs_get_payment_status`.
 - [ ] **API-013** `ojs_get_publication_status`.

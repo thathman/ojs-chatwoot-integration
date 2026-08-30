@@ -142,7 +142,9 @@ Fields should be sufficient for conversational selection:
 
 V3 resource relationship required.
 
-**As actually implemented:** the V3 establishment step itself now exists as `POST /ojsSupportGateway/submissionVerify` (input: the conversation tuple + `submissionId`; see docs/v2/ADRS.md for why this stays deliberately narrow). It returns only relationship/capability state — `verified`, `resourceVerified`, `assurance`, `resource {type,id}`, `relationships[]`, `availableActions[]` — never submission content. `ojs_get_submission_support` below is a distinct, not-yet-built endpoint that would consume an already-V3-verified request to return the actual support DTO described here.
+**As actually implemented:** the V3 establishment step itself exists as `POST /ojsSupportGateway/submissionVerify` (input: the conversation tuple + `submissionId`; see docs/v2/ADRS.md for why this stays deliberately narrow). It returns only relationship/capability state — `verified`, `resourceVerified`, `assurance`, `resource {type,id}`, `relationships[]`, `availableActions[]` — never submission content.
+
+The actual support DTO now exists as a separate endpoint, `POST /ojsSupportGateway/submissionSupport`, gated on `submission.read_own_support_status` (V3 + author/reviewer relationship). It establishes its own request-time V3 the same way `submissionVerify` does — it does not consume or trust a prior `submissionVerify` call's result, since V3 is never persisted. Returns `title`, `relationships`, `supportState` (via `SupportStateMapper::map()`), `workflowExplanation` (one safe generic sentence per state, via `SupportStateMapper::explain()` — never mentions reviewer identities or internal discussions), and `availableActions`. Deliberately does not include required-action detail, publication detail, or milestone dates — those are `ojs_get_required_actions` (§7.6), `ojs_get_publication_status` (§7.8), and a not-yet-built milestone field respectively.
 
 V3 is a request-time-only decision, computed fresh for each submission on each call — it is never persisted onto the conversation's support session, so verifying one submission never grants blanket access to another.
 
