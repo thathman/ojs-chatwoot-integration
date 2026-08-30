@@ -52,6 +52,17 @@ final class SupportGatewayKernel
     public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext { return $this->contextResolver->resolveForUser($request, $userId, $locale); }
     public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship { return $this->submissionRelationshipResolver->resolve($context, $submission); }
     public function loadSubmission(int $submissionId) { return $this->adapter->getSubmissionById($submissionId); }
+
+    /** @return array<int,mixed> */
+    public function listCandidateSubmissions(int $contextId, int $userId, int $candidateCap): array
+    {
+        return $this->adapter->listCandidateSubmissions($contextId, $userId, $candidateCap);
+    }
+
+    public function getSubmissionTitle($submission): string { return $this->adapter->getSubmissionTitle($submission); }
+
+    /** @return array{status:?int,stageId:?int} */
+    public function getSubmissionStateFields($submission): array { return $this->adapter->getSubmissionStateFields($submission); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }

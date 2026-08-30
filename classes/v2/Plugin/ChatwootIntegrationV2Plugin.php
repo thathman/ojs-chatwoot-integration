@@ -6,6 +6,8 @@ use APP\core\Application;
 use APP\plugins\generic\chatwootIntegration\ChatwootApiService;
 use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationPlugin;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaginationParams;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionListSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiErrorCode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
@@ -23,6 +25,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
 use PKP\facades\Locale;
 use PKP\plugins\Hook;
@@ -318,6 +321,109 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             : SubmissionVerificationSerializer::unverified($result, $actions);
 
         SupportApiResponse::success($data, $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: lets a verified V2
+     * identity discover which submissions they have an actual author or
+     * reviewer relationship to, so Captain never has to guess a submission
+     * ID or ask the user for a manuscript number.
+     *
+     * A broad, safe OJS-native "any stage/review assignment" query supplies
+     * only *candidates* (see RuntimeContextBridge::listCandidateSubmissions);
+     * candidate membership is never treated as authorization. Every
+     * candidate is independently re-checked through the same resource
+     * relationship resolver submissionVerify() uses, and only
+     * author/reviewer results survive — editorial-only relationships are
+     * excluded from this baseline. Listing never upgrades the conversation
+     * past its existing V2 identity; each submission's own request-time V3
+     * assurance still has to be established separately via
+     * submissionVerify() before any submission-specific detail is returned.
+     */
+    public function supportSubmissionListRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'submissions');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $pagination = PaginationParams::parse(
+            $request->getUserVar('limit'),
+            $request->getUserVar('offset')
+        );
+        if ($pagination === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'limit/offset are invalid.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        if (!$result->verified()) {
+            SupportApiResponse::success(SubmissionListSerializer::unverified($result), $result->correlationId());
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $listDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $result->assurance(),
+            $result->identity()
+        ));
+        if (!$listDecision || !$listDecision->allows('submission.list_own')) {
+            // Fail safely: same shape as an empty result, not a distinct
+            // error — a denied capability must not be distinguishable from
+            // "verified, but genuinely has nothing to list".
+            SupportApiResponse::success(SubmissionListSerializer::unverified($result), $result->correlationId());
+        }
+
+        // ponytail: fixed candidate cap rather than true DB-level pagination,
+        // because relationship filtering happens *after* the OJS query and
+        // can legitimately drop rows (e.g. editorial-only candidates), so
+        // DB-level limit/offset cannot be trusted to line up with the final
+        // authorized list. Upgrade to a persisted relationship index if a
+        // journal ever has more than this many stage/review assignments for
+        // one user.
+        $candidateCap = 200;
+        $candidates = $bridge->listCandidateSubmissions($result->identity()->contextId(), $result->identity()->userId() ?? 0, $candidateCap);
+
+        $entries = [];
+        $seenSubmissionIds = [];
+        foreach ($candidates as $submission) {
+            $relationship = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+            if (!$relationship || $relationship->isEmpty()) {
+                continue;
+            }
+            if (!$relationship->has('author') && !$relationship->has('reviewer')) {
+                continue; // editorial-only relationships are out of scope for this baseline
+            }
+            // Defense in depth: OJS's own candidate query should already
+            // return distinct submissions, but never trust that alone.
+            if (isset($seenSubmissionIds[$relationship->resourceId()])) {
+                continue;
+            }
+            $seenSubmissionIds[$relationship->resourceId()] = true;
+
+            $stateFields = $bridge->getSubmissionStateFields($submission);
+            $entries[] = [
+                'relationship' => $relationship,
+                'title' => $bridge->getSubmissionTitle($submission),
+                'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId']),
+                // Unknown-safe by design: this slice has no reliable, safe
+                // way to prove an action is (or isn't) required from
+                // status/stageId alone. Returning false would be a guess.
+                'actionRequired' => null,
+            ];
+        }
+
+        $total = count($entries);
+        $page = array_slice($entries, $pagination->offset, $pagination->limit);
+        $hasMore = ($pagination->offset + count($page)) < $total;
+
+        SupportApiResponse::success(
+            SubmissionListSerializer::verified($result, $page, $pagination, $hasMore),
+            $result->correlationId()
+        );
     }
 
     /**
