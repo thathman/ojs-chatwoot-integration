@@ -209,5 +209,38 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array{doi:?string,issueId:?int} */
+    public function getPublicationFields($submission): array
+    {
+        $fallback = ['doi' => null, 'issueId' => null];
+        if (!$this->kernel) return $fallback;
+        try {
+            return $this->kernel->getPublicationFields($submission);
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
+    /** @return array{volume:?int,number:?int,year:?int,published:bool}|null */
+    public function getIssueInfo(int $issueId): ?array
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->getIssueInfo($issueId);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function getPublicSubmissionUrl($request, $submission): ?string
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->getPublicSubmissionUrl($request, $submission);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

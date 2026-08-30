@@ -94,6 +94,18 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportRequiredActionsRequest($request);
     }
 
+    /**
+     * Conceptually ojs_get_publication_status in docs/v2/API_MCP_SPEC.md
+     * §7.8; implemented as a single operation segment (publicationStatus)
+     * for the same reason submissionVerify/submissionSupport/requiredActions
+     * are, above.
+     */
+    public function publicationStatus($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportPublicationStatusRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {

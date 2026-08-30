@@ -13,6 +13,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PublicationStatusSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\RequiredActionsSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
@@ -482,6 +483,102 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 
         SupportApiResponse::success(
             RequiredActionsSerializer::verified($relationship, $requiredActions, $actions),
+            $result->correlationId()
+        );
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: returns safe
+     * publication/issue/DOI/public-URL information for exactly one
+     * submission (ojs_get_publication_status in docs/v2/API_MCP_SPEC.md
+     * §7.8), gated on `submission.read_own_publication_status` (V3 +
+     * author/reviewer relationship). Establishes its own request-time V3
+     * the same way the other submission-scoped endpoints do.
+     *
+     * Deliberately conservative: `doi`/`publicUrl`/`issue` are only ever
+     * populated when the submission's own normalized support state is
+     * exactly `published` or `scheduled_for_publication` (via the same
+     * SupportStateMapper every other endpoint uses) — every other state
+     * returns `status: 'not_yet_published'` with no other fields, since
+     * this codebase has no evidence those identifiers even exist yet.
+     * `publicUrl` is further restricted to `published` only:
+     * `scheduled_for_publication` means the article is not yet visible to
+     * the public, so a URL would point at nothing.
+     */
+    public function supportPublicationStatusRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'publicationStatus');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        if ($submissionId === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'submissionId is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $relationship = null;
+        $submission = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        if (!$relationship || !$decision || !$decision->allows('submission.read_own_publication_status')) {
+            SupportApiResponse::success(PublicationStatusSerializer::unverified($result, $actions), $result->correlationId());
+        }
+
+        $stateFields = $bridge->getSubmissionStateFields($submission);
+        $supportState = SupportStateMapper::map(
+            $stateFields['status'],
+            $stateFields['stageId'],
+            $stateFields['reviewRoundStatus'],
+            $stateFields['submissionProgress']
+        );
+
+        if ($supportState !== 'published' && $supportState !== 'scheduled_for_publication') {
+            SupportApiResponse::success(
+                PublicationStatusSerializer::verified($relationship, 'not_yet_published', null, null, null, $actions),
+                $result->correlationId()
+            );
+        }
+
+        $publicationFields = $bridge->getPublicationFields($submission);
+        $issue = null;
+        if ($publicationFields['issueId'] !== null) {
+            $issueInfo = $bridge->getIssueInfo($publicationFields['issueId']);
+            if ($issueInfo !== null && $issueInfo['published']) {
+                $issue = [
+                    'volume' => $issueInfo['volume'],
+                    'number' => $issueInfo['number'],
+                    'year' => $issueInfo['year'],
+                ];
+            }
+        }
+        $publicUrl = $supportState === 'published' ? $bridge->getPublicSubmissionUrl($request, $submission) : null;
+
+        SupportApiResponse::success(
+            PublicationStatusSerializer::verified($relationship, $supportState, $publicationFields['doi'], $publicUrl, $issue, $actions),
             $result->correlationId()
         );
     }
