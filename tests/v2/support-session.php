@@ -95,6 +95,25 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
         }
     }
 
+    public function revokeOthersForConversation(
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $exceptPublicId,
+        int $now
+    ): void {
+        foreach ($this->sessions as $publicId => $session) {
+            if (
+                $publicId !== $exceptPublicId
+                && $session->matchesConversationBinding($contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId)
+                && !$session->isRevoked()
+            ) {
+                $this->sessions[$publicId] = $session->revoked($now);
+            }
+        }
+    }
+
     public function purgeExpired(int $now): int
     {
         $count = 0;

@@ -48,24 +48,26 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## IDN — Identity & Verification
 
-- [ ] **IDN-001** Define verification assurance levels and data types.
-- [ ] **IDN-002** Create verification challenge migration/repository.
-- [ ] **IDN-003** Create support session migration/repository.
-- [ ] **IDN-004** Prototype secure OJS-session ↔ Chatwoot conversation binding.
-- [ ] **IDN-005** Write ADR selecting authenticated-session handshake.
+Reconciled 2026-08-30: several boxes below were stale (unchecked despite being shipped in earlier PRs, well before external PIN/link verification started). Do not reimplement these.
+
+- [x] **IDN-001** Define verification assurance levels and data types. — V0-V4 (`CapabilityRequest::ASSURANCE_LEVELS`, `SupportSession::assuranceLevel()`), used throughout the capability engine since the first PRs.
+- [x] **IDN-002** Create verification challenge migration/repository. — `InstallSupportGatewayMigration::CHALLENGE_TABLE` + `DatabaseVerificationChallengeRepository`/`VerificationChallengeRepositoryInterface`. One shared table/model for both PIN and secure-link challenges (see ADR-005) — never two verification systems.
+- [x] **IDN-003** Create support session migration/repository. — `InstallSupportGatewayMigration` + `DatabaseSupportSessionRepository`/`SupportSessionRepositoryInterface`, shipped with the earliest identity PRs.
+- [x] **IDN-004** Prototype secure OJS-session ↔ Chatwoot conversation binding. — the `/bind` flow + `ChatwootConversationVerifier`, shipped with the earliest identity PRs.
+- [x] **IDN-005** Write ADR selecting authenticated-session handshake. — `docs/v2/ADRS.md` ADR-005 "Adaptive verification".
 - [x] **IDN-006** Implement logged-in OJS silent V2 identity path. — authenticated OJS session bootstraps a V2 support session with no PIN/email step (`SupportSessionService::bootstrapAuthenticated`).
-- [ ] **IDN-007** Implement OJS verification-code Mailable/template.
-- [ ] **IDN-008** Implement verification request endpoint.
-- [ ] **IDN-009** Implement verification confirm endpoint.
-- [ ] **IDN-010** Implement secure verification link.
-- [ ] **IDN-011** Store only challenge secret hash.
-- [ ] **IDN-012** Implement single-use/expiry/revocation.
-- [ ] **IDN-013** Implement resend invalidation/cooldown.
-- [ ] **IDN-014** Implement attempt lockout/rate limits.
-- [ ] **IDN-015** Implement anti-enumeration response/timing tests.
-- [ ] **IDN-016** Implement support-session idle/absolute expiry.
-- [ ] **IDN-017** Implement session revocation/cleanup task.
-- [ ] **IDN-018** Implement conversation/context binding checks.
+- [x] **IDN-007** Implement OJS verification-code Mailable/template. — `SupportVerificationMailable` (extends PKP `Mailable`, sent via `Mail::send()` — real journal SMTP transport, not a bespoke mail stack). Deliberately does not use the full admin-configurable EmailTemplate framework yet (fixed, localizable-in-code content via `VerificationEmailContentBuilder` instead) — a scope decision, not an oversight; a future slice could register a real EmailTemplate row for Journal Setup > Emails customization.
+- [x] **IDN-008** Implement verification request endpoint. — `POST /ojsSupportGateway/verificationRequest`.
+- [x] **IDN-009** Implement verification confirm endpoint. — `POST /ojsSupportGateway/verificationConfirm` (PIN) + `GET /ojsSupportGateway/verify` (secure link, browser-facing).
+- [x] **IDN-010** Implement secure verification link. — shares the same challenge engine as PIN (`VerificationChallengeService::confirmLinkToken()`); binds via the challenge's own server-side stored conversation tuple, since a browser opening the link cannot supply one.
+- [x] **IDN-011** Store only challenge secret hash. — PIN: HMAC-SHA256 keyed by a per-journal pepper never stored in the challenge table (`chatwootVerificationPepper` plugin setting). Link: SHA-256 of a 256-bit token (already appropriate given the token's own entropy). See `VerificationSecretHasher`'s docblock for the reasoning.
+- [x] **IDN-012** Implement single-use/expiry/revocation. — `VerificationChallenge::isConsumed()/isExpired()/isRevoked()`, enforced atomically in `DatabaseVerificationChallengeRepository::attemptConsume()` (single transaction, row-locked, consume guarded by a `WHERE consumed_at IS NULL` + affected-row-count check — a simultaneous replay can only produce one success). No public admin action to revoke a challenge exists yet (only supersession via resend); the state check itself is implemented and tested.
+- [x] **IDN-013** Implement resend invalidation/cooldown. — `VerificationChallengeService::requestChallenge()`: a fresh valid request supersedes the prior unconsumed challenge for the same context+conversation+purpose; a cooldown (default 60s) silently throttles an immediate resend.
+- [x] **IDN-014** Implement attempt lockout/rate limits. — per-challenge attempt lockout (default 5, configurable), plus rolling per-conversation and per-identity request limits (default 5 per hour each) — all enforced in `VerificationChallengeService`, all fail silently into the same generic response (never revealed to the caller).
+- [ ] **IDN-015** Implement anti-enumeration response/timing tests. — partial: response-content anti-enumeration is implemented and tested (nonexistent email, disabled account, throttling, and mail failure all produce the identical `{verificationRequested:true}` response, verified by a source-level check that the endpoint has exactly one success call site). Response-*timing* is not equalized — no artificial delay is added to the "no matching user" path, so a sufficiently precise timing side-channel is not defended against. Documented as a known gap, not fixed here.
+- [x] **IDN-016** Implement support-session idle/absolute expiry. — `SupportSession::idleExpiresAt()`/`absoluteExpiresAt()`, enforced in `SupportApiRequestResolver`, shipped with the earliest identity PRs.
+- [ ] **IDN-017** Implement session revocation/cleanup task. — partial: `revokeActiveUnboundForUser()` is wired into `SupportSessionService::bootstrapAuthenticated` (a fresh authenticated bootstrap revokes the user's own stale unbound sessions) and `purgeExpired()` exists on the repository, but no scheduled task ever calls `purgeExpired()` — expired rows are never actually swept.
+- [x] **IDN-018** Implement conversation/context binding checks. — `SupportSession::matchesConversationBinding()` / `findByConversationBinding()`, shipped with the earliest identity PRs.
 - [ ] **IDN-019** Audit verification lifecycle.
 
 ## REL — Relationship Resolver
