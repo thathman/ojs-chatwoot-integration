@@ -70,6 +70,7 @@ final class SupportGatewayKernel
     public function getPaymentFeeInfo($context): array { return $this->adapter->getPaymentFeeInfo($context); }
     public function hasPaidPublicationFee(int $userId, int $submissionId): bool { return $this->adapter->hasPaidPublicationFee($userId, $submissionId); }
     public function getContext($request) { return $this->adapter->getContext($request); }
+    public function getUserAccountFields(int $userId): array { return $this->adapter->getUserAccountFields($userId); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }

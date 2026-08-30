@@ -13,6 +13,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\DiagnosticResultSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaymentStatusSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PublicationStatusSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\RequiredActionsSerializer;
@@ -29,6 +30,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
@@ -266,6 +268,55 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             'availableActions' => $decision ? $bridge->availableActions($decision) : [],
             'disabledActions' => $decision ? $bridge->disabledActions($decision) : [],
         ], $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: privacy-preserving
+     * account/login diagnostic (ojs_diagnose_account in
+     * docs/v2/API_MCP_SPEC.md §7.9), gated on `account.diagnose_own` (V2).
+     *
+     * Deliberately scoped to the currently V2-authenticated identity's own
+     * account only — `scope` selects which deterministic check to run, but
+     * there is no user/email/username parameter. This must never become an
+     * arbitrary account lookup endpoint; Captain cannot ask "diagnose user
+     * X", only "diagnose me". See AccountDiagnosticEngine for exactly what
+     * each scope can and cannot prove — most scopes correctly return
+     * `unknown` rather than guessing, since this codebase has no visibility
+     * into email delivery, login-attempt history, or password state.
+     */
+    public function supportAccountDiagnosticsRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'accountDiagnostics');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $scope = trim((string) $request->getUserVar('scope'));
+        if (!in_array($scope, AccountDiagnosticEngine::SCOPES, true)) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'scope must be one of: ' . implode(', ', AccountDiagnosticEngine::SCOPES),
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $result->assurance(),
+            $result->identity()
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        if (!$decision || !$decision->allows('account.diagnose_own')) {
+            SupportApiResponse::success(DiagnosticResultSerializer::unverified($result, $actions), $result->correlationId());
+        }
+
+        $accountFields = $bridge->getUserAccountFields($result->identity()->userId() ?? 0);
+        $diagnosis = AccountDiagnosticEngine::diagnose($scope, $accountFields['disabled'], $accountFields['dateValidated']);
+
+        SupportApiResponse::success(DiagnosticResultSerializer::verified($diagnosis, $actions), $result->correlationId());
     }
 
     /**

@@ -274,5 +274,17 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array{disabled:?bool,dateValidated:?string} */
+    public function getUserAccountFields(int $userId): array
+    {
+        $fallback = ['disabled' => null, 'dateValidated' => null];
+        if (!$this->kernel) return $fallback;
+        try {
+            return $this->kernel->getUserAccountFields($userId);
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

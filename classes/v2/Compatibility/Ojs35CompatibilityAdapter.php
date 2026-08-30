@@ -372,4 +372,31 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             return false;
         }
     }
+
+    /**
+     * Verified against pkp-lib stable-3_5_0 classes/user/User.php
+     * (getDisabled()/getDateValidated()). Never reads getDisabledReason() —
+     * that is free-form admin-entered text, unsafe to surface.
+     *
+     * @return array{disabled:?bool,dateValidated:?string}
+     */
+    public function getUserAccountFields(int $userId): array
+    {
+        $fallback = ['disabled' => null, 'dateValidated' => null];
+        $user = $this->getUserById($userId);
+        if (!is_object($user)) {
+            return $fallback;
+        }
+
+        try {
+            $disabled = method_exists($user, 'getDisabled') ? $user->getDisabled() : null;
+            $dateValidated = method_exists($user, 'getDateValidated') ? $user->getDateValidated() : null;
+            return [
+                'disabled' => is_bool($disabled) ? $disabled : ($disabled === null ? null : (bool) $disabled),
+                'dateValidated' => is_string($dateValidated) && $dateValidated !== '' ? $dateValidated : null,
+            ];
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
 }
