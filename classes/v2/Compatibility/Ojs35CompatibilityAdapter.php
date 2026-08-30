@@ -318,4 +318,58 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             ? trim((string) $request->getRequestedOp())
             : '';
     }
+
+    /**
+     * Reads the same fields OJS's own OJSPaymentManager reads (publicationEnabled(),
+     * isConfigured()) rather than re-deriving them — a configured payment
+     * gateway plugin AND a positive publicationFee AND paymentsEnabled must
+     * all be true, verified against pkp-lib/ojs stable-3_5_0
+     * classes/payment/ojs/OJSPaymentManager.php. amount/currency are only
+     * ever non-null when the fee is actually enabled.
+     *
+     * @return array{enabled:bool,amount:?float,currency:?string}
+     */
+    public function getPaymentFeeInfo($context): array
+    {
+        if (!is_object($context) || !class_exists('\APP\payment\ojs\OJSPaymentManager')) {
+            return ['enabled' => false, 'amount' => null, 'currency' => null];
+        }
+
+        try {
+            $paymentManager = new \APP\payment\ojs\OJSPaymentManager($context);
+            $enabled = $paymentManager->isConfigured() && $paymentManager->publicationEnabled();
+            if (!$enabled) {
+                return ['enabled' => false, 'amount' => null, 'currency' => null];
+            }
+            $amount = $context->getData('publicationFee');
+            $currency = $context->getData('currency');
+            return [
+                'enabled' => true,
+                'amount' => is_numeric($amount) ? (float) $amount : null,
+                'currency' => is_string($currency) && $currency !== '' ? $currency : null,
+            ];
+        } catch (\Throwable $e) {
+            return ['enabled' => false, 'amount' => null, 'currency' => null];
+        }
+    }
+
+    /**
+     * Verified against pkp-lib/ojs stable-3_5_0
+     * classes/payment/ojs/OJSCompletedPaymentDAO.php hasPaidPublication() —
+     * looks for a completed PAYMENT_TYPE_PUBLICATION payment for this
+     * user+submission. Never re-derives payment-completion logic itself.
+     */
+    public function hasPaidPublicationFee(int $userId, int $submissionId): bool
+    {
+        if ($userId <= 0 || $submissionId <= 0 || !class_exists('\PKP\db\DAORegistry')) {
+            return false;
+        }
+
+        try {
+            $dao = \PKP\db\DAORegistry::getDAO('OJSCompletedPaymentDAO');
+            return (bool) $dao->hasPaidPublication($userId, $submissionId);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
 }

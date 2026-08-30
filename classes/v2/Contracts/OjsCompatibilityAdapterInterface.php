@@ -40,6 +40,11 @@ interface OjsCompatibilityAdapterInterface
 
     public function getPublicSubmissionUrl($request, $submission): ?string;
 
+    /** @return array{enabled:bool,amount:?float,currency:?string} */
+    public function getPaymentFeeInfo($context): array;
+
+    public function hasPaidPublicationFee(int $userId, int $submissionId): bool;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }
