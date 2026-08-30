@@ -20,12 +20,20 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\State;
  * (resubmit-for-review, pending recommendations, etc.) still fall back to
  * "review_in_progress" rather than guessing a finer distinction.
  *
+ * "draft" is now supported: verified against pkp-lib stable-3_5_0
+ * (classes/submission/Repository.php `add()`/`submit()`, and the API's
+ * PKPSubmissionController::add(), which creates the author's
+ * StageAssignment immediately at submission creation — before the wizard
+ * completes). A draft is therefore already reachable through the same
+ * assignedTo()-based candidate discovery this endpoint uses; the earlier
+ * assumption that it wasn't was wrong and is corrected here. The signal
+ * is `submissionProgress`: OJS sets it to a non-empty wizard-step value on
+ * creation and clears it to '' in `submit()` at the exact moment a
+ * submission is genuinely complete — checked first, ahead of status/stageId,
+ * since a submission mid-wizard already carries STATUS_QUEUED + stage
+ * SUBMISSION, which would otherwise be indistinguishable from "submitted".
+ *
  * Still deliberately dropped from this slice:
- * - "draft" (an incomplete, still-in-wizard submission) — OJS 3.5 tracks
- *   this via `submissionProgress`, but a draft has no stage assignment yet,
- *   so it is not even reachable through the relationship-based candidate
- *   discovery this endpoint uses. Supporting it needs a separate candidate
- *   discovery path, not just a mapper change.
  * - "revision_received" — requires revision-file evidence this slice does
  *   not read.
  */
@@ -47,8 +55,12 @@ final class SupportStateMapper
     // Verified against pkp-lib stable-3_5_0 classes/submission/reviewRound/ReviewRound.php
     private const REVIEW_ROUND_STATUS_REVISIONS_REQUESTED = 1;
 
-    public static function map(?int $status, ?int $stageId, ?int $reviewRoundStatus = null): string
+    public static function map(?int $status, ?int $stageId, ?int $reviewRoundStatus = null, ?string $submissionProgress = null): string
     {
+        if ($submissionProgress !== null && $submissionProgress !== '') {
+            return 'draft';
+        }
+
         if ($status === self::STATUS_DECLINED) {
             return 'declined';
         }

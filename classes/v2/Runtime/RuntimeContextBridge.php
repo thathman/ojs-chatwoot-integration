@@ -189,11 +189,12 @@ final class RuntimeContextBridge
     /** @return array{status:?int,stageId:?int} */
     public function getSubmissionStateFields($submission): array
     {
-        if (!$this->kernel) return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null];
+        $fallback = ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null, 'submissionProgress' => null];
+        if (!$this->kernel) return $fallback;
         try {
             return $this->kernel->getSubmissionStateFields($submission);
         } catch (\Throwable $e) {
-            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null];
+            return $fallback;
         }
     }
 

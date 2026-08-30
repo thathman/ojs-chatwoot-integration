@@ -27,7 +27,7 @@ interface OjsCompatibilityAdapterInterface
     /** Never throws; returns '' if a title genuinely cannot be determined. */
     public function getSubmissionTitle($submission): string;
 
-    /** @return array{status:?int,stageId:?int,reviewRoundStatus:?int} */
+    /** @return array{status:?int,stageId:?int,reviewRoundStatus:?int,submissionProgress:?string} */
     public function getSubmissionStateFields($submission): array;
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
