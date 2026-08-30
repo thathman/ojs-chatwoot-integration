@@ -29,6 +29,9 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePage
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainDocumentProvisioner;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\DatabaseSupportKnowledgeSyncRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -788,6 +791,59 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             return (string) $dispatcher->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), self::SUPPORT_KNOWLEDGE_PAGE, $category);
         } catch (\Throwable $e) {
             return '';
+        }
+    }
+
+    /**
+     * Idempotent Captain Document provisioning (docs/v2/KNOWLEDGE_DIAGNOSTICS.md
+     * §6, CaptainDocumentProvisioner). Not yet wired to any route or
+     * scheduled task — there is no admin settings UI (Phase 13) or cron
+     * lifecycle (the same gap `purgeExpired()` has — see TASKLIST.md
+     * IDN-017) to trigger it from yet. Exists so the provisioning logic
+     * itself is real, tested, and callable the moment either exists,
+     * rather than inventing UI/cron infrastructure this PR doesn't need.
+     *
+     * Requires `chatwootBaseUrl`/`chatwootApiAccessToken` (already used
+     * elsewhere in this plugin) plus a new `chatwootCaptainAssistantId`
+     * setting; returns null (never a fatal) when any is unset, or when
+     * the Chatwoot API/Captain feature is unreachable — Captain is an
+     * Enterprise-Edition-gated feature in self-hosted Chatwoot and must
+     * degrade like any other optional integration.
+     */
+    public function provisionCaptainKnowledgeDocument($request): ?CaptainSyncResult
+    {
+        $context = $request->getContext();
+        if (!$context || !method_exists($context, 'getId')) {
+            return null;
+        }
+        $contextId = (int) $context->getId();
+
+        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+        $assistantId = (int) $this->v2EffectiveSetting($contextId, 'chatwootCaptainAssistantId', 0);
+        if ($baseUrl === '' || $apiToken === '' || $assistantId <= 0) {
+            return null;
+        }
+
+        $knowledgeRootUrl = $this->v2KnowledgePageUrl($request, null);
+        if ($knowledgeRootUrl === '') {
+            return null;
+        }
+
+        $locale = (string) Locale::getLocale();
+        $compilation = $this->runtimeContextBridge()->compileKnowledge($context, $request, $contextId, $locale);
+        if (!$compilation) {
+            return null;
+        }
+
+        $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : 'Journal';
+
+        try {
+            $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+            $provisioner = new CaptainDocumentProvisioner($chatwoot, new DatabaseSupportKnowledgeSyncRepository());
+            return $provisioner->provision($compilation, $assistantId, $journalName . ' Support Knowledge', $knowledgeRootUrl, time());
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 

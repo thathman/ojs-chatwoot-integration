@@ -39,11 +39,11 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [ ] **CWO-005** Implement contextual launcher intents.
 - [ ] **CWO-006** Add idempotent contact/conversation lookup strategy.
 - [ ] **CWO-007** Add queued retry/dead-letter structure.
-- [ ] **CWO-008** Detect/report Captain API feature availability where possible.
-- [ ] **CWO-009** Implement optional Captain Document provisioning.
-- [ ] **CWO-010** Implement optional Captain Custom Tool provisioning.
-- [ ] **CWO-011** Implement optional Captain Scenario provisioning.
-- [ ] **CWO-012** Ensure provisioner never deletes unrelated admin resources.
+- [ ] **CWO-008** Detect/report Captain API feature availability where possible. — partial: `ChatwootCaptainClientInterface`'s docblock records that Captain (incl. Documents) is Enterprise-Edition-gated in self-hosted Chatwoot (verified against `chatwoot/chatwoot` `develop` `enterprise/app/controllers/api/v1/accounts/captain/documents_controller.rb`), and every call degrades to `null`/unavailable rather than a fatal — but there is no explicit "Captain unavailable" health signal surfaced anywhere yet (that belongs with KNO-020's admin UI, still open).
+- [x] **CWO-009** Implement optional Captain Document provisioning. — `CaptainDocumentProvisioner`: idempotent create-or-sync keyed on the Knowledge Compiler's own fingerprint, verified against real `chatwoot/chatwoot` `develop` routes (`config/routes.rb`: `namespace :captain do resources :documents, only: [:index,:show,:create,:destroy] do post :sync ... end end`) and the enterprise controller's actual permitted params (`name`, `external_link`, `assistant_id`). No update/PATCH exists in the real API for web-sourced documents — content changes go through `sync` (re-crawl), never a field edit, which is exactly what this provisioner does.
+- [ ] **CWO-010** Implement optional Captain Custom Tool provisioning. — Next slice (PR 28); real routes already confirmed to exist (`resources :custom_tools do post :test, on: :collection end`).
+- [ ] **CWO-011** Implement optional Captain Scenario provisioning. — Next-next slice (PR 29); real routes already confirmed to exist (`resources :assistants do ... resources :scenarios end end`).
+- [x] **CWO-012** Ensure provisioner never deletes unrelated admin resources. — `CaptainDocumentProvisioner` never calls a delete/destroy endpoint at all. Ownership is proven only by a local `CaptainSyncState` record (`chatwoot_support_knowledge_sync` table, keyed by context/locale/resource type) — a name/`external_link` match at the remote API is treated as `unmanaged_document_exists` (a conflict, recorded but never created, never adopted, never touched), exactly per the freeze directive ("never assume same name means plugin-owned").
 - [ ] **CWO-013** Add configuration drift/health report.
 
 ## IDN — Identity & Verification
@@ -171,7 +171,7 @@ inspecting `AirixSubmissionFeeProvider`'s obligations.
 - [x] **KNO-016** HTML sanitization/escaping. — `KnowledgeSanitizer`: strips `script`/`style`/`iframe`/`object`/`embed`/`form`/`applet`/`link`/`meta`/`base`/`noscript`, event-handler attributes, and `javascript:`/`vbscript:`/`data:` URLs; permits a small safe presentation tag subset. Regex-based by design, not a new HTML-parser dependency (PR #19 lesson).
 - [x] **KNO-017** Private-data exclusion tests. — `tests/v2/knowledge-compiler.php`: multi-journal isolation, private/unsupported facts never render, provider-exception isolation, no `SupportSession`/conversation ID/Chatwoot token/payment-obligation-state string anywhere in `classes/v2/Knowledge/`.
 - [x] **KNO-018** Multi-locale support. — `KnowledgeCompiler::resolveLocale()`: requested locale -> journal-supported locale -> journal primary locale -> `en`, reusing `Context::getSupportedLocales()`/`getPrimaryLocale()` rather than re-deriving OJS's own locale rules; fingerprint is per resolved locale.
-- [ ] **KNO-019** Captain document sync trigger/manual fallback. — Explicitly deferred to PR 27+ until compiler output itself is stable (see the phase-ordering note in the KNO section intro).
+- [ ] **KNO-019** Captain document sync trigger/manual fallback. — partial: the provisioning logic itself (`CaptainDocumentProvisioner`, see CWO-009) is done and callable via `ChatwootIntegrationV2Plugin::provisionCaptainKnowledgeDocument()`. No trigger calls it yet — no scheduled/cron task exists in this codebase yet (same gap as IDN-017's `purgeExpired()`) and no admin settings action exists yet (Phase 13). Wiring a trigger is deferred to whichever of those lands first, not fabricated as a false "complete."
 - [ ] **KNO-020** Knowledge health UI. — partial: the service/model half is done: `KnowledgeHealthService`/`KnowledgeHealthReport` (deterministic `healthy`/`degraded`/`empty`/`failed` state, per-provider health, excluded-fact counts, safe conflict metadata, generated-routes list). No admin UI consumes it yet — deliberately out of this PR's scope per the freeze directive ("no admin UI necessary in the same PR; the service/model is enough").
 
 ### Also added this phase (accounts category, KNO-006 scope)

@@ -241,6 +241,40 @@ Where the installed Chatwoot edition/API credentials permit:
 
 Provisioning is idempotent. Never delete unrelated administrator-created Captain tools/documents.
 
+**As actually implemented (CWO-009/012, Captain Documents only so far):**
+`CaptainDocumentProvisioner`, verified against a real local checkout of
+`chatwoot/chatwoot` (`develop`, `config/routes.rb`'s
+`namespace :captain do resources :documents, only: [:index, :show,
+:create, :destroy] do post :sync ... end end`, and
+`enterprise/app/controllers/api/v1/accounts/captain/documents_controller.rb`'s
+actual permitted params). Two things worth being explicit about, since
+they diverge from a naive reading of "provisioning":
+
+1. **Captain (including Documents) lives under Chatwoot's `enterprise/`
+   tree** — in self-hosted Chatwoot this is an Enterprise-Edition-gated
+   feature, not guaranteed available just because the base API is
+   reachable. Every call degrades to "unavailable," never a fatal.
+2. **There is no update/PATCH endpoint for a web-sourced document.**
+   Content changes are picked up by calling `sync` (a re-crawl of the
+   same `external_link`), never by editing fields — so "idempotent
+   create-or-update" here really means "idempotent create-or-sync,"
+   keyed on the Knowledge Compiler's own fingerprint:
+   unchanged fingerprint -> no-op; changed fingerprint -> `sync`; no
+   local ownership record -> create, *unless* a document with the exact
+   same `external_link` already exists remotely, in which case this is
+   recorded as an `unmanaged_document_exists` conflict and left alone —
+   never adopted, never duplicated.
+
+Ownership is proven only by a local record (`chatwoot_support_knowledge_sync`,
+keyed by `(context_id, locale, resource_type)`) — a name/URL match at the
+remote API is never treated as proof of ownership, per the freeze
+directive. No delete/destroy call exists in this provisioner at all yet.
+
+Custom Tool and Scenario provisioning (CWO-010/011) are not implemented
+yet, though the real Chatwoot routes for both are already confirmed to
+exist (`resources :custom_tools` with a `test` action, and `resources
+:scenarios` nested under `assistants`).
+
 ## 7. Recommended Captain scenarios
 
 ### Journal information

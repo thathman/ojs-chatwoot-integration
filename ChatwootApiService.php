@@ -2,11 +2,12 @@
 
 namespace APP\plugins\generic\chatwootIntegration;
 
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\ChatwootCaptainClientInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\ChatwootConversationClientInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
-class ChatwootApiService implements ChatwootConversationClientInterface {
+class ChatwootApiService implements ChatwootConversationClientInterface, ChatwootCaptainClientInterface {
     private Client $client;
     private string $baseUrl;
     private string $apiAccessToken;
@@ -148,5 +149,40 @@ class ChatwootApiService implements ChatwootConversationClientInterface {
         if (!$result['ok']) return [];
         $data = $result['data'] ?? [];
         return $data['payload'] ?? [];
+    }
+
+    /**
+     * Captain Documents index supports `search_key` (name/external_link)
+     * filtering server-side, but this still confirms an exact
+     * `external_link` match client-side rather than trusting a fuzzy
+     * server-side match — a near-miss must never be treated as "found."
+     */
+    public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array {
+        $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/documents", [
+            'query' => ['assistant_id' => $assistantId, 'search_key' => $externalLink],
+        ]);
+        if (!$result['ok']) return null;
+        $data = $result['data'] ?? [];
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        foreach ($payload as $document) {
+            if (is_array($document) && (string) ($document['external_link'] ?? '') === $externalLink) {
+                return $document;
+            }
+        }
+        return null;
+    }
+
+    public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array {
+        $result = $this->requestJson('POST', "accounts/{$this->accountId}/captain/documents", [
+            'json' => ['assistant_id' => $assistantId, 'name' => $name, 'external_link' => $externalLink],
+        ]);
+        if (!$result['ok']) return null;
+        $data = $result['data'] ?? [];
+        return is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : null);
+    }
+
+    public function syncCaptainDocument(string $documentId): bool {
+        $result = $this->requestJson('POST', "accounts/{$this->accountId}/captain/documents/{$documentId}/sync");
+        return (bool) $result['ok'];
     }
 }
