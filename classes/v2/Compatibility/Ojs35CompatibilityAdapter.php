@@ -127,21 +127,56 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         }
     }
 
+    // Verified against pkp-lib stable-3_5_0 classes/core/PKPApplication.php
+    private const WORKFLOW_STAGE_ID_INTERNAL_REVIEW = 2;
+    private const WORKFLOW_STAGE_ID_EXTERNAL_REVIEW = 3;
+
     public function getSubmissionStateFields($submission): array
     {
         if (!is_object($submission) || !method_exists($submission, 'getData')) {
-            return ['status' => null, 'stageId' => null];
+            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null];
         }
 
         try {
             $status = $submission->getData('status');
             $stageId = $submission->getData('stageId');
+            $stageId = is_numeric($stageId) ? (int) $stageId : null;
+
             return [
                 'status' => is_numeric($status) ? (int) $status : null,
-                'stageId' => is_numeric($stageId) ? (int) $stageId : null,
+                'stageId' => $stageId,
+                'reviewRoundStatus' => $this->getCurrentReviewRoundStatus($submission, $stageId),
             ];
         } catch (\Throwable $e) {
-            return ['status' => null, 'stageId' => null];
+            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null];
+        }
+    }
+
+    /**
+     * Only meaningful inside an active review stage; the round's `status`
+     * column is maintained live by ReviewRoundDAO on every relevant event
+     * (decisions, revision uploads, assignment changes) — read-only here,
+     * this never recomputes it independently.
+     */
+    private function getCurrentReviewRoundStatus($submission, ?int $stageId): ?int
+    {
+        if ($stageId !== self::WORKFLOW_STAGE_ID_INTERNAL_REVIEW && $stageId !== self::WORKFLOW_STAGE_ID_EXTERNAL_REVIEW) {
+            return null;
+        }
+        if (!method_exists($submission, 'getId') || !class_exists('\PKP\db\DAORegistry')) {
+            return null;
+        }
+
+        try {
+            $reviewRoundDao = \PKP\db\DAORegistry::getDAO('ReviewRoundDAO');
+            $reviewRound = $reviewRoundDao->getLastReviewRoundBySubmissionId((int) $submission->getId(), $stageId);
+            if (!is_object($reviewRound) || !method_exists($reviewRound, 'getStatus')) {
+                return null;
+            }
+            $status = $reviewRound->getStatus();
+            return is_numeric($status) ? (int) $status : null;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 

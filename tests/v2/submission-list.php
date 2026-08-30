@@ -5,8 +5,27 @@ declare(strict_types=1);
 namespace PKP\db {
     final class DAORegistry
     {
+        /** @var array<string,int> keyed "submissionId:stageId" */
+        public static array $reviewRoundStatusBySubmissionAndStage = [];
+
         public static function getDAO(string $name): object
         {
+            if ($name === 'ReviewRoundDAO') {
+                return new class {
+                    public function getLastReviewRoundBySubmissionId(int $submissionId, ?int $stageId = null): ?object
+                    {
+                        $status = \PKP\db\DAORegistry::$reviewRoundStatusBySubmissionAndStage["{$submissionId}:{$stageId}"] ?? null;
+                        if ($status === null) {
+                            return null;
+                        }
+                        return new class($status) {
+                            public function __construct(private int $status) {}
+                            public function getStatus(): int { return $this->status; }
+                        };
+                    }
+                };
+            }
+
             return new class {
                 public function getCurrentVersion(): object
                 {
@@ -342,6 +361,11 @@ namespace {
     submissionListCheck(SupportStateMapper::map(1, null) === 'unknown', 'queued + missing stage must map to unknown');
     submissionListCheck(SupportStateMapper::map(null, null) === 'unknown', 'missing status must map to unknown');
     submissionListCheck(SupportStateMapper::map(999, 1) === 'unknown', 'unrecognized status must map to unknown, never guess');
+    submissionListCheck(SupportStateMapper::map(1, 3, 1) === 'revision_requested', 'external review + REVISIONS_REQUESTED round status must map to revision_requested');
+    submissionListCheck(SupportStateMapper::map(1, 2, 1) === 'revision_requested', 'internal review + REVISIONS_REQUESTED round status must map to revision_requested');
+    submissionListCheck(SupportStateMapper::map(1, 3, 7) === 'review_in_progress', 'external review + a non-revisions round status (e.g. pending reviews) must stay review_in_progress');
+    submissionListCheck(SupportStateMapper::map(1, 3, null) === 'review_in_progress', 'external review + unknown round status must stay review_in_progress, never guess revision_requested');
+    submissionListCheck(SupportStateMapper::map(1, 1, 1) === 'submitted', 'a REVISIONS_REQUESTED round status outside a review stage must not leak into unrelated stages');
 
     // ================================================================
     // Part 2: PaginationParams — bounded, fail-closed.
@@ -460,6 +484,9 @@ namespace {
     \APP\facades\Repo::$submissionsById[459] = new FakeSubmission(459, 7, status: 1, stageId: 4, title: 'Editorial Only Submission');
     \APP\facades\Repo::$submissionsById[460] = new FakeSubmission(460, 7, status: 3, stageId: 0, title: 'Multi Role Submission');
     \APP\facades\Repo::$submissionsById[999] = new FakeSubmission(999, 8, status: 1, stageId: 1, title: 'Cross Journal Submission');
+    \APP\facades\Repo::$submissionsById[461] = new FakeSubmission(461, 7, status: 1, stageId: 3, title: 'Revision Requested Submission');
+    \PKP\db\DAORegistry::$reviewRoundStatusBySubmissionAndStage['461:3'] = 1; // ReviewRound::REVIEW_ROUND_STATUS_REVISIONS_REQUESTED
+    \APP\facades\Repo::$workflowStagesByUserId['42:461'] = [[65538]];
 
     \APP\facades\Repo::$workflowStagesByUserId['42:457'] = [];
     \APP\facades\Repo::$reviewAssignments['457:42'] = true;
@@ -474,12 +501,12 @@ namespace {
 
     \APP\facades\Repo::$workflowStagesByUserId['42:999'] = [[65538]]; // would look like author evidence, but wrong journal
 
-    \APP\facades\Repo::$candidateIdsByContextAndUser['7:42'] = [456, 457, 458, 459, 460, 999];
+    \APP\facades\Repo::$candidateIdsByContextAndUser['7:42'] = [456, 457, 458, 459, 460, 999, 461];
 
     $identityWithReviewerRole = new SupportContext(7, 'journal-a', 42, [65538, 65536], 'index', 'index', 'en');
 
     $candidates = $bridge->listCandidateSubmissions(7, 42, 200);
-    submissionListCheck(count($candidates) === 6, 'bridge must return all candidates the OJS query supplies (unfiltered)');
+    submissionListCheck(count($candidates) === 7, 'bridge must return all candidates the OJS query supplies (unfiltered)');
 
     $entries = [];
     $seen = [];
@@ -499,7 +526,7 @@ namespace {
         $entries[] = [
             'id' => $relationship->resourceId(),
             'relationships' => $relationship->types(),
-            'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId']),
+            'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId'], $stateFields['reviewRoundStatus']),
         ];
     }
 
@@ -515,7 +542,9 @@ namespace {
     submissionListCheck(isset($entriesById[460]), 'multi-role author+reviewer submission must appear (460)');
     submissionListCheck($entriesById[460]['relationships'] === ['author', 'reviewer'], 'multi-role submission must be deduplicated into one entry with plural relationships');
     submissionListCheck(!isset($entriesById[999]), 'a submission belonging to another journal must never appear, even with matching workflow evidence');
-    submissionListCheck(count($entries) === 3, 'exactly the 3 genuinely author/reviewer-related submissions must appear (456, 457, 460)');
+    submissionListCheck(isset($entriesById[461]), 'author must see a submission with revisions requested (461)');
+    submissionListCheck($entriesById[461]['supportState'] === 'revision_requested', 'end-to-end pipeline must surface the live review round status as revision_requested');
+    submissionListCheck(count($entries) === 4, 'exactly the 4 genuinely author/reviewer-related submissions must appear (456, 457, 460, 461)');
 
     // --- Guessed/nonexistent candidate defensive handling ---
     $candidatesWithGhost = array_merge($candidates, [null]);
@@ -526,7 +555,7 @@ namespace {
         }
         $safeCount++;
     }
-    submissionListCheck($safeCount === 6, 'a null/ghost candidate entry must not crash candidate processing');
+    submissionListCheck($safeCount === 7, 'a null/ghost candidate entry must not crash candidate processing');
     submissionListCheck($resolver->resolve($identityWithReviewerRole, null) === null, 'resolving a null submission must fail closed, not throw');
 
     // --- Duplicate candidate discovery must not duplicate the list result ---

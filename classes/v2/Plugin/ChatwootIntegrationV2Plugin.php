@@ -408,7 +408,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             $entries[] = [
                 'relationship' => $relationship,
                 'title' => $bridge->getSubmissionTitle($submission),
-                'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId']),
+                'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId'], $stateFields['reviewRoundStatus']),
                 // Unknown-safe by design: this slice has no reliable, safe
                 // way to prove an action is (or isn't) required from
                 // status/stageId alone. Returning false would be a guess.
