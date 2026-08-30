@@ -469,6 +469,62 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
      */
     public function getAirixSubmissionFeeProvider($context): ?\APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface
     {
+        $detected = $this->detectAirixSubmissionFeePlugin();
+        if ($detected === null) {
+            return null;
+        }
+
+        try {
+            return new \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\AirixSubmissionFeeProvider(
+                $detected['plugin'],
+                $detected['helper'],
+                $detected['version']
+            );
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Public *policy* facts only (docs/v2/AIRIX360_INTEGRATIONS.md §5.2) —
+     * the configured submission fee amount/currency/enabled flag a journal
+     * publishes, never a specific submission's paid/unpaid/waived
+     * obligation. Deliberately not the same accessor/interface as
+     * getAirixSubmissionFeeProvider(): `PaymentSupportProviderInterface`
+     * answers "what does this submission owe", this answers "what does
+     * this journal publicly charge" — different trust contracts, kept
+     * separate even though both read the same sibling plugin.
+     *
+     * @return array{enabled:bool,amount:?float,currency:?string}|null
+     */
+    public function getAirixSubmissionFeePolicy($context): ?array
+    {
+        $detected = $this->detectAirixSubmissionFeePlugin();
+        if ($detected === null || !is_object($context)) {
+            return null;
+        }
+
+        try {
+            $helper = $detected['helper'];
+            if (!method_exists($helper, 'feeEnabled')) {
+                return null;
+            }
+            $enabled = (bool) $helper->feeEnabled($context);
+            return [
+                'enabled' => $enabled,
+                'amount' => $enabled && method_exists($helper, 'amount') ? (float) $helper->amount($context) : null,
+                'currency' => $enabled && method_exists($helper, 'currency') ? (string) $helper->currency($context) : null,
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * @return array{plugin:object,helper:object,version:string}|null
+     */
+    private function detectAirixSubmissionFeePlugin(): ?array
+    {
         if (!class_exists('\PKP\plugins\PluginRegistry')) {
             return null;
         }
@@ -497,8 +553,7 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
                     $version = (string) $versionObject->getVersionString();
                 }
             }
-            $helper = new $helperClass($plugin);
-            return new \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\AirixSubmissionFeeProvider($plugin, $helper, $version);
+            return ['plugin' => $plugin, 'helper' => new $helperClass($plugin), 'version' => $version];
         } catch (\Throwable $e) {
             return null;
         }

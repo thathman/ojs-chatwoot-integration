@@ -67,6 +67,20 @@ generated pages.
 
 Submission-specific paid/waived/unpaid state is protected live data, not knowledge.
 
+**As actually implemented (KNO-008):** `CorePaymentKnowledgeProvider` covers
+`fee.publicationEnabled`/`Amount`/`Currency` (native OJS, same verified
+`OJSPaymentManager` read `ojs_get_payment_status` uses) and
+`fee.submissionEnabled`/`Amount`/`Currency` (Airix Submission Fee, via a new
+policy-only adapter accessor, `getAirixSubmissionFeePolicy()`, that calls
+only `PaymentHelper::feeEnabled()/amount()/currency()` — never
+`hasPaid()`/`waiverDiscount()`/`needsRefundReview()`, and is a separate
+method from `getAirixSubmissionFeeProvider()`, which remains the private
+obligation path). Public waiver policy content and public payment
+instructions are not implemented — no verified public-facing accessor for
+either was found in `Airix360/ojs-request-waiver`'s public integration
+surface; adding them later requires the same standard, not an inference
+from obligation data.
+
 ### Publication
 
 - open-access/copyright/licence policy;
@@ -112,8 +126,8 @@ Generated pages must:
 - return non-200 on generation failure rather than stale private/debug output.
 
 **As actually implemented (KNO-013/014):** only `/support-knowledge/` (root),
-`/about`, `/submissions`, `/review`, `/policies` exist so far — `fees`,
-`publication`, and `accounts` are deferred to a later PR per the incremental
+`/about`, `/submissions`, `/review`, `/fees`, `/policies` exist so far —
+`publication` and `accounts` are deferred to a later PR per the incremental
 category order, and a sitemap (KNO-015) does not exist yet either. The root
 page links every category page that does exist. "Identify journal and last
 generated time" and "return non-200 on generation failure" are not yet

@@ -41,6 +41,11 @@ final class SupportKnowledgePageHandler extends PageHandler
         $this->plugin->supportKnowledgeCategoryRequest($request, 'review');
     }
 
+    public function fees($args, $request): void
+    {
+        $this->plugin->supportKnowledgeCategoryRequest($request, 'fees');
+    }
+
     public function policies($args, $request): void
     {
         $this->plugin->supportKnowledgeCategoryRequest($request, 'policies');
