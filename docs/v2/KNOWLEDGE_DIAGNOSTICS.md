@@ -108,6 +108,17 @@ was added in their place.
 - support/contact details;
 - journal-specific approved FAQs.
 
+**As actually implemented (KNO-006 accounts slice):** `AccountsKnowledgeProvider`
+covers `accounts.registrationAvailable` (the exact single boolean
+`RegistrationHandler::validate()` itself gates registration on —
+`disableUserReg` — never a guessed combination of conditions),
+`accounts.registrationUrl` (only when registration is available, so a
+disabled journal never publishes a misleading link), `accounts.loginUrl`,
+`accounts.passwordResetUrl` (both always available, independent of
+registration), and `accounts.orcidEnabled` (via ORCID's own published
+`\PKP\orcid\OrcidManager::isEnabled($context)`, not a raw settings read).
+Journal-specific approved FAQs are not implemented yet.
+
 ## 4. Generated Captain knowledge
 
 Recommended generated hierarchy:
@@ -137,11 +148,18 @@ Generated pages must:
 - include provenance-friendly headings;
 - return non-200 on generation failure rather than stale private/debug output.
 
-**As actually implemented (KNO-013/014):** only `/support-knowledge/` (root),
+**As actually implemented (KNO-013/014/015):** `/support-knowledge/` (root),
 `/about`, `/submissions`, `/review`, `/fees`, `/publication`, `/pages`,
-`/policies` exist so far — `accounts` is deferred to a later PR per the
-incremental category order, and a sitemap (KNO-015) does not exist yet
-either. The root page links every category page that does exist. "Identify
+`/accounts`, `/policies`, and a generated sitemap all exist. The sitemap
+route is `/support-knowledge/sitemap`, not `sitemap.xml` — PKP's
+page/operation routing dispatches the URL's operation segment directly to
+a same-named PHP method, and `.` is not a legal PHP method-name character,
+so a literal `sitemap.xml` segment cannot map to any handler. The response
+still sends `Content-Type: application/xml`, which is what a sitemap
+consumer actually keys on. Both the root navigation and the sitemap draw
+their category list from the same `KnowledgeRouteCatalog` — there is no
+second, independently maintained list to drift out of sync. The root page
+links every category page that does exist. "Identify
 journal and last generated time" and "return non-200 on generation failure"
 are not yet implemented — the current pages render the journal name and
 compiled facts but no explicit generation timestamp or failure status code;
@@ -192,6 +210,24 @@ Knowledge Providers compute fingerprints. When a fingerprint changes:
 5. otherwise surface `Captain knowledge sync required` in plugin health UI.
 
 Never make Chatwoot the master copy of journal policy.
+
+**As actually implemented (KNO-020, partial):** `KnowledgeHealthService`/`KnowledgeHealthReport`
+exist as a **read-only, request-time** snapshot of one compilation —
+`contextId`, `locale`, `fingerprint`, `state` (`healthy`/`degraded`/`empty`/`failed`),
+`publicFactCount`, per-provider `healthyProviders`/`failedProviders`,
+`excludedPrivateCount`/`excludedUnsupportedCount`, `conflictCount` plus
+safe conflict metadata (`key`/`winnerSource`/`loserSource` only — never the
+losing fact's value), and `generatedRoutes` (from `KnowledgeRouteCatalog`).
+`state` rules are deterministic: every provider failed -> `failed`; some
+(not all) failed -> `degraded`; no failures but zero public facts ->
+`empty`; otherwise `healthy`. An absent optional sibling plugin (Airix
+Submission Fee, Static Pages) returns no facts without throwing and is
+recorded as a healthy provider — its absence never looks like a failure.
+There is deliberately no persisted `lastGeneratedAt`/`lastSyncedAt`/`stale`
+yet — those require a sync record that will exist once Captain Document
+provisioning (§6) is built; fabricating that semantics now would be
+inventing state the system doesn't actually have. No admin UI consumes
+this service yet — it exists as the service/model only.
 
 ## 6. Captain provisioning
 

@@ -13,6 +13,7 @@ final class KnowledgeCompilation
     /**
      * @param KnowledgeFact[] $facts
      * @param KnowledgeConflict[] $conflicts
+     * @param array<string,string> $providerHealth providerId => KnowledgeProviderHealth::OK|FAILED
      */
     public function __construct(
         private int $contextId,
@@ -20,7 +21,10 @@ final class KnowledgeCompilation
         private array $facts,
         private string $fingerprint,
         private int $generatedAt,
-        private array $conflicts = []
+        private array $conflicts = [],
+        private array $providerHealth = [],
+        private int $excludedPrivateCount = 0,
+        private int $excludedUnsupportedCount = 0
     ) {
     }
 
@@ -73,5 +77,21 @@ final class KnowledgeCompilation
     public function conflicts(): array
     {
         return $this->conflicts;
+    }
+
+    /** @return array<string,string> providerId => KnowledgeProviderHealth::OK|FAILED */
+    public function providerHealth(): array
+    {
+        return $this->providerHealth;
+    }
+
+    public function excludedPrivateCount(): int
+    {
+        return $this->excludedPrivateCount;
+    }
+
+    public function excludedUnsupportedCount(): int
+    {
+        return $this->excludedUnsupportedCount;
     }
 }

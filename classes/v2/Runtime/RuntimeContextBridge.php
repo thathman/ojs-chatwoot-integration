@@ -11,6 +11,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBoo
 use APP\plugins\generic\chatwootIntegration\classes\v2\SupportGatewayKernel;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthReport;
 
 final class RuntimeContextBridge
 {
@@ -323,6 +324,16 @@ final class RuntimeContextBridge
         if (!$this->kernel) return null;
         try {
             return $this->kernel->compileKnowledge($context, $request, $contextId, $locale);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function buildKnowledgeHealthReport($context, $request, int $contextId, string $locale): ?KnowledgeHealthReport
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->buildKnowledgeHealthReport($context, $request, $contextId, $locale);
         } catch (\Throwable $e) {
             return null;
         }

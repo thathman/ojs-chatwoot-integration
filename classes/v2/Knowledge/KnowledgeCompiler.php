@@ -34,20 +34,38 @@ final class KnowledgeCompiler
         $locale = $this->resolveLocale($context, $requestedLocale);
 
         $facts = [];
+        $providerHealth = [];
+        $excludedPrivateCount = 0;
+        $excludedUnsupportedCount = 0;
+
         foreach ($this->providers as $provider) {
+            $providerId = $this->safeProviderId($provider);
             try {
                 $collected = $provider->collect($context, $request, $locale);
+                $providerHealth[$providerId] = KnowledgeProviderHealth::OK;
             } catch (\Throwable $e) {
+                $providerHealth[$providerId] = KnowledgeProviderHealth::FAILED;
                 error_log(sprintf(
                     '[ChatwootIntegration] Knowledge provider "%s" failed: %s',
-                    $this->safeProviderId($provider),
+                    $providerId,
                     $e->getMessage()
                 ));
                 continue;
             }
 
             foreach ($collected as $fact) {
-                if (!$fact instanceof KnowledgeFact || !$fact->isPublic()) {
+                if (!$fact instanceof KnowledgeFact) {
+                    continue;
+                }
+                if ($fact->classification() === KnowledgeClassification::PRIVATE) {
+                    $excludedPrivateCount++;
+                    continue;
+                }
+                if ($fact->classification() === KnowledgeClassification::UNSUPPORTED) {
+                    $excludedUnsupportedCount++;
+                    continue;
+                }
+                if (!$fact->isPublic()) {
                     continue;
                 }
                 $facts[] = $fact;
@@ -61,7 +79,17 @@ final class KnowledgeCompiler
             static fn (KnowledgeFact $a, KnowledgeFact $b): int => [$a->locale(), $a->key()] <=> [$b->locale(), $b->key()]
         );
 
-        return new KnowledgeCompilation($contextId, $locale, $facts, KnowledgeFingerprint::compute($facts), time(), $conflicts);
+        return new KnowledgeCompilation(
+            $contextId,
+            $locale,
+            $facts,
+            KnowledgeFingerprint::compute($facts),
+            time(),
+            $conflicts,
+            $providerHealth,
+            $excludedPrivateCount,
+            $excludedUnsupportedCount
+        );
     }
 
     /**

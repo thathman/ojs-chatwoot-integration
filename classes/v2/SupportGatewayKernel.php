@@ -15,8 +15,11 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnow
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePaymentKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePublicationKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\OfficialPageKnowledgeProvider;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\AccountsKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthReport;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
@@ -41,7 +44,8 @@ final class SupportGatewayKernel
         private AvailableActionMapper $availableActionMapper,
         private SupportSessionService $supportSessionService,
         private VerificationChallengeService $verificationChallengeService,
-        private KnowledgeCompiler $knowledgeCompiler
+        private KnowledgeCompiler $knowledgeCompiler,
+        private KnowledgeHealthService $knowledgeHealthService
     ) {
     }
 
@@ -55,6 +59,7 @@ final class SupportGatewayKernel
         $knowledgeCompiler->registerProvider(new CorePaymentKnowledgeProvider($adapter));
         $knowledgeCompiler->registerProvider(new CorePublicationKnowledgeProvider());
         $knowledgeCompiler->registerProvider(new OfficialPageKnowledgeProvider($adapter));
+        $knowledgeCompiler->registerProvider(new AccountsKnowledgeProvider());
 
         return new self(
             $ojsVersion,
@@ -65,7 +70,8 @@ final class SupportGatewayKernel
             new AvailableActionMapper(),
             new SupportSessionService(new DatabaseSupportSessionRepository()),
             new VerificationChallengeService(new DatabaseVerificationChallengeRepository(), new VerificationSecretHasher()),
-            $knowledgeCompiler
+            $knowledgeCompiler,
+            new KnowledgeHealthService($knowledgeCompiler)
         );
     }
 
@@ -97,6 +103,7 @@ final class SupportGatewayKernel
     public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string { return $this->adapter->getVerificationLinkUrl($request, $publicReference, $token); }
     public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface { return $this->adapter->getAirixSubmissionFeeProvider($context); }
     public function compileKnowledge($context, $request, int $contextId, string $locale): KnowledgeCompilation { return $this->knowledgeCompiler->compile($context, $request, $contextId, $locale); }
+    public function buildKnowledgeHealthReport($context, $request, int $contextId, string $locale): KnowledgeHealthReport { return $this->knowledgeHealthService->buildReport($context, $request, $contextId, $locale); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
