@@ -119,7 +119,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## STA — Support State Engine
 
-- [ ] **STA-001** Define normalized support states. — `SupportStateMapper` (`classes/v2/State/`) now covers submitted/review_in_progress/revision_requested/copyediting_in_progress/production_in_progress/published/declined/scheduled_for_publication/unknown. Still missing from the full PRODUCT_BIBLE §11 vocabulary: draft (needs a `submissionProgress`-based candidate discovery path, not just a mapper change) and revision_received (needs revision-file evidence).
+- [x] **STA-001** Define normalized support states. — `SupportStateMapper` (`classes/v2/State/`) now covers draft/submitted/review_in_progress/revision_requested/copyediting_in_progress/production_in_progress/published/declined/scheduled_for_publication/unknown. Correction to an earlier note: draft did *not* need a separate candidate-discovery path — OJS 3.5 creates the author's StageAssignment immediately at submission creation (verified against `pkp-lib` stable-3_5_0 `PKPSubmissionController::add()`), so the existing `assignedTo()`-based discovery already reaches drafts; only `submissionProgress` needed reading. Still missing: revision_received (needs revision-file evidence).
 - [x] **STA-002** Map submission stages/statuses for OJS 3.5 target. — `status`/`stageId` mapped as before; `revision_requested` now additionally derived from the current review round's live `status` column (`ReviewRoundDAO::getLastReviewRoundBySubmissionId`, verified against `pkp-lib` stable-3_5_0), read-only, never recomputed independently.
 - [ ] **STA-003** Map OJS 3.6 target after compatibility verification.
 - [ ] **STA-004** Determine safe reviewer-progress facts without identities.

@@ -134,21 +134,23 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
     public function getSubmissionStateFields($submission): array
     {
         if (!is_object($submission) || !method_exists($submission, 'getData')) {
-            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null];
+            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null, 'submissionProgress' => null];
         }
 
         try {
             $status = $submission->getData('status');
             $stageId = $submission->getData('stageId');
             $stageId = is_numeric($stageId) ? (int) $stageId : null;
+            $submissionProgress = $submission->getData('submissionProgress');
 
             return [
                 'status' => is_numeric($status) ? (int) $status : null,
                 'stageId' => $stageId,
                 'reviewRoundStatus' => $this->getCurrentReviewRoundStatus($submission, $stageId),
+                'submissionProgress' => is_string($submissionProgress) ? $submissionProgress : null,
             ];
         } catch (\Throwable $e) {
-            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null];
+            return ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null, 'submissionProgress' => null];
         }
     }
 
