@@ -133,25 +133,44 @@ Reconciled 2026-08-30: several boxes below were stale (unchecked despite being s
 
 ## KNO — Journal Knowledge Compiler
 
-- [ ] **KNO-001** Define `KnowledgeProvider` contract.
-- [ ] **KNO-002** Define classification/provenance model.
-- [ ] **KNO-003** Core journal/contact provider.
-- [ ] **KNO-004** Submission guidelines/checklist provider.
-- [ ] **KNO-005** Sections/languages provider.
-- [ ] **KNO-006** Review policy provider.
-- [ ] **KNO-007** Publication/open-access/licence provider.
-- [ ] **KNO-008** APC/payment public policy provider.
+Note: this is the foundation slice only, per the compiler-freeze directive — a
+KnowledgeProvider must never depend on a SupportSession, Chatwoot conversation,
+OJS user, submission relationship, or V2/V3 capability, and only the exact
+classification `public` (not `private`/`unsupported`, and never an
+unrecognized value) ever reaches a generated page. Categories are built
+incrementally (about/submissions/review/policies first); fees/publication/
+accounts/official-pages/sitemap/Captain sync are deliberately deferred to
+later PRs, not attempted in one pass.
+
+`PaymentSupportProviderInterface` (Provider Registry, PRV/AXP/APS above) and
+`KnowledgeProviderInterface` are different trust contracts and must not be
+merged just because both are "providers": a submission's specific payment
+*obligation* (paid/unpaid/waived/refund_review/refunded) is private live
+state and must never become a KnowledgeFact; a journal's configured fee
+*policy* ("this journal charges a $50 submission fee") could become public
+knowledge, but only through a provider explicitly implementing
+`KnowledgeProviderInterface` — never inferred by a Knowledge provider
+inspecting `AirixSubmissionFeeProvider`'s obligations.
+
+- [x] **KNO-001** Define `KnowledgeProvider` contract. — `KnowledgeProviderInterface` (`classes/v2/Contracts/`).
+- [x] **KNO-002** Define classification/provenance model. — `KnowledgeFact` (key/value/classification/source/sourceReference/locale/updatedAt/providerId) + `KnowledgeClassification` (`public`/`private`/`unsupported` only; the constructor rejects anything else).
+- [x] **KNO-003** Core journal/contact provider. — `CoreJournalKnowledgeProvider`: name, description, about, publisher, contact name/email, ISSN (online/print), languages, public journal URL — every accessor verified against a real local checkout of `pkp-lib`/`ojs` `stable-3_5_0` (`schemas/context.json`, `classes/context/Context.php`).
+- [x] **KNO-004** Submission guidelines/checklist provider. — folded into `CoreJournalKnowledgeProvider` (`submission.authorGuidelines`, `submission.checklist`) rather than a separate class; one core provider for now, split out only if a real second source needs its own adapter.
+- [x] **KNO-005** Sections/languages provider. — folded into `CoreJournalKnowledgeProvider` (`submission.sections` via `Repo::section()->getSectionList()`, `journal.languages` via `getSupportedLocales()`).
+- [x] **KNO-006** Review policy provider. — folded into `CoreJournalKnowledgeProvider` (`review.model`, deterministically derived from `ReviewAssignment::SUBMISSION_REVIEW_METHOD_*` — never an invented sentence like "reviews take 4-6 weeks"; `review.guidelines` from the journal's own configured text).
+- [ ] **KNO-007** Publication/open-access/licence provider. — `policy.copyright`/`policy.licenseTerms`/`policy.licenseUrl` are covered; open-access/publishing-mode status is not (no verified OJS core accessor found yet — omitted rather than guessed).
+- [ ] **KNO-008** APC/payment public policy provider. — Deliberately not started this PR (see the freeze note on `PaymentSupportProviderInterface` vs. `KnowledgeProviderInterface` below); a submission's paid/unpaid/waived state must never appear in Knowledge output, and no public fee *policy* provider exists yet either.
 - [ ] **KNO-009** DOI/public identifier provider.
 - [ ] **KNO-010** Official page/navigation provider.
 - [ ] **KNO-011** Approved FAQ/support knowledge provider.
-- [ ] **KNO-012** Fingerprinting/staleness model.
-- [ ] **KNO-013** Generate `/support-knowledge/` root.
-- [ ] **KNO-014** Generate category pages.
+- [x] **KNO-012** Fingerprinting/staleness model. — `KnowledgeFingerprint::compute()`: deterministic, order-independent, sensitive only to normalized `locale`+`key`+`value` (never rendered HTML, never provenance metadata).
+- [x] **KNO-013** Generate `/support-knowledge/` root. — `support-knowledge` page (`SupportKnowledgePageHandler::index`), links every generated category page.
+- [x] **KNO-014** Generate category pages. — `about`/`submissions`/`review`/`policies` only this phase; `fees`/`publication`/`accounts` deferred per the incremental category order.
 - [ ] **KNO-015** Generate sitemap.
-- [ ] **KNO-016** HTML sanitization/escaping.
-- [ ] **KNO-017** Private-data exclusion tests.
-- [ ] **KNO-018** Multi-locale support.
-- [ ] **KNO-019** Captain document sync trigger/manual fallback.
+- [x] **KNO-016** HTML sanitization/escaping. — `KnowledgeSanitizer`: strips `script`/`style`/`iframe`/`object`/`embed`/`form`/`applet`/`link`/`meta`/`base`/`noscript`, event-handler attributes, and `javascript:`/`vbscript:`/`data:` URLs; permits a small safe presentation tag subset. Regex-based by design, not a new HTML-parser dependency (PR #19 lesson).
+- [x] **KNO-017** Private-data exclusion tests. — `tests/v2/knowledge-compiler.php`: multi-journal isolation, private/unsupported facts never render, provider-exception isolation, no `SupportSession`/conversation ID/Chatwoot token/payment-obligation-state string anywhere in `classes/v2/Knowledge/`.
+- [x] **KNO-018** Multi-locale support. — `KnowledgeCompiler::resolveLocale()`: requested locale -> journal-supported locale -> journal primary locale -> `en`, reusing `Context::getSupportedLocales()`/`getPrimaryLocale()` rather than re-deriving OJS's own locale rules; fingerprint is per resolved locale.
+- [ ] **KNO-019** Captain document sync trigger/manual fallback. — Explicitly deferred until compiler output itself is stable (see the phase-ordering note in the KNO section intro).
 - [ ] **KNO-020** Knowledge health UI.
 
 ## PAY — Payment & Publication
