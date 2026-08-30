@@ -163,6 +163,13 @@ Never returns reviewer identities/internal discussions.
 
 Returns a normalized list of actions the verified user is currently expected/allowed to take for the resource.
 
+**As actually implemented:** `POST /ojsSupportGateway/requiredActions`, gated on `submission.read_own_required_actions` (V3 + author/reviewer relationship). Establishes its own request-time V3 the same way `submissionVerify`/`submissionSupport` do. `requiredActions` only reports an action when directly provable from evidence this codebase already reads:
+
+- Author: `draft` → `complete_submission`; `revision_requested` → `submit_revisions`. Every other normalized support state (submitted, review_in_progress, copyediting_in_progress, production_in_progress, published, declined, scheduled_for_publication, unknown) has no provable author action yet — an empty result, not a guess.
+- Reviewer: each `ReviewAssignment` this user holds for the submission (there may be more than one across review rounds) is read via PKP's own computed `getStatus()` (verified against `pkp-lib` stable-3_5_0 — never re-derives its overdue-date/decline/resend logic independently). `AWAITING_RESPONSE`/`RESPONSE_OVERDUE`/`REQUEST_RESEND` → `respond_to_review_invitation`; `ACCEPTED`/`REVIEW_OVERDUE` → `submit_review`; every other status (`RECEIVED`, `COMPLETE`, `THANKED`, `VIEWED`, `DECLINED`, `CANCELLED`) is settled, no action. If multiple assignments disagree, the most urgent outstanding action wins (respond > submit > none).
+
+Does not include a title, normalized support state, or publication detail — those are `ojs_get_submission_support` (§7.5) and `ojs_get_publication_status` (§7.8) respectively.
+
 ### 7.7 `ojs_get_payment_status`
 
 Returns public fee facts plus verified submission-specific state when authorized:

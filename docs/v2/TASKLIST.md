@@ -107,7 +107,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [x] **API-008** `ojs_get_support_identity`. — `POST /ojsSupportGateway/identity`, sanitized via `SupportIdentitySerializer` (no email, no raw relationship evidence, no raw OJS object).
 - [x] **API-009** `ojs_list_my_submissions`. — `POST /ojsSupportGateway/submissions`, gated on `submission.list_own`, candidates from the OJS-native submission collector filtered through `SubmissionRelationshipResolver`. No milestone/date field yet.
 - [x] **API-010** `ojs_get_submission_support`. — `POST /ojsSupportGateway/submissionSupport`, establishes its own request-time V3 the same way `submissionVerify` does, gated on `submission.read_own_support_status`. Returns normalized support state, one safe explanatory sentence (`SupportStateMapper::explain()`), title, relationships, and capability-derived actions. Required actions, publication detail, and milestone dates are separate not-yet-built endpoints (API-011/API-012/API-013) — this one does not anticipate their shape.
-- [ ] **API-011** `ojs_get_required_actions`.
+- [x] **API-011** `ojs_get_required_actions`. — `POST /ojsSupportGateway/requiredActions`, establishes its own request-time V3 the same way `submissionVerify`/`submissionSupport` do, gated on `submission.read_own_required_actions`. New `RequiredActionMapper` only reports an action directly provable from existing evidence: author `draft`→`complete_submission`, `revision_requested`→`submit_revisions`; reviewer statuses via PKP's own computed `ReviewAssignment::getStatus()` (verified against `pkp-lib` stable-3_5_0) mapped to `respond_to_review_invitation`/`submit_review`, most-urgent-wins across multiple review rounds. Empty list is a correct answer for every other state, not a placeholder.
 - [ ] **API-012** `ojs_get_payment_status`.
 - [ ] **API-013** `ojs_get_publication_status`.
 - [ ] **API-014** `ojs_diagnose_account`.
@@ -123,8 +123,8 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [x] **STA-002** Map submission stages/statuses for OJS 3.5 target. — `status`/`stageId` mapped as before; `revision_requested` now additionally derived from the current review round's live `status` column (`ReviewRoundDAO::getLastReviewRoundBySubmissionId`, verified against `pkp-lib` stable-3_5_0), read-only, never recomputed independently.
 - [ ] **STA-003** Map OJS 3.6 target after compatibility verification.
 - [ ] **STA-004** Determine safe reviewer-progress facts without identities.
-- [ ] **STA-005** Determine author-action-required rules.
-- [ ] **STA-006** Determine revision status/deadline rules.
+- [x] **STA-005** Determine author-action-required rules. — `RequiredActionMapper::forAuthor()` covers the two provable cases (draft→complete_submission, revision_requested→submit_revisions); every other state correctly returns no action rather than a guess.
+- [ ] **STA-006** Determine revision status/deadline rules. — round-level `revision_requested` detection exists (STA-002); no deadline-date field is read/returned yet.
 - [ ] **STA-007** Determine copyediting/production/publication rules.
 - [ ] **STA-008** Return confidence/evidence codes.
 - [x] **STA-009** Unknown-state fallback tests. — `tests/v2/submission-list.php` covers unrecognized status, unrecognized stageId, and missing status/stageId all falling back to `unknown` rather than a guess.
