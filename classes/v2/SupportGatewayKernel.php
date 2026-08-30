@@ -13,6 +13,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePaymentKnowledgeProvider;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePublicationKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
@@ -51,6 +52,7 @@ final class SupportGatewayKernel
         $knowledgeCompiler = new KnowledgeCompiler();
         $knowledgeCompiler->registerProvider(new CoreJournalKnowledgeProvider());
         $knowledgeCompiler->registerProvider(new CorePaymentKnowledgeProvider($adapter));
+        $knowledgeCompiler->registerProvider(new CorePublicationKnowledgeProvider());
 
         return new self(
             $ojsVersion,
