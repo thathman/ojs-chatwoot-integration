@@ -128,6 +128,18 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportAccountDiagnosticsRequest($request);
     }
 
+    /**
+     * Conceptually ojs_diagnose_submission in docs/v2/API_MCP_SPEC.md
+     * §7.10; implemented as a single operation segment
+     * (submissionDiagnostics) for the same reason the other
+     * submission-scoped operations are, above.
+     */
+    public function submissionDiagnostics($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportSubmissionDiagnosticsRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
