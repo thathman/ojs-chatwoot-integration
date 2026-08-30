@@ -10,16 +10,24 @@ Every knowledge item has:
 
 - key;
 - value/content;
-- journal/context ID;
 - locale;
-- classification (`public`, `protected`, `staff`, `secret`);
-- provider ID/version;
-- source/provenance;
-- fingerprint;
-- generated/updated timestamp;
-- optional confidence/availability metadata.
+- classification;
+- provider ID;
+- source/provenance (source + optional sourceReference);
+- generated/updated timestamp where known.
 
-Only `public` knowledge is eligible for generated crawlable Captain pages.
+**As actually implemented:** classification is deliberately narrower than
+originally specified above — `KnowledgeClassification` has exactly three
+values, `public`/`private`/`unsupported` (no `protected`/`staff`/`secret`
+tiers). `KnowledgeFact`'s constructor rejects any other string outright, and
+`KnowledgeCompiler` only ever surfaces a fact whose classification is
+*exactly* `public` — a fact with a missing or unrecognized classification is
+rejected, never defaulted to public. Journal/context ID is not a `KnowledgeFact`
+field: isolation is structural instead (`KnowledgeCompiler::compile()` is
+always called once per context, and a fingerprint is computed per
+compilation, never globally), verified by `tests/v2/knowledge-compiler.php`'s
+multi-journal isolation tests. Only `public` knowledge is eligible for
+generated pages.
 
 ## 3. Core knowledge domains
 
@@ -102,6 +110,16 @@ Generated pages must:
 - be stable enough for crawling;
 - include provenance-friendly headings;
 - return non-200 on generation failure rather than stale private/debug output.
+
+**As actually implemented (KNO-013/014):** only `/support-knowledge/` (root),
+`/about`, `/submissions`, `/review`, `/policies` exist so far — `fees`,
+`publication`, and `accounts` are deferred to a later PR per the incremental
+category order, and a sitemap (KNO-015) does not exist yet either. The root
+page links every category page that does exist. "Identify journal and last
+generated time" and "return non-200 on generation failure" are not yet
+implemented — the current pages render the journal name and compiled facts
+but no explicit generation timestamp or failure status code; a category with
+no public facts renders a valid empty-state page rather than an error.
 
 ## 5. Knowledge sync
 
