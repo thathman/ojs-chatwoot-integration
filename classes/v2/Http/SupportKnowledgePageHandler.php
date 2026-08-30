@@ -51,6 +51,11 @@ final class SupportKnowledgePageHandler extends PageHandler
         $this->plugin->supportKnowledgeCategoryRequest($request, 'publication');
     }
 
+    public function pages($args, $request): void
+    {
+        $this->plugin->supportKnowledgeCategoryRequest($request, 'pages');
+    }
+
     public function policies($args, $request): void
     {
         $this->plugin->supportKnowledgeCategoryRequest($request, 'policies');

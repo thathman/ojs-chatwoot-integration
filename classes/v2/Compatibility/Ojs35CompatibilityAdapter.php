@@ -558,4 +558,63 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             return null;
         }
     }
+
+    /**
+     * Official, journal-manager-authored public pages from OJS core's own
+     * Static Pages plugin — verified against a real local checkout of
+     * `pkp/staticPages` @ `0a84bbe738b3356ac57fe99c66f2792f0d7016bb`
+     * (`classes/StaticPage.php`, `classes/StaticPagesDAO.php`). This is
+     * the one OJS-managed "explicitly made public" page surface used —
+     * never a domain crawl of arbitrary journal-website URLs.
+     *
+     * @return array<int,array{path:string,title:string,content:string}>
+     */
+    public function getOfficialPublicPages($context, string $locale): array
+    {
+        if (!is_object($context) || !method_exists($context, 'getId')) {
+            return [];
+        }
+        if (!class_exists('\PKP\plugins\PluginRegistry') || !class_exists('\PKP\db\DAORegistry')) {
+            return [];
+        }
+
+        try {
+            \PKP\plugins\PluginRegistry::loadCategory('generic');
+            $plugin = \PKP\plugins\PluginRegistry::getPlugin('generic', 'staticpagesplugin');
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        if (!is_object($plugin) || !method_exists($plugin, 'getEnabled') || !$plugin->getEnabled()) {
+            return [];
+        }
+
+        try {
+            $dao = \PKP\db\DAORegistry::getDAO('StaticPagesDAO');
+            $result = $dao->getByContextId((int) $context->getId());
+            $pages = method_exists($result, 'toArray') ? $result->toArray() : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        $officialPages = [];
+        foreach ($pages as $page) {
+            if (!is_object($page) || !method_exists($page, 'getPath') || !method_exists($page, 'getTitle') || !method_exists($page, 'getContent')) {
+                continue;
+            }
+            try {
+                $path = (string) $page->getPath();
+                $title = (string) $page->getTitle($locale);
+                $content = (string) $page->getContent($locale);
+            } catch (\Throwable $e) {
+                continue;
+            }
+            if ($path === '' || ($title === '' && $content === '')) {
+                continue;
+            }
+            $officialPages[] = ['path' => $path, 'title' => $title, 'content' => $content];
+        }
+
+        return $officialPages;
+    }
 }

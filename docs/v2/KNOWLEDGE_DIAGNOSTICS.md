@@ -138,14 +138,48 @@ Generated pages must:
 - return non-200 on generation failure rather than stale private/debug output.
 
 **As actually implemented (KNO-013/014):** only `/support-knowledge/` (root),
-`/about`, `/submissions`, `/review`, `/fees`, `/publication`, `/policies`
-exist so far — `accounts` is deferred to a later PR per the incremental
-category order, and a sitemap (KNO-015) does not exist yet either. The root
-page links every category page that does exist. "Identify journal and last
-generated time" and "return non-200 on generation failure" are not yet
-implemented — the current pages render the journal name and compiled facts
-but no explicit generation timestamp or failure status code; a category with
-no public facts renders a valid empty-state page rather than an error.
+`/about`, `/submissions`, `/review`, `/fees`, `/publication`, `/pages`,
+`/policies` exist so far — `accounts` is deferred to a later PR per the
+incremental category order, and a sitemap (KNO-015) does not exist yet
+either. The root page links every category page that does exist. "Identify
+journal and last generated time" and "return non-200 on generation failure"
+are not yet implemented — the current pages render the journal name and
+compiled facts but no explicit generation timestamp or failure status code;
+a category with no public facts renders a valid empty-state page rather
+than an error.
+
+## 4a. Official public pages (KNO-010)
+
+The only page surface this codebase reads from is OJS core's own **Static
+Pages** plugin (`pkp/staticPages`) — journal-manager-authored pages that are
+by definition explicitly public. This is deliberately not a crawl of the
+journal's website: a page a manager did not create through this plugin
+never becomes a KnowledgeFact, sidestepping the provenance/injection/
+staleness problems a full-domain crawl would create.
+
+Each static page becomes one `officialPage.<path>` fact (title + sanitized
+content). `OfficialPageKnowledgeProvider` reads through
+`Ojs35CompatibilityAdapter::getOfficialPublicPages()`, which returns `[]`
+whenever the plugin is absent or disabled — never a fatal.
+
+## 4b. Source precedence and conflicts
+
+When two facts collide on the same `(locale, key)`, `KnowledgeSourcePrecedence`
+decides deterministically, per the ranked tiers in §1:
+
+1. structured live OJS configuration (`ojs.context`, `ojs.payment_manager`, `ojs.dispatcher`, `ojs.section_repository`);
+2. an explicitly verified structured third-party provider (`airix.submission_fee_policy`);
+3. an official OJS-managed public page (`ojs.static_page`);
+4. approved FAQ/support content (`faq` — provider not built yet).
+
+A source string this table doesn't recognize ranks last, never wins by
+accident. `KnowledgeCompiler` keeps only the highest-ranked fact per
+colliding key and records every loser as a `KnowledgeConflict`
+(`tests/v2/knowledge-official-pages.php` proves a stale official page and
+an unrecognized-source fact both lose to structured configuration, and
+that the losing values never leak into the rendered facts). Conflicts are
+never rendered on a generated page — they exist purely as an internal
+health signal for a future admin screen (KNO-020).
 
 ## 5. Knowledge sync
 
