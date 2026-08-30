@@ -182,6 +182,43 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         }
     }
 
+    /**
+     * Every ReviewAssignment this user holds for this submission, across all
+     * rounds — status only, via PKP's own computed getStatus() (never
+     * re-derives its overdue-date/decline/resend logic independently, see
+     * classes/v2/State/RequiredActionMapper.php for how these are used).
+     *
+     * @return int[]
+     */
+    public function getReviewAssignmentStatuses(int $submissionId, int $userId): array
+    {
+        if ($submissionId <= 0 || $userId <= 0 || !class_exists('\APP\facades\Repo')) {
+            return [];
+        }
+
+        try {
+            $assignments = \APP\facades\Repo::reviewAssignment()
+                ->getCollector()
+                ->filterBySubmissionIds([$submissionId])
+                ->filterByReviewerIds([$userId])
+                ->getMany();
+
+            $statuses = [];
+            foreach ($assignments as $assignment) {
+                if (!is_object($assignment) || !method_exists($assignment, 'getStatus')) {
+                    continue;
+                }
+                $status = $assignment->getStatus();
+                if (is_numeric($status)) {
+                    $statuses[] = (int) $status;
+                }
+            }
+            return $statuses;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function getRequestedPage($request): string
     {
         return is_object($request) && method_exists($request, 'getRequestedPage')

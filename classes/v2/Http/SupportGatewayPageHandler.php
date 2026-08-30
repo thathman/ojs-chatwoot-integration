@@ -83,6 +83,17 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportSubmissionSupportRequest($request);
     }
 
+    /**
+     * Conceptually ojs_get_required_actions in docs/v2/API_MCP_SPEC.md
+     * §7.6; implemented as a single operation segment (requiredActions) for
+     * the same reason submissionVerify/submissionSupport are, above.
+     */
+    public function requiredActions($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportRequiredActionsRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
