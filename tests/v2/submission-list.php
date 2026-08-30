@@ -232,7 +232,8 @@ namespace {
             private int $contextId,
             private int $status = 1,
             private int $stageId = 1,
-            private string $title = 'Untitled'
+            private string $title = 'Untitled',
+            private string $submissionProgress = ''
         ) {
         }
         public function getId(): int { return $this->id; }
@@ -242,6 +243,7 @@ namespace {
                 'contextId' => $this->contextId,
                 'status' => $this->status,
                 'stageId' => $this->stageId,
+                'submissionProgress' => $this->submissionProgress,
                 default => null,
             };
         }
@@ -366,6 +368,10 @@ namespace {
     submissionListCheck(SupportStateMapper::map(1, 3, 7) === 'review_in_progress', 'external review + a non-revisions round status (e.g. pending reviews) must stay review_in_progress');
     submissionListCheck(SupportStateMapper::map(1, 3, null) === 'review_in_progress', 'external review + unknown round status must stay review_in_progress, never guess revision_requested');
     submissionListCheck(SupportStateMapper::map(1, 1, 1) === 'submitted', 'a REVISIONS_REQUESTED round status outside a review stage must not leak into unrelated stages');
+    submissionListCheck(SupportStateMapper::map(1, 1, null, 'step2') === 'draft', 'a non-empty submissionProgress must map to draft regardless of status/stageId');
+    submissionListCheck(SupportStateMapper::map(1, 1, null, '') === 'submitted', 'an empty-string submissionProgress means genuinely complete, must not map to draft');
+    submissionListCheck(SupportStateMapper::map(1, 1, null, null) === 'submitted', 'a null submissionProgress (unknown/not read) must not be treated as a draft signal, must fall through to normal mapping');
+    submissionListCheck(SupportStateMapper::map(3, 5, null, 'step2') === 'draft', 'submissionProgress must take precedence even over an otherwise-terminal status like published, since it is the more direct signal');
 
     // ================================================================
     // Part 2: PaginationParams — bounded, fail-closed.
@@ -477,8 +483,10 @@ namespace {
     // (456), a reviewer-assigned submission (457), a submission where the
     // user only holds the journal-level Reviewer role with no actual
     // assignment (458), an editorial-only submission (459), a multi-role
-    // author+reviewer submission (460), and a cross-journal submission that
-    // must never appear (999, belongs to context 8).
+    // author+reviewer submission (460), a cross-journal submission that
+    // must never appear (999, belongs to context 8), an authored submission
+    // with revisions requested (461), and an authored draft still in the
+    // submission wizard (462).
     \APP\facades\Repo::$submissionsById[457] = new FakeSubmission(457, 7, status: 1, stageId: 2, title: 'Reviewer Assignment Submission');
     \APP\facades\Repo::$submissionsById[458] = new FakeSubmission(458, 7, status: 1, stageId: 3, title: 'Unassigned Reviewer Role Submission');
     \APP\facades\Repo::$submissionsById[459] = new FakeSubmission(459, 7, status: 1, stageId: 4, title: 'Editorial Only Submission');
@@ -487,6 +495,9 @@ namespace {
     \APP\facades\Repo::$submissionsById[461] = new FakeSubmission(461, 7, status: 1, stageId: 3, title: 'Revision Requested Submission');
     \PKP\db\DAORegistry::$reviewRoundStatusBySubmissionAndStage['461:3'] = 1; // ReviewRound::REVIEW_ROUND_STATUS_REVISIONS_REQUESTED
     \APP\facades\Repo::$workflowStagesByUserId['42:461'] = [[65538]];
+
+    \APP\facades\Repo::$submissionsById[462] = new FakeSubmission(462, 7, status: 1, stageId: 1, title: 'Draft In Progress Submission', submissionProgress: 'step3');
+    \APP\facades\Repo::$workflowStagesByUserId['42:462'] = [[65538]]; // StageAssignment is created at draft creation time, before submit()
 
     \APP\facades\Repo::$workflowStagesByUserId['42:457'] = [];
     \APP\facades\Repo::$reviewAssignments['457:42'] = true;
@@ -501,12 +512,12 @@ namespace {
 
     \APP\facades\Repo::$workflowStagesByUserId['42:999'] = [[65538]]; // would look like author evidence, but wrong journal
 
-    \APP\facades\Repo::$candidateIdsByContextAndUser['7:42'] = [456, 457, 458, 459, 460, 999, 461];
+    \APP\facades\Repo::$candidateIdsByContextAndUser['7:42'] = [456, 457, 458, 459, 460, 999, 461, 462];
 
     $identityWithReviewerRole = new SupportContext(7, 'journal-a', 42, [65538, 65536], 'index', 'index', 'en');
 
     $candidates = $bridge->listCandidateSubmissions(7, 42, 200);
-    submissionListCheck(count($candidates) === 7, 'bridge must return all candidates the OJS query supplies (unfiltered)');
+    submissionListCheck(count($candidates) === 8, 'bridge must return all candidates the OJS query supplies (unfiltered)');
 
     $entries = [];
     $seen = [];
@@ -526,7 +537,7 @@ namespace {
         $entries[] = [
             'id' => $relationship->resourceId(),
             'relationships' => $relationship->types(),
-            'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId'], $stateFields['reviewRoundStatus']),
+            'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId'], $stateFields['reviewRoundStatus'], $stateFields['submissionProgress']),
         ];
     }
 
@@ -544,7 +555,9 @@ namespace {
     submissionListCheck(!isset($entriesById[999]), 'a submission belonging to another journal must never appear, even with matching workflow evidence');
     submissionListCheck(isset($entriesById[461]), 'author must see a submission with revisions requested (461)');
     submissionListCheck($entriesById[461]['supportState'] === 'revision_requested', 'end-to-end pipeline must surface the live review round status as revision_requested');
-    submissionListCheck(count($entries) === 4, 'exactly the 4 genuinely author/reviewer-related submissions must appear (456, 457, 460, 461)');
+    submissionListCheck(isset($entriesById[462]), 'author must see their own draft submission (462)');
+    submissionListCheck($entriesById[462]['supportState'] === 'draft', 'end-to-end pipeline must surface a non-empty submissionProgress as draft, not submitted');
+    submissionListCheck(count($entries) === 5, 'exactly the 5 genuinely author/reviewer-related submissions must appear (456, 457, 460, 461, 462)');
 
     // --- Guessed/nonexistent candidate defensive handling ---
     $candidatesWithGhost = array_merge($candidates, [null]);
@@ -555,7 +568,7 @@ namespace {
         }
         $safeCount++;
     }
-    submissionListCheck($safeCount === 7, 'a null/ghost candidate entry must not crash candidate processing');
+    submissionListCheck($safeCount === 8, 'a null/ghost candidate entry must not crash candidate processing');
     submissionListCheck($resolver->resolve($identityWithReviewerRole, null) === null, 'resolving a null submission must fail closed, not throw');
 
     // --- Duplicate candidate discovery must not duplicate the list result ---
