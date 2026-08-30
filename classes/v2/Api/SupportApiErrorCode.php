@@ -9,4 +9,5 @@ final class SupportApiErrorCode
     public const VALIDATION_ERROR = 'VALIDATION_ERROR';
     public const RATE_LIMITED = 'RATE_LIMITED';
     public const INTERNAL_ERROR = 'INTERNAL_ERROR';
+    public const CAPABILITY_DENIED = 'CAPABILITY_DENIED';
 }
