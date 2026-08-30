@@ -16,11 +16,13 @@ final class InstallSupportGatewayMigration extends Migration
 {
     public const SESSION_TABLE = 'chatwoot_support_sessions';
     public const CHALLENGE_TABLE = 'chatwoot_support_verification_challenges';
+    public const KNOWLEDGE_SYNC_TABLE = 'chatwoot_support_knowledge_sync';
 
     public function up(): void
     {
         $this->upSessions();
         $this->upChallenges();
+        $this->upKnowledgeSync();
     }
 
     private function upSessions(): void
@@ -109,8 +111,40 @@ final class InstallSupportGatewayMigration extends Migration
         });
     }
 
+    /**
+     * One row per provisioned remote Chatwoot/Captain resource, keyed by
+     * (context, locale, resource type) — never keyed by name/URL, since a
+     * name/URL match is never proof of plugin ownership (docs/v2/KNOWLEDGE_DIAGNOSTICS.md
+     * §6 Captain provisioning). `resource_type` starts with
+     * `captain_document` (Captain Document provisioning) and is reused,
+     * not re-migrated, for future resource types (Custom Tools, Scenarios)
+     * that follow the same create-or-sync/fingerprint-compare shape.
+     */
+    private function upKnowledgeSync(): void
+    {
+        if (Schema::hasTable(self::KNOWLEDGE_SYNC_TABLE)) {
+            return;
+        }
+
+        Schema::create(self::KNOWLEDGE_SYNC_TABLE, function (Blueprint $table): void {
+            $table->comment('Local ownership/fingerprint record for provisioned Chatwoot Captain resources (Documents, Custom Tools, Scenarios).');
+            $table->bigIncrements('id');
+            $table->bigInteger('context_id')->index();
+            $table->string('locale', 28);
+            $table->string('resource_type', 32);
+            $table->string('remote_resource_id', 64)->nullable();
+            $table->string('last_successful_fingerprint', 64)->nullable();
+            $table->dateTime('last_successful_sync_at')->nullable();
+            $table->string('last_error_code', 64)->nullable();
+            $table->dateTime('updated_at')->index();
+
+            $table->unique(['context_id', 'locale', 'resource_type'], 'cw_knowledge_sync_identity');
+        });
+    }
+
     public function down(): void
     {
+        Schema::dropIfExists(self::KNOWLEDGE_SYNC_TABLE);
         Schema::dropIfExists(self::CHALLENGE_TABLE);
         Schema::dropIfExists(self::SESSION_TABLE);
     }
