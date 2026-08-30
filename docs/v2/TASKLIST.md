@@ -105,7 +105,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [ ] **API-006** Implement request validation/unknown-field rejection. — required-field presence is validated; extra/unknown fields are not yet rejected.
 - [ ] **API-007** Implement REST rate limits. — best-effort fixed-window limiter (`RateLimiter`) exists and is wired in, but fails open without APCu and is per-worker only; not yet a real cross-worker ceiling.
 - [x] **API-008** `ojs_get_support_identity`. — `POST /ojsSupportGateway/identity`, sanitized via `SupportIdentitySerializer` (no email, no raw relationship evidence, no raw OJS object).
-- [ ] **API-009** `ojs_list_my_submissions`. — next planned slice; `POST /ojsSupportGateway/submissionVerify` (this slice) establishes the resource-scoped V3 relationship/capability path it will need, but does not itself list anything.
+- [x] **API-009** `ojs_list_my_submissions`. — `POST /ojsSupportGateway/submissions`, gated on `submission.list_own`, candidates from the OJS-native submission collector filtered through `SubmissionRelationshipResolver`. No milestone/date field yet.
 - [ ] **API-010** `ojs_get_submission_support`.
 - [ ] **API-011** `ojs_get_required_actions`.
 - [ ] **API-012** `ojs_get_payment_status`.
@@ -119,15 +119,15 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## STA — Support State Engine
 
-- [ ] **STA-001** Define normalized support states.
-- [ ] **STA-002** Map submission stages/statuses for OJS 3.5 target.
+- [ ] **STA-001** Define normalized support states. — `SupportStateMapper` (`classes/v2/State/`) defines a first narrow subset only (submitted/review_in_progress/copyediting_in_progress/production_in_progress/published/declined/scheduled_for_publication/unknown); the full PRODUCT_BIBLE §11 vocabulary (including revision_requested, per-reviewer states) is not yet attempted.
+- [ ] **STA-002** Map submission stages/statuses for OJS 3.5 target. — same narrow subset, mapped only from `status`/`stageId`; deliberately does not use review-round/decision data yet.
 - [ ] **STA-003** Map OJS 3.6 target after compatibility verification.
 - [ ] **STA-004** Determine safe reviewer-progress facts without identities.
 - [ ] **STA-005** Determine author-action-required rules.
 - [ ] **STA-006** Determine revision status/deadline rules.
 - [ ] **STA-007** Determine copyediting/production/publication rules.
 - [ ] **STA-008** Return confidence/evidence codes.
-- [ ] **STA-009** Unknown-state fallback tests.
+- [x] **STA-009** Unknown-state fallback tests. — `tests/v2/submission-list.php` covers unrecognized status, unrecognized stageId, and missing status/stageId all falling back to `unknown` rather than a guess.
 
 ## KNO — Journal Knowledge Compiler
 

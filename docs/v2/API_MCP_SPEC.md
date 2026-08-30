@@ -134,6 +134,8 @@ Fields should be sufficient for conversational selection:
 - last safe milestone/date;
 - action-required boolean.
 
+**As actually implemented:** `POST /ojsSupportGateway/submissions`, gated on the `submission.list_own` capability. Candidate discovery uses the OJS-native submission collector (`filterByContextIds()->assignedTo()`, the same call PKP core itself uses for its own "my assignments" endpoints — verified against `pkp-lib` stable-3_5_0), which is deliberately broad (any stage/review assignment, including editorial); every candidate is then independently re-checked through the same `SubmissionRelationshipResolver` `submissionVerify` uses, and only author/reviewer results survive — editorial-only relationships are excluded from this baseline. `actionRequired` is `null` (explicit unknown), not `false` — this slice has no reliable way to prove it from `status`/`stageId` alone. "Last safe milestone/date" is not yet implemented. Bounded pagination (`limit`/`offset`, default 20, max 50) is applied *after* relationship filtering, against a fixed internal candidate cap of 200 — see the `ponytail:` comment at the call site for the tradeoff and upgrade path.
+
 ### 7.5 `ojs_get_submission_support`
 
 V3 resource relationship required.

@@ -160,5 +160,42 @@ final class RuntimeContextBridge
         }
     }
 
+    /**
+     * Broad, unauthorized candidate discovery only — see
+     * OjsCompatibilityAdapterInterface::listCandidateSubmissions().
+     *
+     * @return array<int,mixed>
+     */
+    public function listCandidateSubmissions(int $contextId, int $userId, int $candidateCap): array
+    {
+        if (!$this->kernel || $contextId <= 0 || $userId <= 0 || $candidateCap <= 0) return [];
+        try {
+            return $this->kernel->listCandidateSubmissions($contextId, $userId, $candidateCap);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public function getSubmissionTitle($submission): string
+    {
+        if (!$this->kernel) return '';
+        try {
+            return $this->kernel->getSubmissionTitle($submission);
+        } catch (\Throwable $e) {
+            return '';
+        }
+    }
+
+    /** @return array{status:?int,stageId:?int} */
+    public function getSubmissionStateFields($submission): array
+    {
+        if (!$this->kernel) return ['status' => null, 'stageId' => null];
+        try {
+            return $this->kernel->getSubmissionStateFields($submission);
+        } catch (\Throwable $e) {
+            return ['status' => null, 'stageId' => null];
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

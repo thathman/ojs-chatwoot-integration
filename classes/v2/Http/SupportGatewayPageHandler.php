@@ -66,6 +66,12 @@ final class SupportGatewayPageHandler extends PageHandler
         $this->plugin->supportSubmissionVerifyRequest($request);
     }
 
+    public function submissions($args, $request): void
+    {
+        $this->requirePost();
+        $this->plugin->supportSubmissionListRequest($request);
+    }
+
     private function requirePost(): void
     {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
