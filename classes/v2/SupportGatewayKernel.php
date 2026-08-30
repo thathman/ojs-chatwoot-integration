@@ -63,6 +63,7 @@ final class SupportGatewayKernel
 
     /** @return array{status:?int,stageId:?int} */
     public function getSubmissionStateFields($submission): array { return $this->adapter->getSubmissionStateFields($submission); }
+    public function getReviewAssignmentStatuses(int $submissionId, int $userId): array { return $this->adapter->getReviewAssignmentStatuses($submissionId, $userId); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }

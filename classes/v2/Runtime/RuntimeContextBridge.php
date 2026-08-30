@@ -198,5 +198,16 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return int[] */
+    public function getReviewAssignmentStatuses(int $submissionId, int $userId): array
+    {
+        if (!$this->kernel) return [];
+        try {
+            return $this->kernel->getReviewAssignmentStatuses($submissionId, $userId);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     public function resolvedVersion(): string { return $this->resolvedVersion; }
 }

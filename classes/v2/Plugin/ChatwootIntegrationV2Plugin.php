@@ -13,6 +13,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\RequiredActionsSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportIdentitySerializer;
@@ -26,6 +27,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
 use PKP\facades\Locale;
@@ -401,6 +403,87 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             SupportStateMapper::explain($supportState),
             $actions
         ), $result->correlationId());
+    }
+
+    /**
+     * Server-to-server endpoint for Chatwoot Captain: returns the normalized
+     * list of actions this verified user is currently expected to take for
+     * exactly one submission (ojs_get_required_actions in
+     * docs/v2/API_MCP_SPEC.md §7.6), gated on `submission.read_own_required_actions`
+     * (V3 + author/reviewer relationship). Establishes its own request-time
+     * V3 the same way submissionVerify()/submissionSupport() do.
+     *
+     * Deliberately narrow: only reports an action when directly provable
+     * from evidence already read elsewhere in this codebase (submission
+     * wizard/review-round state for authors, PKP's own computed
+     * ReviewAssignment::getStatus() for reviewers) — see
+     * RequiredActionMapper's own docblock for exactly what is and isn't
+     * covered. An empty list is a correct, safe answer, not a placeholder.
+     */
+    public function supportRequiredActionsRequest($request): void
+    {
+        $result = $this->resolveSupportApiRequest($request, 'requiredActions');
+        if ($result instanceof SupportApiFailure) {
+            SupportApiResponse::error($result->code, $result->message, $result->correlationId, $result->httpStatus);
+        }
+
+        $bridge = $this->runtimeContextBridge();
+        $submissionId = $this->v2PositiveInt($request->getUserVar('submissionId'));
+        if ($submissionId === null) {
+            SupportApiResponse::error(
+                SupportApiErrorCode::VALIDATION_ERROR,
+                'submissionId is required.',
+                $result->correlationId(),
+                400
+            );
+        }
+
+        $relationship = null;
+        $submission = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        if (!$relationship || !$decision || !$decision->allows('submission.read_own_required_actions')) {
+            SupportApiResponse::success(RequiredActionsSerializer::unverified($result, $actions), $result->correlationId());
+        }
+
+        $requiredActions = [];
+        if ($relationship->has('author')) {
+            $stateFields = $bridge->getSubmissionStateFields($submission);
+            $supportState = SupportStateMapper::map(
+                $stateFields['status'],
+                $stateFields['stageId'],
+                $stateFields['reviewRoundStatus'],
+                $stateFields['submissionProgress']
+            );
+            $requiredActions = array_merge($requiredActions, RequiredActionMapper::forAuthor($supportState));
+        }
+        if ($relationship->has('reviewer')) {
+            $reviewStatuses = $bridge->getReviewAssignmentStatuses($submissionId, $result->identity()->userId() ?? 0);
+            $requiredActions = array_merge($requiredActions, RequiredActionMapper::forReviewer($reviewStatuses));
+        }
+        $requiredActions = array_values(array_unique($requiredActions));
+
+        SupportApiResponse::success(
+            RequiredActionsSerializer::verified($relationship, $requiredActions, $actions),
+            $result->correlationId()
+        );
     }
 
     /**

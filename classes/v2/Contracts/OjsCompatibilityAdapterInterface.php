@@ -29,6 +29,9 @@ interface OjsCompatibilityAdapterInterface
 
     /** @return array{status:?int,stageId:?int,reviewRoundStatus:?int,submissionProgress:?string} */
     public function getSubmissionStateFields($submission): array;
+    /** @return int[] */
+    public function getReviewAssignmentStatuses(int $submissionId, int $userId): array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }
