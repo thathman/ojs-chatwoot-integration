@@ -233,7 +233,7 @@ namespace {
     $dirtyReason = "Line one\x00\x07\x1F" . str_repeat('x', 1200);
     $dirtySummary = HandoffSummaryFormatter::build($unverifiedIdentitySummary, null, null, [], null, null, $dirtyReason);
     escalateCheck(!str_contains($dirtySummary['reason'], "\x00") && !str_contains($dirtySummary['reason'], "\x07"), 'control characters must be stripped from the reason');
-    escalateCheck(mb_strlen($dirtySummary['reason']) <= 1000, 'the reason must be capped at 1000 characters');
+    escalateCheck(strlen($dirtySummary['reason']) <= 1000, 'the reason must be capped at 1000 characters');
 
     $provider = new OjsSubmissionRelationshipEvidenceProvider();
     $resolver = new SubmissionRelationshipResolver($provider);
