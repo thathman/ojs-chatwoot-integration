@@ -89,6 +89,18 @@ from obligation data.
 - archival/publication policy pages;
 - public issue/article URLs.
 
+**As actually implemented (KNO-007):** `CorePublicationKnowledgeProvider`
+covers `publication.accessModel` (deterministic sentence from
+`Journal::PUBLISHING_MODE_{OPEN,SUBSCRIPTION,NONE}`, with a configured
+`delayedOpenAccessDuration` stated verbatim — never an invented timeline),
+`policy.openAccessPolicy` (the journal's own configured text, sanitized),
+`publication.doiAssigned` (boolean, from `enableDois`), and
+`publication.currentIssueUrl`/`publication.archiveUrl` (the real
+`issue/current`/`issue/archive` routes OJS core itself uses). DOI
+prefix/suffix pattern, archival-preservation participation (CLOCKSS/LOCKSS),
+and publication frequency are not implemented — no fabricated substitute
+was added in their place.
+
 ### Accounts/support
 
 - registration/login/reset paths and public instructions;
@@ -126,8 +138,8 @@ Generated pages must:
 - return non-200 on generation failure rather than stale private/debug output.
 
 **As actually implemented (KNO-013/014):** only `/support-knowledge/` (root),
-`/about`, `/submissions`, `/review`, `/fees`, `/policies` exist so far —
-`publication` and `accounts` are deferred to a later PR per the incremental
+`/about`, `/submissions`, `/review`, `/fees`, `/publication`, `/policies`
+exist so far — `accounts` is deferred to a later PR per the incremental
 category order, and a sitemap (KNO-015) does not exist yet either. The root
 page links every category page that does exist. "Identify journal and last
 generated time" and "return non-200 on generation failure" are not yet
