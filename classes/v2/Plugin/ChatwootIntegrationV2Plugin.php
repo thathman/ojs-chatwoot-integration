@@ -68,6 +68,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         'review' => 'review.',
         'fees' => 'fee.',
         'publication' => 'publication.',
+        'pages' => 'officialPage.',
         'policies' => 'policy.',
     ];
     private const LEGACY_EXPORT_KEYS = [

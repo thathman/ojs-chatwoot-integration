@@ -10,13 +10,17 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge;
  */
 final class KnowledgeCompilation
 {
-    /** @param KnowledgeFact[] $facts */
+    /**
+     * @param KnowledgeFact[] $facts
+     * @param KnowledgeConflict[] $conflicts
+     */
     public function __construct(
         private int $contextId,
         private string $locale,
         private array $facts,
         private string $fingerprint,
-        private int $generatedAt
+        private int $generatedAt,
+        private array $conflicts = []
     ) {
     }
 
@@ -63,5 +67,11 @@ final class KnowledgeCompilation
             }
         }
         return null;
+    }
+
+    /** @return KnowledgeConflict[] */
+    public function conflicts(): array
+    {
+        return $this->conflicts;
     }
 }

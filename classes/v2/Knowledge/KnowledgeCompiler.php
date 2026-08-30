@@ -54,12 +54,53 @@ final class KnowledgeCompiler
             }
         }
 
+        [$facts, $conflicts] = $this->resolveConflicts($facts);
+
         usort(
             $facts,
             static fn (KnowledgeFact $a, KnowledgeFact $b): int => [$a->locale(), $a->key()] <=> [$b->locale(), $b->key()]
         );
 
-        return new KnowledgeCompilation($contextId, $locale, $facts, KnowledgeFingerprint::compute($facts), time());
+        return new KnowledgeCompilation($contextId, $locale, $facts, KnowledgeFingerprint::compute($facts), time(), $conflicts);
+    }
+
+    /**
+     * When two facts collide on the same (locale, key), the highest-precedence
+     * source (KnowledgeSourcePrecedence) wins and the rest are recorded as
+     * conflicts — never silently dropped, never "whichever provider ran
+     * last." A tie keeps the first-collected fact (stable, deterministic
+     * given a fixed provider registration order).
+     *
+     * @param KnowledgeFact[] $facts
+     * @return array{0:KnowledgeFact[],1:KnowledgeConflict[]}
+     */
+    private function resolveConflicts(array $facts): array
+    {
+        $byLocaleKey = [];
+        foreach ($facts as $fact) {
+            $byLocaleKey[$fact->locale()]["\x00" . $fact->key()][] = $fact;
+        }
+
+        $winners = [];
+        $conflicts = [];
+        foreach ($byLocaleKey as $locale => $byKey) {
+            foreach ($byKey as $candidates) {
+                $winner = $candidates[0];
+                foreach ($candidates as $candidate) {
+                    if (KnowledgeSourcePrecedence::rank($candidate->source()) < KnowledgeSourcePrecedence::rank($winner->source())) {
+                        $winner = $candidate;
+                    }
+                }
+                $winners[] = $winner;
+                foreach ($candidates as $candidate) {
+                    if ($candidate !== $winner) {
+                        $conflicts[] = new KnowledgeConflict($winner->key(), $locale, $winner, $candidate);
+                    }
+                }
+            }
+        }
+
+        return [$winners, $conflicts];
     }
 
     private function safeProviderId(KnowledgeProviderInterface $provider): string

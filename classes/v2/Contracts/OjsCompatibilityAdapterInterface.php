@@ -59,6 +59,9 @@ interface OjsCompatibilityAdapterInterface
     /** Public policy facts only (enabled/amount/currency) — never a submission's obligation state. Null when absent/disabled/incompatible. */
     public function getAirixSubmissionFeePolicy($context): ?array;
 
+    /** Journal-manager-authored public pages from OJS core's Static Pages plugin. Empty when absent/disabled. @return array<int,array{path:string,title:string,content:string}> */
+    public function getOfficialPublicPages($context, string $locale): array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }
