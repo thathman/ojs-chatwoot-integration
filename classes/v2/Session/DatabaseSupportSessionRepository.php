@@ -79,18 +79,7 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
 
             // Rotate any previous active session bound to this exact Chatwoot
             // conversation before claiming the new authenticated OJS session.
-            DB::table(self::table())
-                ->where('context_id', $contextId)
-                ->where('chatwoot_account_id', $chatwootAccountId)
-                ->where('chatwoot_contact_id', $chatwootContactId)
-                ->where('chatwoot_conversation_id', $chatwootConversationId)
-                ->where('public_id', '!=', $session->publicId())
-                ->whereNull('revoked_at')
-                ->update([
-                    'revoked_at' => $nowDb,
-                    'binding_token_hash' => null,
-                    'binding_expires_at' => null,
-                ]);
+            $this->revokeOthersForConversation($contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $session->publicId(), $now);
 
             $idleExpiresAt = min($idleExpiresAt, $session->absoluteExpiresAt());
             $bound = $session->withConversationBinding(
@@ -138,6 +127,28 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
             ->where('context_id', $contextId)
             ->where('user_id', $userId)
             ->whereNull('chatwoot_conversation_id')
+            ->whereNull('revoked_at')
+            ->update([
+                'revoked_at' => $this->toDatabaseTime($now),
+                'binding_token_hash' => null,
+                'binding_expires_at' => null,
+            ]);
+    }
+
+    public function revokeOthersForConversation(
+        int $contextId,
+        string $chatwootAccountId,
+        string $chatwootContactId,
+        string $chatwootConversationId,
+        string $exceptPublicId,
+        int $now
+    ): void {
+        DB::table(self::table())
+            ->where('context_id', $contextId)
+            ->where('chatwoot_account_id', $chatwootAccountId)
+            ->where('chatwoot_contact_id', $chatwootContactId)
+            ->where('chatwoot_conversation_id', $chatwootConversationId)
+            ->where('public_id', '!=', $exceptPublicId)
             ->whereNull('revoked_at')
             ->update([
                 'revoked_at' => $this->toDatabaseTime($now),
