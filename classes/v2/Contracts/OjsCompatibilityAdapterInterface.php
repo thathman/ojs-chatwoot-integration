@@ -53,6 +53,9 @@ interface OjsCompatibilityAdapterInterface
 
     public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string;
 
+    /** Null when the sibling plugin is absent, disabled, or an incompatible version. */
+    public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

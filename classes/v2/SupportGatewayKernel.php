@@ -10,6 +10,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\AvailableActionMap
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityPolicyEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
@@ -80,6 +81,7 @@ final class SupportGatewayKernel
     public function getUserAccountFields(int $userId): array { return $this->adapter->getUserAccountFields($userId); }
     public function getUserByEmail(string $email): ?object { return $this->adapter->getUserByEmail($email); }
     public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string { return $this->adapter->getVerificationLinkUrl($request, $publicReference, $token); }
+    public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface { return $this->adapter->getAirixSubmissionFeeProvider($context); }
     public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
 
     public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }

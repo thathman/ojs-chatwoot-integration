@@ -9,6 +9,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRela
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\SupportGatewayKernel;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
 
 final class RuntimeContextBridge
 {
@@ -301,6 +302,16 @@ final class RuntimeContextBridge
         if (!$this->kernel) return null;
         try {
             return $this->kernel->getVerificationLinkUrl($request, $publicReference, $token);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface
+    {
+        if (!$this->kernel) return null;
+        try {
+            return $this->kernel->getAirixSubmissionFeeProvider($context);
         } catch (\Throwable $e) {
             return null;
         }

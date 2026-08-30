@@ -18,18 +18,28 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRela
  * a raw Submission/Context/CompletedPayment object, or any provider secret
  * or payment credential — only the explicit fields below ever reach the
  * response.
+ *
+ * `obligations` (docs/v2/AIRIX360_INTEGRATIONS.md §4.1,
+ * docs/v2/AIRIX360_TASKLIST.md PTF/APS) is an additive field: each entry
+ * is one SupportProviderRegistry::resolveObligations() result (producer,
+ * feeKey, status, amount, payableAmount, currency, payUrl). It is always
+ * an array, empty when no optional payment provider (e.g. Airix
+ * Submission Fee) is installed/enabled — existing callers that only read
+ * `status`/`amount`/`currency` see no behavior change.
  */
 final class PaymentStatusSerializer
 {
     /**
      * @param array{enabled:bool,amount:?float,currency:?string} $feeInfo
+     * @param array<int,array<string,mixed>> $obligations
      * @return array<string,mixed>
      */
     public static function verified(
         ResourceRelationship $relationship,
         array $feeInfo,
         string $status,
-        array $availableActions
+        array $availableActions,
+        array $obligations = []
     ): array {
         return [
             'verified' => true,
@@ -45,6 +55,7 @@ final class PaymentStatusSerializer
             'currency' => $feeInfo['currency'],
             'status' => $status,
             'availableActions' => $availableActions,
+            'obligations' => $obligations,
         ];
     }
 
