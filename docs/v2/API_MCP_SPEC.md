@@ -181,6 +181,12 @@ Returns public fee facts plus verified submission-specific state when authorized
 
 No provider secret, card/payment credential or unrelated transaction details.
 
+**As actually implemented:** `POST /ojsSupportGateway/paymentStatus`, gated on `submission.read_own_payment_status` (V3, author relationship only — reviewers are not part of this capability's declared relationships). Built directly against OJS's own `OJSPaymentManager`/`OJSCompletedPaymentDAO` (verified against `pkp-lib`/`ojs` `stable-3_5_0`, never re-derives their logic), not a generic Provider Registry — see `docs/v2/TASKLIST.md`'s PRV section note.
+
+`feeEnabled`/`amount`/`currency` are always returned regardless of verification — they describe the journal's own payment configuration, not any specific user or submission, so revealing them cannot leak anything. The `payment_status` feature flag that gates the capability is derived live from `OJSPaymentManager::isConfigured() + publicationEnabled()`, never a plugin setting of its own.
+
+The submission-specific `status` (`not_applicable`/`unpaid`/`paid`) additionally requires the `payment_support` journal policy in `CapabilityCatalog`, which defaults to `false` with no admin toggle built yet — so that branch is intentionally unreachable in production until a future settings UI exists to opt a journal in. This is a deliberate conservative default the endpoint is correctly wired to, not a bug. `waived` and the "safe next action/payment URL" are not implemented: no genuine evidence of a fee-waiver concept was found in OJS core, and no payment-initiation URL construction has been verified yet.
+
 ### 7.8 `ojs_get_publication_status`
 
 Returns safe publication, issue, DOI and public URL information for an authorized submission/article.
