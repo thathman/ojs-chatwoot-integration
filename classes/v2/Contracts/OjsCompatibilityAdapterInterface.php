@@ -56,6 +56,9 @@ interface OjsCompatibilityAdapterInterface
     /** Null when the sibling plugin is absent, disabled, or an incompatible version. */
     public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface;
 
+    /** Public policy facts only (enabled/amount/currency) — never a submission's obligation state. Null when absent/disabled/incompatible. */
+    public function getAirixSubmissionFeePolicy($context): ?array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }
