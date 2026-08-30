@@ -119,8 +119,8 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## STA — Support State Engine
 
-- [ ] **STA-001** Define normalized support states. — `SupportStateMapper` (`classes/v2/State/`) defines a first narrow subset only (submitted/review_in_progress/copyediting_in_progress/production_in_progress/published/declined/scheduled_for_publication/unknown); the full PRODUCT_BIBLE §11 vocabulary (including revision_requested, per-reviewer states) is not yet attempted.
-- [ ] **STA-002** Map submission stages/statuses for OJS 3.5 target. — same narrow subset, mapped only from `status`/`stageId`; deliberately does not use review-round/decision data yet.
+- [ ] **STA-001** Define normalized support states. — `SupportStateMapper` (`classes/v2/State/`) now covers submitted/review_in_progress/revision_requested/copyediting_in_progress/production_in_progress/published/declined/scheduled_for_publication/unknown. Still missing from the full PRODUCT_BIBLE §11 vocabulary: draft (needs a `submissionProgress`-based candidate discovery path, not just a mapper change) and revision_received (needs revision-file evidence).
+- [x] **STA-002** Map submission stages/statuses for OJS 3.5 target. — `status`/`stageId` mapped as before; `revision_requested` now additionally derived from the current review round's live `status` column (`ReviewRoundDAO::getLastReviewRoundBySubmissionId`, verified against `pkp-lib` stable-3_5_0), read-only, never recomputed independently.
 - [ ] **STA-003** Map OJS 3.6 target after compatibility verification.
 - [ ] **STA-004** Determine safe reviewer-progress facts without identities.
 - [ ] **STA-005** Determine author-action-required rules.
