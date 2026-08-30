@@ -1065,6 +1065,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
 
         $relationship = null;
+        $submission = null;
         if ($result->verified()) {
             $submission = $bridge->loadSubmission($submissionId);
             if ($submission) {
@@ -1089,16 +1090,61 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             SupportApiResponse::success(PaymentStatusSerializer::unverified($result, $feeInfo, $actions), $result->correlationId());
         }
 
-        $status = 'not_applicable';
-        if ($feeInfo['enabled']) {
-            $paid = $bridge->hasPaidPublicationFee($result->identity()->userId() ?? 0, $submissionId);
-            $status = $paid ? 'paid' : 'unpaid';
+        $userId = $result->identity()->userId() ?? 0;
+        $obligations = $this->v2ResolvePaymentObligations($bridge, $request, $submission, $userId);
+
+        // An Airix fee producer, when present, is the authoritative fee for
+        // this submission (docs/v2/AIRIX360_INTEGRATIONS.md §5.8: a
+        // producer, not the native OJS publication fee, owns "what's owed
+        // and why" once one is configured) — the native publication-fee
+        // check below only runs as the fallback when no provider reported
+        // anything.
+        $airixObligation = $obligations[0] ?? null;
+        if ($airixObligation !== null) {
+            $status = $airixObligation['status'];
+            $feeInfo = [
+                'enabled' => true,
+                'amount' => $airixObligation['amount'],
+                'currency' => $airixObligation['currency'],
+            ];
+        } else {
+            $status = 'not_applicable';
+            if ($feeInfo['enabled']) {
+                $paid = $bridge->hasPaidPublicationFee($userId, $submissionId);
+                $status = $paid ? 'paid' : 'unpaid';
+            }
         }
 
         SupportApiResponse::success(
-            PaymentStatusSerializer::verified($relationship, $feeInfo, $status, $actions),
+            PaymentStatusSerializer::verified($relationship, $feeInfo, $status, $actions, $obligations),
             $result->correlationId()
         );
+    }
+
+    /**
+     * Resolves every registered payment provider's obligation for this
+     * submission (docs/v2/AIRIX360_TASKLIST.md PTF/APS). Returns an empty
+     * array when $submission is null (unverified caller) or no optional
+     * provider is installed/enabled/compatible — the native OJS
+     * publication-fee path is unaffected either way.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function v2ResolvePaymentObligations($bridge, $request, $submission, int $userId): array
+    {
+        if (!$submission) {
+            return [];
+        }
+
+        $context = $bridge->getContext($request);
+        $airixProvider = $bridge->getAirixSubmissionFeeProvider($context);
+        if (!$airixProvider) {
+            return [];
+        }
+
+        $registry = new \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\SupportProviderRegistry();
+        $registry->registerPaymentProvider($airixProvider);
+        return $registry->resolveObligations($context, $submission, $userId);
     }
 
     /**

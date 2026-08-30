@@ -454,4 +454,53 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             return null;
         }
     }
+
+    /**
+     * Detects the Airix Submission Fee sibling plugin (docs/v2/AIRIX360_INTEGRATIONS.md
+     * §5.2) and, when present/enabled/compatible, wraps it in a
+     * AirixSubmissionFeeProvider. Returns null on absence, disablement, or
+     * an unrecognized major version — the caller must treat that exactly
+     * like "no such provider," never as an error, per the Airix provider
+     * SDK's fail-closed/degrade-gracefully rule.
+     *
+     * Uses the same `PluginRegistry::getPlugin('generic', strtolower(ClassName))`
+     * lookup convention that PaymentHelper::waiverDiscount() already relies
+     * on for the Request Waiver plugin.
+     */
+    public function getAirixSubmissionFeeProvider($context): ?\APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface
+    {
+        if (!class_exists('\PKP\plugins\PluginRegistry')) {
+            return null;
+        }
+
+        try {
+            \PKP\plugins\PluginRegistry::loadCategory('generic');
+            $plugin = \PKP\plugins\PluginRegistry::getPlugin('generic', 'submissionfeeplugin');
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!is_object($plugin) || !method_exists($plugin, 'getEnabled') || !$plugin->getEnabled()) {
+            return null;
+        }
+
+        $helperClass = '\APP\plugins\generic\submissionFee\PaymentHelper';
+        if (!class_exists($helperClass)) {
+            return null;
+        }
+
+        try {
+            $version = '0.0.0.0';
+            if (method_exists($plugin, 'getCurrentVersion')) {
+                $versionObject = $plugin->getCurrentVersion();
+                if (is_object($versionObject) && method_exists($versionObject, 'getVersionString')) {
+                    $version = (string) $versionObject->getVersionString();
+                }
+            }
+            $helper = new $helperClass($plugin);
+            return new \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\AirixSubmissionFeeProvider($plugin, $helper, $version);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
 }

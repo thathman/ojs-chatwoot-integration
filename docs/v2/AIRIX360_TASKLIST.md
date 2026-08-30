@@ -23,38 +23,38 @@ These task IDs supplement `TASKLIST.md`. A task is complete only with acceptance
 
 ## AXP — Airix Provider SDK
 
-- [ ] **AXP-001** Add stable Support Provider registration hook/API.
-- [ ] **AXP-002** Define provider ID/version/applicability/health metadata contract.
-- [ ] **AXP-003** Define `PaymentSupportProviderInterface`.
+- [x] **AXP-001** Add stable Support Provider registration hook/API. — `SupportProviderRegistry::discoverPaymentProviders()` fires `Hook::call('ChatwootIntegration::SupportProviders', [$registry])`; a fake third-party provider registers through it in `tests/v2/provider-registry.php`.
+- [x] **AXP-002** Define provider ID/version/applicability/health metadata contract. — `providerId()` + `ProviderHealth::*`; no separate supported-adapter-versions/journal-applicability metadata object yet (not needed by the one real provider).
+- [x] **AXP-003** Define `PaymentSupportProviderInterface`.
 - [ ] **AXP-004** Define `AccountSupportProviderInterface`.
 - [ ] **AXP-005** Define `SubmissionRequirementProviderInterface`.
 - [ ] **AXP-006** Define `ContributorSupportProviderInterface`.
-- [ ] **AXP-007** Implement provider discovery through PKP/OJS plugin registry and explicit registration.
-- [ ] **AXP-008** Implement provider health states and incompatible-version behavior.
-- [ ] **AXP-009** Guarantee provider exceptions are isolated and never break OJS page rendering.
+- [x] **AXP-007** Implement provider discovery through PKP/OJS plugin registry and explicit registration. — first-party: `Ojs35CompatibilityAdapter::getAirixSubmissionFeeProvider()` via `PluginRegistry::getPlugin('generic', 'submissionfeeplugin')`; third-party: the `ChatwootIntegration::SupportProviders` hook.
+- [x] **AXP-008** Implement provider health states and incompatible-version behavior. — `ProviderHealth`; `AirixSubmissionFeeProvider::health()` reports `DISABLED`/`INCOMPATIBLE_VERSION` (only the verified `1.x` line is trusted) alongside `AVAILABLE`.
+- [x] **AXP-009** Guarantee provider exceptions are isolated and never break OJS page rendering. — `SupportProviderRegistry::resolveObligations()` wraps every provider call in try/catch; covered in `tests/v2/provider-registry.php`.
 - [ ] **AXP-010** Add provider capability/provenance to health UI.
-- [ ] **AXP-011** Document third-party provider SDK with a minimal reference plugin.
-- [ ] **AXP-012** Ensure providers cannot receive Chatwoot credentials or bypass Policy Engine.
-- [ ] **AXP-013** Define optional version constraints for known first-party providers.
+- [ ] **AXP-011** Document third-party provider SDK with a minimal reference plugin. — The hook is tested but not yet documented for external plugin authors.
+- [x] **AXP-012** Ensure providers cannot receive Chatwoot credentials or bypass Policy Engine. — A provider returns plain obligation facts only; the calling endpoint independently evaluates `submission.read_own_payment_status` exactly as it already did for the native producer, so a provider can never grant more access than that capability check allows.
+- [ ] **AXP-013** Define optional version constraints for known first-party providers. — Only a single hard-coded `1.x` major-version check exists on the one shipped provider; no general constraint mechanism.
 - [ ] **AXP-014** Add overlap/conflict declaration support for providers covering the same semantic domain.
 
 ## APS — Airix Submission Fee Provider
 
 Target repo: `Airix360/submissionFee-OJS`.
 
-- [ ] **APS-001** Detect plugin installed/enabled/version per journal.
-- [ ] **APS-002** Read configured submission-fee policy through supported plugin/settings contract.
-- [ ] **APS-003** Resolve native OJS completed submission payment by authorized submission.
-- [ ] **APS-004** Resolve queued/pending submission-fee state safely.
-- [ ] **APS-005** Use provider payable amount after partial waiver; do not duplicate waiver math.
-- [ ] **APS-006** Expose safe author pay URL.
+- [x] **APS-001** Detect plugin installed/enabled/version per journal.
+- [ ] **APS-002** Read configured submission-fee policy through supported plugin/settings contract. — Only the resolved `amount`/`currency`/`feeEnabled` are read (via `PaymentHelper`); no separate public "policy" fact set (mode, hardBlock vs. holdUntilPaid) is exposed yet.
+- [x] **APS-003** Resolve native OJS completed submission payment by authorized submission. — via `PaymentHelper::hasPaid()`, never re-queried directly.
+- [ ] **APS-004** Resolve queued/pending submission-fee state safely. — Not implemented; an unpaid submission with a queued payment currently still reports `unpaid`, not `pending`.
+- [x] **APS-005** Use provider payable amount after partial waiver; do not duplicate waiver math. — `AirixSubmissionFeeProvider` calls `PaymentHelper::payableAmount()`/`waiverDiscount()` and never recomputes a percentage itself.
+- [x] **APS-006** Expose safe author pay URL. — Only for `unpaid`/`partially_waived` obligations; never for `paid`/`waived`/`refunded`/`refund_review`.
 - [ ] **APS-007** Normalize `submissionFeeOutstanding` into support state where available.
-- [ ] **APS-008** Normalize refunded/refund-review/refund-error state without leaking internal error details to public plane.
+- [x] **APS-008** Normalize refunded/refund-review/refund-error state without leaking internal error details to public plane. — `refunded`/`refund_review` statuses only; the underlying `submissionFeeRefundError` text is never read or exposed.
 - [ ] **APS-009** Add hardBlock/holdUntilPaid support diagnostics.
-- [ ] **APS-010** Add submission action-required integration.
-- [ ] **APS-011** Add public knowledge provider for configured submission-fee policy.
+- [ ] **APS-010** Add submission action-required integration. — Not yet wired into `RequiredActionMapper`/`get_required_actions`.
+- [ ] **APS-011** Add public knowledge provider for configured submission-fee policy. — No Knowledge Compiler exists yet (see roadmap ordering: this phase precedes it).
 - [ ] **APS-012** Add payment required/completed/refunded event adapters where stable.
-- [ ] **APS-013** Contract-test exact supported Submission Fee releases.
+- [x] **APS-013** Contract-test exact supported Submission Fee releases. — `AirixSubmissionFeeProvider::health()` only reports `AVAILABLE` for the verified `1.x` line (built and cross-checked against a real local checkout of `Airix360/submissionFee-OJS` @ `80d6a51061b720b35cabcab46841b2decf132f6f`, release `1.7.0.0`); `tests/v2/provider-registry.php` asserts a `2.0.0.0` plugin reports `INCOMPATIBLE_VERSION`. Not run against a live OJS install with the real plugin installed — that remains manual/release-time verification.
 
 ## AWA — Airix Waiver Provider
 
@@ -193,11 +193,11 @@ No runtime claim until each repository is implemented and separately verified.
 
 ## AXT — Airix Integration Test Matrix
 
-- [ ] **AXT-001** No Airix sibling plugins installed: Chatwoot Integration core still passes.
-- [ ] **AXT-002** One Airix provider installed: provider discovered and isolated.
-- [ ] **AXT-003** Disabled provider: no capability exposed.
-- [ ] **AXT-004** Incompatible provider version: safe degraded/unknown result, no fatal.
-- [ ] **AXT-005** Provider throws exception: unrelated providers still return.
+- [x] **AXT-001** No Airix sibling plugins installed: Chatwoot Integration core still passes. — every pre-existing test suite (payment-status, diagnostics, etc.) still passes unmodified; `getAirixSubmissionFeeProvider()` returns `null` and the endpoint falls back to the native OJS producer exactly as before this phase.
+- [x] **AXT-002** One Airix provider installed: provider discovered and isolated. — `tests/v2/provider-registry.php` Part 3.
+- [x] **AXT-003** Disabled provider: no capability exposed. — same test: a disabled sibling plugin resolves to `null`, both from the provider's own `health()` and from the adapter's detection.
+- [x] **AXT-004** Incompatible provider version: safe degraded/unknown result, no fatal. — `INCOMPATIBLE_VERSION` case in `tests/v2/provider-registry.php`.
+- [x] **AXT-005** Provider throws exception: unrelated providers still return. — `ThrowingProvider` case in `tests/v2/provider-registry.php`.
 - [ ] **AXT-006** Native APC only portfolio.
 - [ ] **AXT-007** Submission fee only portfolio.
 - [ ] **AXT-008** Native APC + submission fee simultaneous portfolio.
