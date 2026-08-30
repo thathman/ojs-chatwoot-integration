@@ -112,7 +112,7 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 - [x] **API-013** `ojs_get_publication_status`. — `POST /ojsSupportGateway/publicationStatus`, establishes its own request-time V3 the same way the other submission-scoped endpoints do, gated on `submission.read_own_publication_status`. `doi`/`publicUrl`/`issue` are only populated when the normalized support state is exactly `published` or `scheduled_for_publication`; `publicUrl` further restricted to `published` only (a scheduled article isn't yet publicly visible). Issue metadata (volume/number/year) is only surfaced when the linked `Issue` itself reports `getPublished() === true`, as a fail-safe against ever leaking an unpublished issue's data through a published article. Every other state returns `status: 'not_yet_published'` with no other fields.
 - [x] **API-014** `ojs_diagnose_account`. — `POST /ojsSupportGateway/accountDiagnostics`, gated on new capability `account.diagnose_own` (V2, no resource relationship — this is the caller's own account). New `classes/v2/Diagnostics/DiagnosticResult.php` (shared status/code/summary/evidenceCodes/nextActions/retryable contract, reused by future `ojs_diagnose_submission`) and `AccountDiagnosticEngine` covering scopes `account_access`/`login`/`profile` as `confirmed` (from `User::getDisabled()`/`getDateValidated()`, verified against `pkp-lib` stable-3_5_0) and `password_reset` always as `unknown` (no OJS evidence of email delivery exists). Never accepts a caller-supplied email/username — diagnoses only the verified caller's own account, never an arbitrary lookup.
 - [x] **API-015** `ojs_diagnose_submission`. — `POST /ojsSupportGateway/submissionDiagnostics`, gated on new capability `submission.diagnose_own` (V3, author/reviewer). New `SubmissionDiagnosticEngine` covers scopes `submission_access`/`submission_progress`/`required_action`/`review_access`/`publication`/`payment` — every scope is a thin wrapper over the existing `SubmissionRelationshipResolver`/`SupportStateMapper`/`RequiredActionMapper`/publication+payment field services, not a second workflow interpreter. The `payment` scope independently re-evaluates `submission.read_own_payment_status` exactly like the dedicated payment endpoint, so it can never reveal more than that endpoint would (still gated off by the `payment_support` policy default).
-- [ ] **API-016** `ojs_escalate_support`.
+- [x] **API-016** `ojs_escalate_support`. — `POST /ojsSupportGateway/escalate`, gated on the existing `support.escalate` capability (deliberately V0/unauthenticated — a handoff must remain available even when verification itself is failing). New `HandoffSummaryFormatter` (HOF-001..006) composes a safe DTO from `SupportIdentitySerializer` (verification method/expiry) plus, only when independently re-checked against each fact's own dedicated capability (`submission.read_own_support_status`/`read_own_required_actions`/`read_own_publication_status`/`read_own_payment_status`), resource relationship/support state/required actions/publication/payment facts — never more than the verified caller could already read via those dedicated endpoints. Posts a Chatwoot private note via the existing (v1) `ChatwootApiService::createConversationNote()`, reused rather than rebuilt; posting is best-effort and never fails the whole request. `EscalationIdempotencyGuard` (HOF-007) is APCu-backed, same fail-open/per-worker character as `RateLimiter` — a durable idempotency ledger is the upgrade path, not built here.
 - [ ] **API-017** Generate OpenAPI/machine-readable schema.
 - [ ] **API-018** Contract-test all public responses.
 - [ ] **API-019** Keep Captain-provisioned custom tools <=12.
@@ -200,13 +200,13 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## HOF — Human Handoff
 
-- [ ] **HOF-001** Define safe handoff summary DTO.
-- [ ] **HOF-002** Include verification method/expiry safely.
-- [ ] **HOF-003** Include verified relationship/resource.
-- [ ] **HOF-004** Include normalized support state/action.
-- [ ] **HOF-005** Include safe recent event/diagnostic context.
-- [ ] **HOF-006** Explicitly exclude confidential review/editorial data.
-- [ ] **HOF-007** Create/update private note idempotently.
+- [x] **HOF-001** Define safe handoff summary DTO. — `HandoffSummaryFormatter::build()`.
+- [x] **HOF-002** Include verification method/expiry safely. — reuses `SupportIdentitySerializer::serialize()` directly rather than re-deriving.
+- [x] **HOF-003** Include verified relationship/resource. — only when a real, independently-resolved relationship exists.
+- [x] **HOF-004** Include normalized support state/action. — only after independently re-checking `submission.read_own_support_status`/`read_own_required_actions`.
+- [ ] **HOF-005** Include safe recent event/diagnostic context. — not wired: `ojs_escalate_support` does not accept a caller-supplied diagnostic result (untrustworthy — Captain could claim any code) and does not internally re-run `SubmissionDiagnosticEngine` itself yet. A future slice could have the endpoint run the same diagnostic scopes it already has access to and fold the result in the same independently-re-checked way the other facts are.
+- [x] **HOF-006** Explicitly exclude confidential review/editorial data. — reviewer identities/recommendations are never read; `HandoffSummaryFormatter` only arranges facts already proven safe elsewhere.
+- [x] **HOF-007** Create/update private note idempotently. — `EscalationIdempotencyGuard`, best-effort/APCu-backed only (see API-016 note); not a durable cross-worker ledger.
 
 ## PRV — Provider Registry
 

@@ -250,6 +250,14 @@ Example:
 
 Creates/updates a structured human handoff context or private note. It does not grant additional data access.
 
+**As actually implemented:** `POST /ojsSupportGateway/escalate`, gated on the existing `support.escalate` capability — deliberately V0/unauthenticated, the same as every other version of this capability, since a human handoff must remain available even when verification itself is failing (often exactly why one is needed). Input is a required `reason` (free text, capped at 1000 characters and stripped of control characters) plus an optional `submissionId` and `idempotencyKey`.
+
+"Does not grant additional data access" is enforced structurally, not just by convention: every fact folded into the handoff summary is independently re-checked against the exact same capability its own dedicated endpoint enforces (`submission.read_own_support_status`, `submission.read_own_required_actions`, `submission.read_own_publication_status`, `submission.read_own_payment_status`) before being included. In the current default configuration, payment facts are never includable here either, for the same reason `ojs_get_payment_status`'s personalized status isn't — the `payment_support` journal policy still defaults off.
+
+`HandoffSummaryFormatter` builds one summary used for both the JSON response and the rendered Chatwoot private-note text, so the two can never drift on what's safe to include. The note is posted via the existing v1 `ChatwootApiService::createConversationNote()` (reused, not rebuilt) to the exact conversation tuple the request itself carries — never a caller-supplied override. Posting is best-effort: a Chatwoot API failure (missing configuration, network error) never fails the whole request, since the meaningful outcome for Captain is that the escalation was recorded, not that a third-party API call happened to succeed.
+
+Idempotency (`EscalationIdempotencyGuard`) is APCu-backed with the same fail-open, per-worker character as `RateLimiter` — good enough to absorb a naive client retry within one worker, not a durable cross-worker ledger. Not yet implemented: folding a diagnostic result into the summary (HOF-005) — see `docs/v2/TASKLIST.md`'s note on why that was deliberately deferred rather than accepting an untrustworthy caller-supplied diagnostic code.
+
 ## 8. Public knowledge endpoints
 
 Generated support knowledge pages are separate from tool API.
