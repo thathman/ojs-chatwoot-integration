@@ -1373,7 +1373,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         }
 
         $userId = $result->identity()->userId() ?? 0;
-        $obligations = $this->v2ResolvePaymentObligations($bridge, $request, $submission, $userId);
+        $resolution = $this->v2ResolvePaymentObligations($bridge, $request, $submission, $userId);
+        $obligations = $resolution ? $resolution->obligations() : [];
 
         // An Airix fee producer, when present, is the authoritative fee for
         // this submission (docs/v2/AIRIX360_INTEGRATIONS.md §5.8: a
@@ -1381,6 +1382,13 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
         // and why" once one is configured) — the native publication-fee
         // check below only runs as the fallback when no provider reported
         // anything.
+        //
+        // A provider that genuinely FAILED (as opposed to legitimately not
+        // applying — see SupportProviderRegistry::NOT_APPLICABLE_HEALTH_STATES)
+        // must report `unknown`, never silently fall back to the native
+        // producer's state: that could report a completely different fee's
+        // paid/unpaid status as if it were this journal's real answer
+        // (docs/v2/PAYMENT_PORTFOLIO.md).
         $airixObligation = $obligations[0] ?? null;
         if ($airixObligation !== null) {
             $status = $airixObligation['status'];
@@ -1389,6 +1397,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
                 'amount' => $airixObligation['amount'],
                 'currency' => $airixObligation['currency'],
             ];
+        } elseif ($resolution && $resolution->hasFailures()) {
+            $status = \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\PaymentObligationStatus::UNKNOWN;
         } else {
             $status = 'not_applicable';
             if ($feeInfo['enabled']) {
@@ -1405,23 +1415,24 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
 
     /**
      * Resolves every registered payment provider's obligation for this
-     * submission (docs/v2/AIRIX360_TASKLIST.md PTF/APS). Returns an empty
-     * array when $submission is null (unverified caller) or no optional
-     * provider is installed/enabled/compatible — the native OJS
-     * publication-fee path is unaffected either way.
-     *
-     * @return array<int,array<string,mixed>>
+     * submission (docs/v2/AIRIX360_TASKLIST.md PTF/APS). Returns null when
+     * $submission is null (unverified caller) or no optional provider is
+     * installed/enabled/compatible at all — the native OJS
+     * publication-fee path is unaffected either way. A non-null,
+     * zero-obligation result can still carry failures (see
+     * ObligationResolution::hasFailures()) — that is the "provider
+     * exists but broke" case, distinct from "no provider exists."
      */
-    private function v2ResolvePaymentObligations($bridge, $request, $submission, int $userId): array
+    private function v2ResolvePaymentObligations($bridge, $request, $submission, int $userId): ?\APP\plugins\generic\chatwootIntegration\classes\v2\Provider\ObligationResolution
     {
         if (!$submission) {
-            return [];
+            return null;
         }
 
         $context = $bridge->getContext($request);
         $airixProvider = $bridge->getAirixSubmissionFeeProvider($context);
         if (!$airixProvider) {
-            return [];
+            return null;
         }
 
         $registry = new \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\SupportProviderRegistry();
