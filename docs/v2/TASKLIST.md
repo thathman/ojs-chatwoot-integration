@@ -208,8 +208,8 @@ inspecting `AirixSubmissionFeeProvider`'s obligations.
 
 ## EVT — Event Bridge
 
-- [ ] **EVT-001** Define normalized `SupportEvent` model.
-- [ ] **EVT-002** Stable idempotency keys.
+- [x] **EVT-001** Define normalized `SupportEvent` model. — `SupportEvent` (immutable DTO: type/contextId/resource/idempotencyKey/occurredAt/attributes, never a delivery mode — that's EVT-010's job) + `SupportEventType` (the 7 real v1-derived event kinds, dot-notation named consistent with `CapabilityCatalog`). Not yet wired to any real OJS hook — that begins at EVT-003.
+- [x] **EVT-002** Stable idempotency keys. — `SupportEvent::create()`'s `$naturalKey` param + `deriveIdempotencyKey()`: a deterministic hash of (type, contextId, resourceType, resourceId, naturalKey) — never a random value, never dependent on `occurredAt`, so a genuine retry of the same real occurrence always collides while a different decision/type/resource/journal never does. `naturalKey` sourcing per real event (e.g. a real OJS decision's own id for `submission.decision_recorded`) is left to each EVT-003+ event adapter, since only that adapter knows the real distinguishing detail for its event kind.
 - [ ] **EVT-003** Migrate v1 submission-created event.
 - [ ] **EVT-004** Migrate v1 decision event.
 - [ ] **EVT-005** Migrate v1 status/publication event.
