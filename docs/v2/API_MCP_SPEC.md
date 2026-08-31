@@ -340,6 +340,8 @@ Suggested MCP read tools may be more granular than Captain:
 
 MCP staff tools live in a separate server configuration/tool namespace or require explicit staff client identity/scopes.
 
+**As actually implemented (MCP-001 through MCP-009):** 13 of the 16 suggested tools above are built exactly as named — `journal.get_profile`, `journal.get_submission_policy`, `journal.get_fee_policy`, `identity.get_support_identity`, `submission.list_mine`, `submission.get_support_status`, `submission.get_required_actions`, `payment.get_submission_status`, `publication.get_status`, `diagnostics.account`, `diagnostics.submission`, `capabilities.list_available`, `support.escalate` — each a thin wrapper reusing the exact same REST allowlist serializer verbatim (REST/MCP equivalence by construction, per MCP-006, proven in `tests/v2/mcp-security.php`). `identity.request_verification`/`identity.confirm_verification` were deliberately deferred, not dropped: REST already has `ojs_request_verification`/`ojs_confirm_verification`, so an MCP equivalent is a real, buildable next slice rather than something requiring new design — it was simply not reached in the MCP-003 tool-set slice. `submission.get_timeline` was never built for either transport; no genuine "timeline" concept or data source was found in this codebase, so it stays a dropped suggestion rather than a gap. Capability evaluation for every built tool runs under `CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT`, never the Chatwoot Captain plane. `server/discover` is supported by `McpDispatcher` (registering a handler for it is a matter of composing the same information `tools/list`/`resources/list` already expose) but has no registered handler yet — calling it currently returns `METHOD_NOT_FOUND`, which is safe (not a fatal), never a half-built response.
+
 ## 11. MCP resources
 
 Safe public resources may include:
@@ -349,6 +351,8 @@ Safe public resources may include:
 - `ojs://journal/{contextId}/fee-policy`
 
 Private resources should generally prefer tools so authorization is evaluated at read time. Do not make private manuscript data a cacheable, unauthenticated resource URI.
+
+**As actually implemented (MCP-004):** all three suggested resources above are built exactly as named, registered on `resources/list`/`resources/read` via `McpResourceRegistry`. Each resource's content is sourced by calling the exact same already-built tool handler the equivalent MCP tool uses (`JournalProfileTool::handle($compilation)`, `SubmissionPolicyTool::handle($compilation)`, `FeePolicyTool::handle($compilation)`) — never a second parallel path to the Knowledge Compiler. No private/live submission or user-specific data is ever exposed as a resource, consistent with this section's guidance.
 
 ## 12. Authentication and Chatwoot metadata
 
