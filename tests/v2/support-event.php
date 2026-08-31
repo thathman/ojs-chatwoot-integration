@@ -84,8 +84,9 @@ supportEventCheck(
         SupportEventType::SUBMISSION_REJECTED,
         SupportEventType::PUBLICATION_SCHEDULED,
         SupportEventType::PUBLICATION_PUBLISHED,
+        SupportEventType::SUBMISSION_REVIEW_SUBMITTED,
     ],
-    'SupportEventType::all() must list exactly the 7 v1-derived event kinds, in a stable order'
+    'SupportEventType::all() must list exactly the 7 v1-derived event kinds plus the v2-native review-submitted addition, in a stable order'
 );
 foreach (SupportEventType::all() as $type) {
     supportEventCheck(str_contains($type, '.'), "every event type must use dot-notation namespacing, consistent with CapabilityCatalog ({$type})");
