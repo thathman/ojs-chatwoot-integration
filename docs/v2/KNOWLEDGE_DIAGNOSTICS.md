@@ -49,6 +49,16 @@ generated pages.
 - public file/type instructions;
 - official submission links.
 
+**As actually implemented (AIRIX360_TASKLIST.md ARF-002/003):** `submission.requiredFileGenres`
+(comma-joined genre names) is added by `CoreJournalKnowledgeProvider` via
+`Ojs35CompatibilityAdapter::getAirixRequiredSubmissionFileGenres()`,
+verified against a real local checkout of
+`Airix360/ojs-required-submission-files-airix`. This is journal-level
+guidance only ("submissions to this journal typically require these file
+types") — a specific submission's actual missing genres remain an
+unbuilt, separate authorized diagnostic (ARF-004/005/006), never
+Knowledge.
+
 ### Review support
 
 - public peer-review policy/model where configured/published;

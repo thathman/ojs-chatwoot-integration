@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
 
 /**
  * First Knowledge Provider: low-risk authoritative facts pulled directly
@@ -23,6 +24,11 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProvid
  * Only `getLocalizedData()`/`getData()`/`getSupportedLocales()` etc. are
  * used — never a raw settings-table read where a public Context accessor
  * already exists, and never a User/Submission/ReviewAssignment object.
+ *
+ * Also carries one Airix sibling-plugin fact via the compatibility
+ * adapter — `submission.requiredFileGenres` (`Airix360/ojs-required-submission-files-airix`)
+ * — since it belongs with the other `submission.*` guidance facts this
+ * provider already owns, not a separate provider class.
  */
 final class CoreJournalKnowledgeProvider implements KnowledgeProviderInterface
 {
@@ -32,6 +38,10 @@ final class CoreJournalKnowledgeProvider implements KnowledgeProviderInterface
         2 => 'This journal uses double-anonymous peer review: author and reviewer identities are withheld from each other.',
         3 => 'This journal uses open peer review: author and reviewer identities are visible to each other.',
     ];
+
+    public function __construct(private OjsCompatibilityAdapterInterface $adapter)
+    {
+    }
 
     public function providerId(): string
     {
@@ -65,6 +75,7 @@ final class CoreJournalKnowledgeProvider implements KnowledgeProviderInterface
         $this->addReviewModel($facts, $context, $locale);
         $this->addUrl($facts, $context, $request, $locale);
         $this->addSections($facts, $context, $locale);
+        $this->addRequiredFileGenres($facts, $context, $locale);
 
         return $facts;
     }
@@ -228,6 +239,35 @@ final class CoreJournalKnowledgeProvider implements KnowledgeProviderInterface
             $locale,
             $this->providerId(),
             'Repo::section()->getSectionList()'
+        );
+    }
+
+    /**
+     * Configured required submission-file genres (docs/v2/AIRIX360_INTEGRATIONS.md
+     * §7.3 ARF-003) — journal-level submission guidance only. Which
+     * genres a *specific* submission is still missing is a separate,
+     * unbuilt authorized diagnostic (ARF-004/005), never Knowledge.
+     */
+    private function addRequiredFileGenres(array &$facts, $context, string $locale): void
+    {
+        try {
+            $names = $this->adapter->getAirixRequiredSubmissionFileGenres($context);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (!is_array($names) || $names === []) {
+            return;
+        }
+
+        $facts[] = new KnowledgeFact(
+            'submission.requiredFileGenres',
+            implode(', ', $names),
+            KnowledgeClassification::PUBLIC,
+            'airix.required_submission_files',
+            $locale,
+            $this->providerId(),
+            'RequiredSubmissionFilesPlugin::getRequiredGenreIds()'
         );
     }
 

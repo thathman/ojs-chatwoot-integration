@@ -68,6 +68,9 @@ interface OjsCompatibilityAdapterInterface
     /** Public passwordless sign-in availability/request URL only (never an email-existence check). Null when absent. @return array{enabled:bool,requestUrl:?string}|null */
     public function getAirixMagicLoginAvailability($context, $request): ?array;
 
+    /** Configured required submission-file genre names only (never a specific submission's missing files). @return string[] */
+    public function getAirixRequiredSubmissionFileGenres($context): array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

@@ -24,6 +24,7 @@ namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
 
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\Ojs35CompatibilityAdapter;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnowledgeProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeClassification;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
@@ -173,7 +174,7 @@ namespace {
     $compiler = new KnowledgeCompiler();
     $compiler->registerProvider(new ThrowingKnowledgeProvider());
     $compiler->registerProvider(new UnsupportedFactProvider());
-    $compiler->registerProvider(new CoreJournalKnowledgeProvider());
+    $compiler->registerProvider(new CoreJournalKnowledgeProvider(new Ojs35CompatibilityAdapter()));
 
     $contextA = makeContext(1, 'Journal A');
     $contextB = makeContext(2, 'Journal B');
