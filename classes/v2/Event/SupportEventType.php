@@ -5,13 +5,19 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Event;
 /**
  * Normalized Event Bridge event types (docs/v2/TASKLIST.md EVT-001).
  *
- * One constant per real v1 event kind (`ChatwootIntegrationPlugin`'s
- * `eventSubmissionCreated`/`eventRevisionRequested`/`eventAccepted`/
- * `eventRejected`/`eventPublicationScheduled`/`eventPublicationPublished`/
- * `eventDecisionRecorded` settings and their hook handlers
- * `handleSubmissionCreated()`/`handleEditorDecision()`/status-change
- * handlers) — dot-notation naming to match this codebase's existing
- * capability namespace (`CapabilityCatalog`), not a new convention.
+ * The first 7 constants are one per real v1 event kind
+ * (`ChatwootIntegrationPlugin`'s `eventSubmissionCreated`/
+ * `eventRevisionRequested`/`eventAccepted`/`eventRejected`/
+ * `eventPublicationScheduled`/`eventPublicationPublished`/
+ * `eventDecisionRecorded` settings and their hook handlers) —
+ * dot-notation naming to match this codebase's existing capability
+ * namespace (`CapabilityCatalog`), not a new convention.
+ *
+ * `SUBMISSION_REVIEW_SUBMITTED` (EVT-007) is the first v2-native addition:
+ * v1 never had a review event at all — there is no v1 setting or hook to
+ * migrate here, only a real, stable pkp-lib hook
+ * (`PKP\submission\reviewAssignment\Repository::edit()`'s
+ * `ReviewAssignment::edit` hook) worth building an adapter for.
  *
  * Defining the type catalog is EVT-001's job. Which hook actually fires
  * which type, and what happens after, is EVT-003 onward (event
@@ -26,6 +32,7 @@ final class SupportEventType
     public const SUBMISSION_REJECTED = 'submission.rejected';
     public const PUBLICATION_SCHEDULED = 'publication.scheduled';
     public const PUBLICATION_PUBLISHED = 'publication.published';
+    public const SUBMISSION_REVIEW_SUBMITTED = 'submission.review_submitted';
 
     /** @return string[] */
     public static function all(): array
@@ -38,6 +45,7 @@ final class SupportEventType
             self::SUBMISSION_REJECTED,
             self::PUBLICATION_SCHEDULED,
             self::PUBLICATION_PUBLISHED,
+            self::SUBMISSION_REVIEW_SUBMITTED,
         ];
     }
 }
