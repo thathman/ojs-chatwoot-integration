@@ -104,11 +104,21 @@ final class DatabaseVerificationChallengeRepository implements VerificationChall
 
             $challenge = $this->hydrate($row);
 
-            if ($challenge->isConsumed()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_ALREADY_CONSUMED);
-            if ($challenge->isRevoked()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_REVOKED);
-            if ($challenge->isSuperseded()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_SUPERSEDED);
-            if ($challenge->isExpired($now)) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_EXPIRED);
-            if ($challenge->isLockedOut()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_LOCKED_OUT);
+            if ($challenge->isConsumed()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_ALREADY_CONSUMED);
+            }
+            if ($challenge->isRevoked()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_REVOKED);
+            }
+            if ($challenge->isSuperseded()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_SUPERSEDED);
+            }
+            if ($challenge->isExpired($now)) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_EXPIRED);
+            }
+            if ($challenge->isLockedOut()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_LOCKED_OUT);
+            }
 
             if ($secretVerifier($challenge)) {
                 $updated = DB::table(self::table())
@@ -181,12 +191,19 @@ final class DatabaseVerificationChallengeRepository implements VerificationChall
         );
     }
 
-    private function toDatabaseTime(int $timestamp): string { return gmdate('Y-m-d H:i:s', $timestamp); }
+    private function toDatabaseTime(int $timestamp): string
+    {
+        return gmdate('Y-m-d H:i:s', $timestamp);
+    }
 
     private function fromDatabaseTime(mixed $value): ?int
     {
-        if ($value === null || $value === '') return null;
-        if (is_int($value)) return $value;
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_int($value)) {
+            return $value;
+        }
         $timestamp = strtotime((string) $value . ' UTC');
         return $timestamp === false ? null : $timestamp;
     }

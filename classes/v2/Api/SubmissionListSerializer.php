@@ -13,6 +13,7 @@ final class SubmissionListSerializer
 {
     /**
      * @param array<int,array{relationship:ResourceRelationship,title:string,supportState:string,actionRequired:?bool}> $entries
+     *
      * @return array<string,mixed>
      */
     public static function verified(SupportApiRequestContext $context, array $entries, PaginationParams $pagination, bool $hasMore): array

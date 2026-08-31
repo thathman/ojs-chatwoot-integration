@@ -8,7 +8,10 @@ namespace PKP\user {
         /** @var array<string,object> keyed by lowercase email */
         public static array $usersByEmail = [];
 
-        public static function user(): self { return new self(); }
+        public static function user(): self
+        {
+            return new self();
+        }
 
         public function getByEmail(string $email, bool $allowDisabled = false): ?object
         {
@@ -21,8 +24,8 @@ namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
 
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\VerificationChallengeRepositoryInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\VerificationChallengeRepositoryInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
@@ -146,12 +149,24 @@ namespace {
         public function attemptConsume(string $publicReference, callable $secretVerifier, int $now): ChallengeAttemptOutcome
         {
             $challenge = $this->challenges[$publicReference] ?? null;
-            if (!$challenge) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_NOT_FOUND);
-            if ($challenge->isConsumed()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_ALREADY_CONSUMED);
-            if ($challenge->isRevoked()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_REVOKED);
-            if ($challenge->isSuperseded()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_SUPERSEDED);
-            if ($challenge->isExpired($now)) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_EXPIRED);
-            if ($challenge->isLockedOut()) return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_LOCKED_OUT);
+            if (!$challenge) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_NOT_FOUND);
+            }
+            if ($challenge->isConsumed()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_ALREADY_CONSUMED);
+            }
+            if ($challenge->isRevoked()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_REVOKED);
+            }
+            if ($challenge->isSuperseded()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_SUPERSEDED);
+            }
+            if ($challenge->isExpired($now)) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_EXPIRED);
+            }
+            if ($challenge->isLockedOut()) {
+                return ChallengeAttemptOutcome::failed(ChallengeAttemptOutcome::STATUS_LOCKED_OUT);
+            }
 
             if ($secretVerifier($challenge)) {
                 $this->challenges[$publicReference] = $this->withField($challenge, 'consumedAt', $now);
@@ -173,7 +188,9 @@ namespace {
         public function testOnlyRevoke(string $publicReference, int $now): void
         {
             $challenge = $this->challenges[$publicReference] ?? null;
-            if ($challenge) $this->challenges[$publicReference] = $this->withField($challenge, 'revokedAt', $now);
+            if ($challenge) {
+                $this->challenges[$publicReference] = $this->withField($challenge, 'revokedAt', $now);
+            }
         }
 
         private function withField(VerificationChallenge $challenge, string $field, mixed $value): VerificationChallenge
@@ -214,14 +231,28 @@ namespace {
         public array $sessions = [];
         public array $revokeOthersCalls = [];
 
-        public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+        public function create(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function save(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function findByPublicId(string $publicId): ?SupportSession
+        {
+            return $this->sessions[$publicId] ?? null;
+        }
 
         public function claimBindingToken(
-            string $bindingTokenHash, int $contextId, int $userId,
-            string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId,
-            int $now, int $idleExpiresAt
+            string $bindingTokenHash,
+            int $contextId,
+            int $userId,
+            string $chatwootAccountId,
+            string $chatwootContactId,
+            string $chatwootConversationId,
+            int $now,
+            int $idleExpiresAt
         ): ?SupportSession {
             return null;
         }
@@ -269,7 +300,10 @@ namespace {
             }
         }
 
-        public function purgeExpired(int $now): int { return 0; }
+        public function purgeExpired(int $now): int
+        {
+            return 0;
+        }
     }
 
     // ================================================================
@@ -320,7 +354,9 @@ namespace {
     // rules, against the in-memory repository fake.
     // ================================================================
     $now = 1_000_000_000;
-    $clock = static function () use (&$now): int { return $now; };
+    $clock = static function () use (&$now): int {
+        return $now;
+    };
     $repo = new InMemoryVerificationChallengeRepository();
     $service = new VerificationChallengeService(
         $repo,
@@ -483,9 +519,22 @@ namespace {
     // A stale session already bound to this exact conversation from a
     // PRIOR verification must be revoked when a new one succeeds.
     $staleSession = new SupportSession(
-        'stale-session', 7, 42, SupportSessionService::METHOD_EXTERNAL_PIN, 'v2',
-        null, null, null, '1', '100', '800',
-        $sessionNow - 500, $sessionNow - 500, $sessionNow + 1000, $sessionNow + 2000, null
+        'stale-session',
+        7,
+        42,
+        SupportSessionService::METHOD_EXTERNAL_PIN,
+        'v2',
+        null,
+        null,
+        null,
+        '1',
+        '100',
+        '800',
+        $sessionNow - 500,
+        $sessionNow - 500,
+        $sessionNow + 1000,
+        $sessionNow + 2000,
+        null
     );
     $sessionRepo->create($staleSession);
 
@@ -507,7 +556,10 @@ namespace {
     $externalIdentity = new \APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext(7, 'journal-a', 42, [65538], 'index', 'index', 'en');
     $fakeRelationship = new \APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship('submission', 456, ['author'], []);
     $v3Decision = (new \APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityPolicyEngine())->evaluate(new CapabilityRequest(
-        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC, 'v3', $externalIdentity, $fakeRelationship
+        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+        'v3',
+        $externalIdentity,
+        $fakeRelationship
     ));
     verificationCheck($v3Decision->allows('submission.read_own_support_status'), 'a session established via external verification must be able to reach v3 normally afterward, exactly like the authenticated-session path');
 

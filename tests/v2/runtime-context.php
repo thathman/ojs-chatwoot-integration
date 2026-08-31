@@ -9,10 +9,10 @@ namespace PKP\db {
 
         public static function getDAO(string $name): object
         {
-            return new class {
+            return new class () {
                 public function getCurrentVersion(): object
                 {
-                    return new class {
+                    return new class () {
                         public function getVersionString(): string
                         {
                             return \PKP\db\DAORegistry::$version;
@@ -40,13 +40,21 @@ namespace {
 
     final class FakeRole
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     final class FakeUser
     {
-        public function getId(): int { return 42; }
+        public function getId(): int
+        {
+            return 42;
+        }
         public function getRoles(int $contextId): array
         {
             return [new FakeRole(65536), new FakeRole(16), new FakeRole(16)];
@@ -55,16 +63,34 @@ namespace {
 
     final class FakeContext
     {
-        public function getId(): int { return 7; }
-        public function getPath(): string { return 'journal-a'; }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
     }
 
     final class FakeRequest
     {
-        public function getContext(): object { return new FakeContext(); }
-        public function getUser(): object { return new FakeUser(); }
-        public function getRequestedPage(): string { return 'submission'; }
-        public function getRequestedOp(): string { return 'wizard'; }
+        public function getContext(): object
+        {
+            return new FakeContext();
+        }
+        public function getUser(): object
+        {
+            return new FakeUser();
+        }
+        public function getRequestedPage(): string
+        {
+            return 'submission';
+        }
+        public function getRequestedOp(): string
+        {
+            return 'wizard';
+        }
     }
 
     $bridge = new RuntimeContextBridge();

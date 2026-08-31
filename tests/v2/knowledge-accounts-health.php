@@ -13,7 +13,10 @@ namespace PKP\orcid {
     final class OrcidManager
     {
         public static bool $enabled = false;
-        public static function isEnabled($context = null): bool { return self::$enabled; }
+        public static function isEnabled($context = null): bool
+        {
+            return self::$enabled;
+        }
     }
 }
 
@@ -22,8 +25,14 @@ namespace PKP\plugins {
     {
         /** @var array<string,array<string,object>> */
         public static array $plugins = [];
-        public static function loadCategory(string $category, bool $enabledOnly = false): array { return self::$plugins[$category] ?? []; }
-        public static function getPlugin(string $category, string $name): ?object { return self::$plugins[$category][$name] ?? null; }
+        public static function loadCategory(string $category, bool $enabledOnly = false): array
+        {
+            return self::$plugins[$category] ?? [];
+        }
+        public static function getPlugin(string $category, string $name): ?object
+        {
+            return self::$plugins[$category][$name] ?? null;
+        }
     }
 }
 
@@ -31,9 +40,17 @@ namespace APP\plugins\generic\magicLogin {
     /** Mirrors only the surface AccountsKnowledgeProvider/adapter actually call — see a real local checkout of Airix360/ojs-magic-login. */
     final class MagicLoginPlugin
     {
-        public function __construct(private bool $pluginEnabled, private bool $settingEnabled) {}
-        public function getEnabled(int $contextId): bool { return $this->pluginEnabled; }
-        public function getSetting(int $contextId, string $name): mixed { return $name === 'enabled' ? $this->settingEnabled : null; }
+        public function __construct(private bool $pluginEnabled, private bool $settingEnabled)
+        {
+        }
+        public function getEnabled(int $contextId): bool
+        {
+            return $this->pluginEnabled;
+        }
+        public function getSetting(int $contextId, string $name): mixed
+        {
+            return $name === 'enabled' ? $this->settingEnabled : null;
+        }
     }
 }
 
@@ -62,12 +79,29 @@ namespace {
 
     class FakeAccountsContext
     {
-        public function __construct(private array $data) {}
-        public function getId(): int { return 1; }
-        public function getPath(): string { return 'journal-a'; }
-        public function getSupportedLocales(): array { return ['en']; }
-        public function getPrimaryLocale(): string { return 'en'; }
-        public function getData(string $key): mixed { return $this->data[$key] ?? null; }
+        public function __construct(private array $data)
+        {
+        }
+        public function getId(): int
+        {
+            return 1;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
+        public function getSupportedLocales(): array
+        {
+            return ['en'];
+        }
+        public function getPrimaryLocale(): string
+        {
+            return 'en';
+        }
+        public function getData(string $key): mixed
+        {
+            return $this->data[$key] ?? null;
+        }
     }
 
     final class FakeAccountsDispatcher
@@ -80,7 +114,10 @@ namespace {
 
     final class FakeAccountsRequest
     {
-        public function getDispatcher(): FakeAccountsDispatcher { return new FakeAccountsDispatcher(); }
+        public function getDispatcher(): FakeAccountsDispatcher
+        {
+            return new FakeAccountsDispatcher();
+        }
     }
 
     // ================================================================
@@ -148,8 +185,14 @@ namespace {
     // ================================================================
     final class MultiPathAccountsContext extends FakeAccountsContext
     {
-        public function __construct(private string $journalPath, array $data) { parent::__construct($data); }
-        public function getPath(): string { return $this->journalPath; }
+        public function __construct(private string $journalPath, array $data)
+        {
+            parent::__construct($data);
+        }
+        public function getPath(): string
+        {
+            return $this->journalPath;
+        }
     }
     $contextB = new MultiPathAccountsContext('journal-b', ['disableUserReg' => false]);
     $compilationB = $compiler->compile($contextB, $request, 3, 'en');
@@ -187,12 +230,21 @@ namespace {
     // ================================================================
     final class ThrowingHealthProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.throwing_health'; }
-        public function collect($context, $request, string $locale): array { throw new \RuntimeException('boom'); }
+        public function providerId(): string
+        {
+            return 'test.throwing_health';
+        }
+        public function collect($context, $request, string $locale): array
+        {
+            throw new \RuntimeException('boom');
+        }
     }
     final class OkHealthProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.ok_health'; }
+        public function providerId(): string
+        {
+            return 'test.ok_health';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [new KnowledgeFact('healthtest.fact', 'value', KnowledgeClassification::PUBLIC, 'ojs.context', $locale, $this->providerId())];
@@ -200,8 +252,14 @@ namespace {
     }
     final class EmptyHealthProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.empty_health'; }
-        public function collect($context, $request, string $locale): array { return []; }
+        public function providerId(): string
+        {
+            return 'test.empty_health';
+        }
+        public function collect($context, $request, string $locale): array
+        {
+            return [];
+        }
     }
 
     // Healthy: one provider succeeds with facts, no failures.
@@ -242,7 +300,10 @@ namespace {
     // ================================================================
     final class StructuredConflictProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.structured_conflict'; }
+        public function providerId(): string
+        {
+            return 'test.structured_conflict';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [new KnowledgeFact('fee.publicationAmount', '100.00', KnowledgeClassification::PUBLIC, 'ojs.context', $locale, $this->providerId())];
@@ -250,7 +311,10 @@ namespace {
     }
     final class StalePageConflictProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.stale_conflict'; }
+        public function providerId(): string
+        {
+            return 'test.stale_conflict';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [new KnowledgeFact('fee.publicationAmount', '75.00', KnowledgeClassification::PUBLIC, 'ojs.static_page', $locale, $this->providerId())];

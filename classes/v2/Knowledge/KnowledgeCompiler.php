@@ -100,6 +100,7 @@ final class KnowledgeCompiler
      * given a fixed provider registration order).
      *
      * @param KnowledgeFact[] $facts
+     *
      * @return array{0:KnowledgeFact[],1:KnowledgeConflict[]}
      */
     private function resolveConflicts(array $facts): array

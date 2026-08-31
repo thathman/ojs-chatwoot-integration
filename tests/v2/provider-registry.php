@@ -50,13 +50,23 @@ namespace APP\plugins\generic\submissionFee {
      */
     final class SubmissionFeePlugin
     {
-        public function __construct(private bool $enabled, private string $version) {}
-        public function getEnabled(): bool { return $this->enabled; }
+        public function __construct(private bool $enabled, private string $version)
+        {
+        }
+        public function getEnabled(): bool
+        {
+            return $this->enabled;
+        }
         public function getCurrentVersion(): object
         {
-            return new class($this->version) {
-                public function __construct(private string $v) {}
-                public function getVersionString(): string { return $this->v; }
+            return new class ($this->version) {
+                public function __construct(private string $v)
+                {
+                }
+                public function getVersionString(): string
+                {
+                    return $this->v;
+                }
             };
         }
     }
@@ -72,16 +82,42 @@ namespace APP\plugins\generic\submissionFee {
         public string $currencyValue = 'USD';
         public string $payUrlValue = 'https://journal.example.com/pay/1';
 
-        public function __construct(private SubmissionFeePlugin $plugin) {}
+        public function __construct(private SubmissionFeePlugin $plugin)
+        {
+        }
 
-        public function feeEnabled($context): bool { return $this->feeEnabled; }
-        public function amount($context): float { return $this->amountValue; }
-        public function payableAmount($submission, $context): float { return $this->payableAmountValue; }
-        public function currency($context): string { return $this->currencyValue; }
-        public function hasPaid($submission, $context): bool { return $this->hasPaid; }
-        public function waiverDiscount($submission): ?array { return $this->waiverDiscount; }
-        public function needsRefundReview($submission, $context): bool { return $this->needsRefundReview; }
-        public function payUrl($submission, $context): string { return $this->payUrlValue; }
+        public function feeEnabled($context): bool
+        {
+            return $this->feeEnabled;
+        }
+        public function amount($context): float
+        {
+            return $this->amountValue;
+        }
+        public function payableAmount($submission, $context): float
+        {
+            return $this->payableAmountValue;
+        }
+        public function currency($context): string
+        {
+            return $this->currencyValue;
+        }
+        public function hasPaid($submission, $context): bool
+        {
+            return $this->hasPaid;
+        }
+        public function waiverDiscount($submission): ?array
+        {
+            return $this->waiverDiscount;
+        }
+        public function needsRefundReview($submission, $context): bool
+        {
+            return $this->needsRefundReview;
+        }
+        public function payUrl($submission, $context): string
+        {
+            return $this->payUrlValue;
+        }
     }
 }
 
@@ -90,10 +126,10 @@ namespace {
     require_once $root . '/classes/v2/bootstrap.php';
 
     use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\Ojs35CompatibilityAdapter;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Provider\AirixSubmissionFeeProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Provider\ProviderHealth;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Provider\SupportProviderRegistry;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
 
     function providerCheck(bool $condition, string $message): void
     {
@@ -106,13 +142,22 @@ namespace {
     final class FakeSubmission
     {
         public array $data = [];
-        public function getData(string $key): mixed { return $this->data[$key] ?? null; }
+        public function getData(string $key): mixed
+        {
+            return $this->data[$key] ?? null;
+        }
     }
 
     final class ThrowingProvider implements PaymentSupportProviderInterface
     {
-        public function providerId(): string { return 'test.throwing'; }
-        public function health($context): string { return ProviderHealth::AVAILABLE; }
+        public function providerId(): string
+        {
+            return 'test.throwing';
+        }
+        public function health($context): string
+        {
+            return ProviderHealth::AVAILABLE;
+        }
         public function resolveObligation($context, $submission, int $userId): ?array
         {
             throw new \RuntimeException('boom');
@@ -121,8 +166,14 @@ namespace {
 
     final class UnavailableProvider implements PaymentSupportProviderInterface
     {
-        public function providerId(): string { return 'test.unavailable'; }
-        public function health($context): string { return ProviderHealth::DISABLED; }
+        public function providerId(): string
+        {
+            return 'test.unavailable';
+        }
+        public function health($context): string
+        {
+            return ProviderHealth::DISABLED;
+        }
         public function resolveObligation($context, $submission, int $userId): ?array
         {
             providerCheck(false, 'registry must never call resolveObligation() on a provider that is not AVAILABLE');
@@ -132,15 +183,30 @@ namespace {
 
     final class InertProvider implements PaymentSupportProviderInterface
     {
-        public function providerId(): string { return 'test.inert'; }
-        public function health($context): string { return ProviderHealth::AVAILABLE; }
-        public function resolveObligation($context, $submission, int $userId): ?array { return null; }
+        public function providerId(): string
+        {
+            return 'test.inert';
+        }
+        public function health($context): string
+        {
+            return ProviderHealth::AVAILABLE;
+        }
+        public function resolveObligation($context, $submission, int $userId): ?array
+        {
+            return null;
+        }
     }
 
     final class RealObligationProvider implements PaymentSupportProviderInterface
     {
-        public function providerId(): string { return 'test.real'; }
-        public function health($context): string { return ProviderHealth::AVAILABLE; }
+        public function providerId(): string
+        {
+            return 'test.real';
+        }
+        public function health($context): string
+        {
+            return ProviderHealth::AVAILABLE;
+        }
         public function resolveObligation($context, $submission, int $userId): ?array
         {
             return ['producer' => 'test.real', 'feeKey' => 'x', 'status' => 'unpaid', 'amount' => 1.0, 'payableAmount' => 1.0, 'currency' => 'USD', 'payUrl' => null];
@@ -169,8 +235,14 @@ namespace {
 
     final class BrokenHealthProvider implements PaymentSupportProviderInterface
     {
-        public function providerId(): string { return 'test.broken_health'; }
-        public function health($context): string { return ProviderHealth::UNAVAILABLE; }
+        public function providerId(): string
+        {
+            return 'test.broken_health';
+        }
+        public function health($context): string
+        {
+            return ProviderHealth::UNAVAILABLE;
+        }
         public function resolveObligation($context, $submission, int $userId): ?array
         {
             providerCheck(false, 'registry must never call resolveObligation() on a provider reporting a genuinely broken health state');

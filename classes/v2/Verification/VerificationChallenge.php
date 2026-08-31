@@ -38,27 +38,87 @@ final class VerificationChallenge
     ) {
     }
 
-    public function publicReference(): string { return $this->publicReference; }
-    public function contextId(): int { return $this->contextId; }
-    public function userId(): int { return $this->userId; }
-    public function purpose(): string { return $this->purpose; }
-    public function method(): string { return $this->method; }
-    public function chatwootAccountId(): string { return $this->chatwootAccountId; }
-    public function chatwootContactId(): string { return $this->chatwootContactId; }
-    public function chatwootConversationId(): string { return $this->chatwootConversationId; }
-    public function secretHash(): string { return $this->secretHash; }
-    public function attemptCount(): int { return $this->attemptCount; }
-    public function maxAttempts(): int { return $this->maxAttempts; }
-    public function lastAttemptAt(): ?int { return $this->lastAttemptAt; }
-    public function createdAt(): int { return $this->createdAt; }
-    public function expiresAt(): int { return $this->expiresAt; }
-    public function consumedAt(): ?int { return $this->consumedAt; }
-    public function revokedAt(): ?int { return $this->revokedAt; }
-    public function supersededAt(): ?int { return $this->supersededAt; }
+    public function publicReference(): string
+    {
+        return $this->publicReference;
+    }
+    public function contextId(): int
+    {
+        return $this->contextId;
+    }
+    public function userId(): int
+    {
+        return $this->userId;
+    }
+    public function purpose(): string
+    {
+        return $this->purpose;
+    }
+    public function method(): string
+    {
+        return $this->method;
+    }
+    public function chatwootAccountId(): string
+    {
+        return $this->chatwootAccountId;
+    }
+    public function chatwootContactId(): string
+    {
+        return $this->chatwootContactId;
+    }
+    public function chatwootConversationId(): string
+    {
+        return $this->chatwootConversationId;
+    }
+    public function secretHash(): string
+    {
+        return $this->secretHash;
+    }
+    public function attemptCount(): int
+    {
+        return $this->attemptCount;
+    }
+    public function maxAttempts(): int
+    {
+        return $this->maxAttempts;
+    }
+    public function lastAttemptAt(): ?int
+    {
+        return $this->lastAttemptAt;
+    }
+    public function createdAt(): int
+    {
+        return $this->createdAt;
+    }
+    public function expiresAt(): int
+    {
+        return $this->expiresAt;
+    }
+    public function consumedAt(): ?int
+    {
+        return $this->consumedAt;
+    }
+    public function revokedAt(): ?int
+    {
+        return $this->revokedAt;
+    }
+    public function supersededAt(): ?int
+    {
+        return $this->supersededAt;
+    }
 
-    public function isConsumed(): bool { return $this->consumedAt !== null; }
-    public function isRevoked(): bool { return $this->revokedAt !== null; }
-    public function isSuperseded(): bool { return $this->supersededAt !== null; }
+    public function isConsumed(): bool
+    {
+        return $this->consumedAt !== null;
+    }
+    public function isRevoked(): bool
+    {
+        return $this->revokedAt !== null;
+    }
+    public function isSuperseded(): bool
+    {
+        return $this->supersededAt !== null;
+    }
 
     public function isExpired(int $now): bool
     {

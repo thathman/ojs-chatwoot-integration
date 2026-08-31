@@ -46,12 +46,30 @@ final class FakeScenarioClient implements ChatwootCaptainClientInterface
     public bool $updateResult = true;
     public int $nextId = 5000;
 
-    public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array { return null; }
-    public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array { return null; }
-    public function syncCaptainDocument(string $documentId): bool { return true; }
-    public function listCaptainCustomTools(): array { return $this->customTools; }
-    public function createCaptainCustomTool(array $definition): ?array { return null; }
-    public function updateCaptainCustomTool(string $toolId, array $definition): bool { return false; }
+    public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array
+    {
+        return null;
+    }
+    public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array
+    {
+        return null;
+    }
+    public function syncCaptainDocument(string $documentId): bool
+    {
+        return true;
+    }
+    public function listCaptainCustomTools(): array
+    {
+        return $this->customTools;
+    }
+    public function createCaptainCustomTool(array $definition): ?array
+    {
+        return null;
+    }
+    public function updateCaptainCustomTool(string $toolId, array $definition): bool
+    {
+        return false;
+    }
 
     public function listCaptainScenarios(int $assistantId): array
     {

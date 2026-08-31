@@ -7,11 +7,14 @@ namespace PKP\db {
     {
         public static function getDAO(string $name): object
         {
-            return new class {
+            return new class () {
                 public function getCurrentVersion(): object
                 {
-                    return new class {
-                        public function getVersionString(): string { return '3.5.0.0'; }
+                    return new class () {
+                        public function getVersionString(): string
+                        {
+                            return '3.5.0.0';
+                        }
                     };
                 }
                 public function getLastReviewRoundBySubmissionId(int $submissionId, ?int $stageId = null): ?object
@@ -26,8 +29,13 @@ namespace PKP\db {
 namespace APP\payment\ojs {
     final class OJSPaymentManager
     {
-        public function __construct(private $context) {}
-        public function isConfigured(): bool { return (bool) $this->context->getData('paymentsEnabled'); }
+        public function __construct(private $context)
+        {
+        }
+        public function isConfigured(): bool
+        {
+            return (bool) $this->context->getData('paymentsEnabled');
+        }
         public function publicationEnabled(): bool
         {
             $fee = $this->context->getData('publicationFee');
@@ -42,7 +50,10 @@ namespace PKP\user {
         /** @var array<int,object> */
         public static array $usersById = [];
 
-        public static function user(): self { return new self(); }
+        public static function user(): self
+        {
+            return new self();
+        }
 
         public function get(int $id): ?object
         {
@@ -78,7 +89,7 @@ namespace APP\facades {
 
         public static function submission(): object
         {
-            return new class {
+            return new class () {
                 public function get(int $id): ?object
                 {
                     return \APP\facades\Repo::$submissionsById[$id] ?? null;
@@ -88,7 +99,7 @@ namespace APP\facades {
 
         public static function user(): object
         {
-            return new class {
+            return new class () {
                 public function getAccessibleWorkflowStages(int $userId, int $contextId, $submission, array $roleIds): array
                 {
                     $submissionId = is_object($submission) && method_exists($submission, 'getId') ? $submission->getId() : 0;
@@ -99,15 +110,23 @@ namespace APP\facades {
 
         public static function reviewAssignment(): object
         {
-            return new class {
+            return new class () {
                 public function getCollector(): object
                 {
-                    return new class {
+                    return new class () {
                         private array $submissionIds = [];
                         private array $reviewerIds = [];
 
-                        public function filterBySubmissionIds(array $ids): static { $this->submissionIds = $ids; return $this; }
-                        public function filterByReviewerIds(array $ids): static { $this->reviewerIds = $ids; return $this; }
+                        public function filterBySubmissionIds(array $ids): static
+                        {
+                            $this->submissionIds = $ids;
+                            return $this;
+                        }
+                        public function filterByReviewerIds(array $ids): static
+                        {
+                            $this->reviewerIds = $ids;
+                            return $this;
+                        }
 
                         public function getMany(): array
                         {
@@ -157,8 +176,13 @@ namespace {
 
     final class FakeSubmission
     {
-        public function __construct(private int $id, private int $contextId, private int $status = 1, private int $stageId = 1) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id, private int $contextId, private int $status = 1, private int $stageId = 1)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getData(string $key): mixed
         {
             return match ($key) {
@@ -171,24 +195,43 @@ namespace {
         }
         public function getCurrentPublication(): object
         {
-            return new class {
-                public function getLocalizedTitle(): string { return 'Untitled'; }
-                public function getDoi(): ?string { return null; }
-                public function getIssueId(): ?int { return null; }
+            return new class () {
+                public function getLocalizedTitle(): string
+                {
+                    return 'Untitled';
+                }
+                public function getDoi(): ?string
+                {
+                    return null;
+                }
+                public function getIssueId(): ?int
+                {
+                    return null;
+                }
             };
         }
     }
 
     final class FakeRole
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     final class FakeOjsUser
     {
-        public function __construct(private int $id, private array $roleIds) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id, private array $roleIds)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getRoles(int $contextId): array
         {
             return array_map(static fn (int $id) => new FakeRole($id), $this->roleIds);
@@ -197,8 +240,14 @@ namespace {
 
     final class FakeContext
     {
-        public function getId(): int { return 7; }
-        public function getPath(): string { return 'journal-a'; }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
         public function getData(string $key): mixed
         {
             return match ($key) {
@@ -212,10 +261,22 @@ namespace {
 
     final class FakeRequest
     {
-        public function getContext(): object { return new FakeContext(); }
-        public function getUser(): ?object { return null; }
-        public function getRequestedPage(): string { return 'ojsSupportGateway'; }
-        public function getRequestedOp(): string { return 'escalate'; }
+        public function getContext(): object
+        {
+            return new FakeContext();
+        }
+        public function getUser(): ?object
+        {
+            return null;
+        }
+        public function getRequestedPage(): string
+        {
+            return 'ojsSupportGateway';
+        }
+        public function getRequestedOp(): string
+        {
+            return 'escalate';
+        }
     }
 
     // ================================================================
@@ -296,14 +357,28 @@ namespace {
     final class InMemorySupportSessionRepositoryForEscalate implements SupportSessionRepositoryInterface
     {
         public array $sessions = [];
-        public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+        public function create(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function save(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function findByPublicId(string $publicId): ?SupportSession
+        {
+            return $this->sessions[$publicId] ?? null;
+        }
 
         public function claimBindingToken(
-            string $bindingTokenHash, int $contextId, int $userId,
-            string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId,
-            int $now, int $idleExpiresAt
+            string $bindingTokenHash,
+            int $contextId,
+            int $userId,
+            string $chatwootAccountId,
+            string $chatwootContactId,
+            string $chatwootConversationId,
+            int $now,
+            int $idleExpiresAt
         ): ?SupportSession {
             foreach ($this->sessions as $publicId => $session) {
                 if ($session->contextId() !== $contextId || $session->userId() !== $userId || $session->bindingTokenHash() !== $bindingTokenHash || !$session->bindingAvailable($now)) {
@@ -326,9 +401,16 @@ namespace {
             return null;
         }
 
-        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
-        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
-        public function purgeExpired(int $now): int { return 0; }
+        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
+        {
+        }
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void
+        {
+        }
+        public function purgeExpired(int $now): int
+        {
+            return 0;
+        }
     }
 
     $now = time();
@@ -363,14 +445,21 @@ namespace {
     escalateCheck($relationshipForRequest !== null && $relationshipForRequest->has('author'), 'end-to-end: author must resolve a relationship for their own submission');
 
     $resourceDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
-        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC, 'v3', $authorApiResult->identity(), $relationshipForRequest
+        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+        'v3',
+        $authorApiResult->identity(),
+        $relationshipForRequest
     ));
     escalateCheck($resourceDecision->allows('submission.read_own_support_status'), 'end-to-end: a real author relationship at v3 must unlock submission.read_own_support_status for inclusion in the summary');
 
     // Payment must NOT be includable here: payment_support policy defaults off.
     $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext(new FakeRequest()));
     $paymentDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
-        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC, 'v3', $authorApiResult->identity(), $relationshipForRequest, ['payment_status' => $feeInfo['enabled']]
+        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+        'v3',
+        $authorApiResult->identity(),
+        $relationshipForRequest,
+        ['payment_status' => $feeInfo['enabled']]
     ));
     escalateCheck(!$paymentDecision->allows('submission.read_own_payment_status'), 'end-to-end: payment facts must not be includable in the handoff summary while payment_support still defaults off — escalation must not grant more access than the dedicated endpoint would');
 
@@ -384,7 +473,9 @@ namespace {
     $unknownConversation = $apiResolver->resolve(new FakeRequest(), 'corr-2', 7, 'service-secret', '1', '100', '999', 'escalate');
     escalateCheck(!($unknownConversation instanceof SupportApiFailure) && $unknownConversation->verified() === false, 'an unbound/expired conversation must resolve as unverified, but escalate itself must remain reachable at v0');
     $unverifiedDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
-        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC, $unknownConversation->assurance(), $unknownConversation->identity()
+        CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+        $unknownConversation->assurance(),
+        $unknownConversation->identity()
     ));
     escalateCheck($unverifiedDecision->allows('support.escalate'), 'support.escalate must remain available even for an unverified/anonymous caller — a handoff must work when verification itself is failing');
 
@@ -402,7 +493,7 @@ namespace {
         'the endpoint must independently re-check each dedicated capability before including its fact in the summary — never assume access'
     );
     escalateCheck(
-        str_contains($pluginSource, "\$chatwoot->createConversationNote(\$chatwootConversationId,"),
+        str_contains($pluginSource, '$chatwoot->createConversationNote($chatwootConversationId,'),
         'the note must be posted to the request\'s own conversation tuple, never a caller-supplied override'
     );
 

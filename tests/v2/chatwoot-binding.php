@@ -19,9 +19,17 @@ function bindingCheck(bool $condition, string $message): void
 
 final class FakeChatwootConversationClient implements ChatwootConversationClientInterface
 {
-    public function __construct(private int $accountId, private ?array $conversation) {}
-    public function getAccountId(): int { return $this->accountId; }
-    public function getConversation(int $conversationDisplayId): ?array { return $this->conversation; }
+    public function __construct(private int $accountId, private ?array $conversation)
+    {
+    }
+    public function getAccountId(): int
+    {
+        return $this->accountId;
+    }
+    public function getConversation(int $conversationDisplayId): ?array
+    {
+        return $this->conversation;
+    }
 }
 
 function conversationFixture(array $overrides = []): array
@@ -108,7 +116,7 @@ bindingCheck(str_contains($pluginSource, 'ChatwootConversationVerifier'), 'endpo
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/SupportGatewayPageHandler.php');
 bindingCheck(str_contains($handlerSource, 'HTTP_X_CSRF_TOKEN'), 'handler must fail closed on missing CSRF even in addition to PKP middleware');
 bindingCheck(str_contains($handlerSource, 'hash_equals'), 'handler CSRF comparison must be timing-safe');
-bindingCheck(str_contains($handlerSource, "REQUEST_METHOD"), 'handler must accept POST only');
+bindingCheck(str_contains($handlerSource, 'REQUEST_METHOD'), 'handler must accept POST only');
 
 $apiSource = (string) file_get_contents($root . '/ChatwootApiService.php');
 bindingCheck(str_contains($apiSource, 'getConversation'), 'server Chatwoot API adapter must expose conversation lookup');

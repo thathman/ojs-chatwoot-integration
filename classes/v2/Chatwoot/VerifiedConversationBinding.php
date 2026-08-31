@@ -16,9 +16,24 @@ final class VerifiedConversationBinding
     ) {
     }
 
-    public function accountId(): int { return $this->accountId; }
-    public function contactId(): int { return $this->contactId; }
-    public function conversationId(): int { return $this->conversationId; }
-    public function inboxId(): int { return $this->inboxId; }
-    public function contactIdentifier(): string { return $this->contactIdentifier; }
+    public function accountId(): int
+    {
+        return $this->accountId;
+    }
+    public function contactId(): int
+    {
+        return $this->contactId;
+    }
+    public function conversationId(): int
+    {
+        return $this->conversationId;
+    }
+    public function inboxId(): int
+    {
+        return $this->inboxId;
+    }
+    public function contactIdentifier(): string
+    {
+        return $this->contactIdentifier;
+    }
 }

@@ -16,9 +16,18 @@ final class ResourceContext
     ) {
     }
 
-    public function type(): string { return $this->type; }
-    public function id(): int { return $this->id; }
-    public function source(): string { return $this->source; }
+    public function type(): string
+    {
+        return $this->type;
+    }
+    public function id(): int
+    {
+        return $this->id;
+    }
+    public function source(): string
+    {
+        return $this->source;
+    }
 
     public function toArray(): array
     {

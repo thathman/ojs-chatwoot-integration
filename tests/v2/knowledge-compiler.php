@@ -10,7 +10,7 @@ namespace APP\facades {
 
         public static function section(): object
         {
-            return new class {
+            return new class () {
                 public function getSectionList(int $contextId, bool $excludeInactive = false): array
                 {
                     return \APP\facades\Repo::$sectionsByContextId[$contextId] ?? [];
@@ -25,6 +25,7 @@ namespace {
     require_once $root . '/classes/v2/bootstrap.php';
 
     use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\Ojs35CompatibilityAdapter;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnowledgeProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeClassification;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
@@ -32,7 +33,6 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeFingerprint;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSanitizer;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
 
     function knowledgeCheck(bool $condition, string $message): void
     {
@@ -54,12 +54,30 @@ namespace {
         ) {
         }
 
-        public function getId(): int { return $this->id; }
-        public function getPath(): string { return $this->path; }
-        public function getData(string $key): mixed { return $this->data[$key] ?? null; }
-        public function getSupportedLocales(): array { return $this->supportedLocales; }
-        public function getPrimaryLocale(): string { return $this->primaryLocale; }
-        public function getLocalizedName(): string { return $this->localized['name'][$this->primaryLocale] ?? 'Journal'; }
+        public function getId(): int
+        {
+            return $this->id;
+        }
+        public function getPath(): string
+        {
+            return $this->path;
+        }
+        public function getData(string $key): mixed
+        {
+            return $this->data[$key] ?? null;
+        }
+        public function getSupportedLocales(): array
+        {
+            return $this->supportedLocales;
+        }
+        public function getPrimaryLocale(): string
+        {
+            return $this->primaryLocale;
+        }
+        public function getLocalizedName(): string
+        {
+            return $this->localized['name'][$this->primaryLocale] ?? 'Journal';
+        }
 
         public function getLocalizedData(string $key, ?string $preferredLocale = null, ?string &$selectedLocale = null): mixed
         {
@@ -87,14 +105,25 @@ namespace {
 
     final class FakeKnowledgeRequest
     {
-        public function __construct(private FakeKnowledgeContext $context) {}
-        public function getContext(): FakeKnowledgeContext { return $this->context; }
-        public function getDispatcher(): FakeKnowledgeDispatcher { return new FakeKnowledgeDispatcher(); }
+        public function __construct(private FakeKnowledgeContext $context)
+        {
+        }
+        public function getContext(): FakeKnowledgeContext
+        {
+            return $this->context;
+        }
+        public function getDispatcher(): FakeKnowledgeDispatcher
+        {
+            return new FakeKnowledgeDispatcher();
+        }
     }
 
     final class ThrowingKnowledgeProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.throwing'; }
+        public function providerId(): string
+        {
+            return 'test.throwing';
+        }
         public function collect($context, $request, string $locale): array
         {
             throw new \RuntimeException('provider exploded');
@@ -103,7 +132,10 @@ namespace {
 
     final class UnsupportedFactProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.unsupported'; }
+        public function providerId(): string
+        {
+            return 'test.unsupported';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [

@@ -39,6 +39,7 @@ final class ExportPolicy
      * not have an allow-list should not use this method as their only filter.
      *
      * @param array<string,mixed> $settings
+     *
      * @return array{settings: array<string,mixed>, redactedKeys: string[]}
      */
     public static function filter(array $settings): array

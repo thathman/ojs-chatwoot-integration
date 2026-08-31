@@ -6,58 +6,57 @@ use APP\core\Application;
 use APP\plugins\generic\chatwootIntegration\ChatwootApiService;
 use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationPlugin;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\DiagnosticResultSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaginationParams;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaymentStatusSerializer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PublicationStatusSerializer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\RequiredActionsSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionListSerializer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiErrorCode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Api\DiagnosticResultSerializer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaymentStatusSerializer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PublicationStatusSerializer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Api\RequiredActionsSerializer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportIdentitySerializer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\ChatwootConversationVerifier;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\LegacyWidgetIdentifierResolver;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextProjector;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainCustomToolProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainDocumentProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainProvisioningHealthReport;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainProvisioningHealthService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainScenarioProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\DatabaseSupportKnowledgeSyncRepository;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\ChatwootConversationVerifier;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Chatwoot\LegacyWidgetIdentifierResolver;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ChatwootContextProjector;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome;
+use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
+use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationChallenge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailContentBuilder;
 use Illuminate\Support\Facades\Mail;
-use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
-use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use PKP\core\JSONMessage;
 use PKP\facades\Locale;
 use PKP\plugins\Hook;
@@ -126,8 +125,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
     public function setSupportGatewayPageHandler(string $hookName, array $args): bool
     {
-        $page =& $args[0];
-        $handler =& $args[3];
+        $page = & $args[0];
+        $handler = & $args[3];
 
         if ($page === self::SUPPORT_GATEWAY_PAGE) {
             $handler = new SupportGatewayPageHandler($this);
@@ -2058,9 +2057,15 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
     private function v2Bool(mixed $value): bool
     {
-        if (is_bool($value)) return $value;
-        if (is_int($value)) return $value === 1;
-        if (is_string($value)) return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value)) {
+            return $value === 1;
+        }
+        if (is_string($value)) {
+            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+        }
         return (bool) $value;
     }
 }

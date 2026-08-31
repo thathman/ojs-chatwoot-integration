@@ -27,22 +27,70 @@ final class SupportSession
     ) {
     }
 
-    public function publicId(): string { return $this->publicId; }
-    public function contextId(): int { return $this->contextId; }
-    public function userId(): int { return $this->userId; }
-    public function verificationMethod(): string { return $this->verificationMethod; }
-    public function assuranceLevel(): string { return $this->assuranceLevel; }
-    public function bindingTokenHash(): ?string { return $this->bindingTokenHash; }
-    public function bindingExpiresAt(): ?int { return $this->bindingExpiresAt; }
-    public function bindingConsumedAt(): ?int { return $this->bindingConsumedAt; }
-    public function chatwootAccountId(): ?string { return $this->chatwootAccountId; }
-    public function chatwootContactId(): ?string { return $this->chatwootContactId; }
-    public function chatwootConversationId(): ?string { return $this->chatwootConversationId; }
-    public function createdAt(): int { return $this->createdAt; }
-    public function lastUsedAt(): int { return $this->lastUsedAt; }
-    public function idleExpiresAt(): int { return $this->idleExpiresAt; }
-    public function absoluteExpiresAt(): int { return $this->absoluteExpiresAt; }
-    public function revokedAt(): ?int { return $this->revokedAt; }
+    public function publicId(): string
+    {
+        return $this->publicId;
+    }
+    public function contextId(): int
+    {
+        return $this->contextId;
+    }
+    public function userId(): int
+    {
+        return $this->userId;
+    }
+    public function verificationMethod(): string
+    {
+        return $this->verificationMethod;
+    }
+    public function assuranceLevel(): string
+    {
+        return $this->assuranceLevel;
+    }
+    public function bindingTokenHash(): ?string
+    {
+        return $this->bindingTokenHash;
+    }
+    public function bindingExpiresAt(): ?int
+    {
+        return $this->bindingExpiresAt;
+    }
+    public function bindingConsumedAt(): ?int
+    {
+        return $this->bindingConsumedAt;
+    }
+    public function chatwootAccountId(): ?string
+    {
+        return $this->chatwootAccountId;
+    }
+    public function chatwootContactId(): ?string
+    {
+        return $this->chatwootContactId;
+    }
+    public function chatwootConversationId(): ?string
+    {
+        return $this->chatwootConversationId;
+    }
+    public function createdAt(): int
+    {
+        return $this->createdAt;
+    }
+    public function lastUsedAt(): int
+    {
+        return $this->lastUsedAt;
+    }
+    public function idleExpiresAt(): int
+    {
+        return $this->idleExpiresAt;
+    }
+    public function absoluteExpiresAt(): int
+    {
+        return $this->absoluteExpiresAt;
+    }
+    public function revokedAt(): ?int
+    {
+        return $this->revokedAt;
+    }
 
     public function isRevoked(): bool
     {

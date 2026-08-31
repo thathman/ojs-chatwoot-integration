@@ -44,9 +44,18 @@ final class FakeToolClient implements ChatwootCaptainClientInterface
     public bool $updateResult = true;
     public int $nextId = 1000;
 
-    public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array { return null; }
-    public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array { return null; }
-    public function syncCaptainDocument(string $documentId): bool { return true; }
+    public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array
+    {
+        return null;
+    }
+    public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array
+    {
+        return null;
+    }
+    public function syncCaptainDocument(string $documentId): bool
+    {
+        return true;
+    }
 
     public function listCaptainCustomTools(): array
     {

@@ -6,8 +6,13 @@ namespace APP\payment\ojs {
     /** Mirrors only the two real OJSPaymentManager methods the adapter calls — see tests/v2/payment-status.php. */
     final class OJSPaymentManager
     {
-        public function __construct(private $context) {}
-        public function isConfigured(): bool { return (bool) $this->context->getData('paymentsEnabled'); }
+        public function __construct(private $context)
+        {
+        }
+        public function isConfigured(): bool
+        {
+            return (bool) $this->context->getData('paymentsEnabled');
+        }
         public function publicationEnabled(): bool
         {
             $fee = $this->context->getData('publicationFee');
@@ -38,12 +43,20 @@ namespace APP\plugins\generic\submissionFee {
     /** Mirrors only the surface CorePaymentKnowledgeProvider/adapter actually call — see tests/v2/provider-registry.php. */
     final class SubmissionFeePlugin
     {
-        public function __construct(private bool $enabled) {}
-        public function getEnabled(): bool { return $this->enabled; }
+        public function __construct(private bool $enabled)
+        {
+        }
+        public function getEnabled(): bool
+        {
+            return $this->enabled;
+        }
         public function getCurrentVersion(): object
         {
-            return new class {
-                public function getVersionString(): string { return '1.7.0.0'; }
+            return new class () {
+                public function getVersionString(): string
+                {
+                    return '1.7.0.0';
+                }
             };
         }
     }
@@ -51,10 +64,21 @@ namespace APP\plugins\generic\submissionFee {
     /** Reads controllable state straight off $context, since the adapter constructs its own instance internally. */
     final class PaymentHelper
     {
-        public function __construct(private SubmissionFeePlugin $plugin) {}
-        public function feeEnabled($context): bool { return (bool) $context->getData('airixFeeEnabled'); }
-        public function amount($context): float { return (float) $context->getData('airixFeeAmount'); }
-        public function currency($context): string { return (string) ($context->getData('airixFeeCurrency') ?? 'USD'); }
+        public function __construct(private SubmissionFeePlugin $plugin)
+        {
+        }
+        public function feeEnabled($context): bool
+        {
+            return (bool) $context->getData('airixFeeEnabled');
+        }
+        public function amount($context): float
+        {
+            return (float) $context->getData('airixFeeAmount');
+        }
+        public function currency($context): string
+        {
+            return (string) ($context->getData('airixFeeCurrency') ?? 'USD');
+        }
     }
 }
 
@@ -63,10 +87,21 @@ namespace APP\plugins\generic\requestWaiver {
     final class RequestWaiverPlugin
     {
         public array $settings = [];
-        public function __construct(private bool $enabled, private ?string $activeFeeType) {}
-        public function getEnabled(int $contextId): bool { return $this->enabled; }
-        public function activeFeeType($context): ?string { return $this->activeFeeType; }
-        public function getSetting(int $contextId, string $name): mixed { return $this->settings[$name] ?? null; }
+        public function __construct(private bool $enabled, private ?string $activeFeeType)
+        {
+        }
+        public function getEnabled(int $contextId): bool
+        {
+            return $this->enabled;
+        }
+        public function activeFeeType($context): ?string
+        {
+            return $this->activeFeeType;
+        }
+        public function getSetting(int $contextId, string $name): mixed
+        {
+            return $this->settings[$name] ?? null;
+        }
     }
 }
 
@@ -88,11 +123,25 @@ namespace {
 
     final class FakePaymentContext
     {
-        public function __construct(private array $data) {}
-        public function getId(): int { return 7; }
-        public function getData(string $key): mixed { return $this->data[$key] ?? null; }
-        public function getSupportedLocales(): array { return ['en']; }
-        public function getPrimaryLocale(): string { return 'en'; }
+        public function __construct(private array $data)
+        {
+        }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getData(string $key): mixed
+        {
+            return $this->data[$key] ?? null;
+        }
+        public function getSupportedLocales(): array
+        {
+            return ['en'];
+        }
+        public function getPrimaryLocale(): string
+        {
+            return 'en';
+        }
     }
 
     $adapter = new Ojs35CompatibilityAdapter();

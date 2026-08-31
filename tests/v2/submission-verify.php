@@ -7,11 +7,14 @@ namespace PKP\db {
     {
         public static function getDAO(string $name): object
         {
-            return new class {
+            return new class () {
                 public function getCurrentVersion(): object
                 {
-                    return new class {
-                        public function getVersionString(): string { return '3.5.0.0'; }
+                    return new class () {
+                        public function getVersionString(): string
+                        {
+                            return '3.5.0.0';
+                        }
                     };
                 }
             };
@@ -25,7 +28,10 @@ namespace PKP\user {
         /** @var array<int,object> */
         public static array $usersById = [];
 
-        public static function user(): self { return new self(); }
+        public static function user(): self
+        {
+            return new self();
+        }
 
         public function get(int $id): ?object
         {
@@ -61,7 +67,7 @@ namespace APP\facades {
 
         public static function submission(): object
         {
-            return new class {
+            return new class () {
                 public function get(int $id): ?object
                 {
                     return \APP\facades\Repo::$submissionsById[$id] ?? null;
@@ -71,7 +77,7 @@ namespace APP\facades {
 
         public static function user(): object
         {
-            return new class {
+            return new class () {
                 public function getAccessibleWorkflowStages(int $userId, int $contextId, $submission, array $roleIds): array
                 {
                     $submissionId = is_object($submission) && method_exists($submission, 'getId') ? $submission->getId() : 0;
@@ -82,10 +88,10 @@ namespace APP\facades {
 
         public static function reviewAssignment(): object
         {
-            return new class {
+            return new class () {
                 public function getCollector(): object
                 {
-                    return new class {
+                    return new class () {
                         private array $submissionIds = [];
                         private array $reviewerIds = [];
 
@@ -148,21 +154,39 @@ namespace {
 
     final class FakeSubmission
     {
-        public function __construct(private int $id, private int $contextId) {}
-        public function getId(): int { return $this->id; }
-        public function getData(string $key): mixed { return $key === 'contextId' ? $this->contextId : null; }
+        public function __construct(private int $id, private int $contextId)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
+        public function getData(string $key): mixed
+        {
+            return $key === 'contextId' ? $this->contextId : null;
+        }
     }
 
     final class FakeRole
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     final class FakeOjsUser
     {
-        public function __construct(private int $id, private array $roleIds) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id, private array $roleIds)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getRoles(int $contextId): array
         {
             return array_map(static fn (int $id) => new FakeRole($id), $this->roleIds);
@@ -171,16 +195,34 @@ namespace {
 
     final class FakeContext
     {
-        public function getId(): int { return 7; }
-        public function getPath(): string { return 'journal-a'; }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
     }
 
     final class FakeRequest
     {
-        public function getContext(): object { return new FakeContext(); }
-        public function getUser(): ?object { return null; }
-        public function getRequestedPage(): string { return 'ojsSupportGateway'; }
-        public function getRequestedOp(): string { return 'submissionVerify'; }
+        public function getContext(): object
+        {
+            return new FakeContext();
+        }
+        public function getUser(): ?object
+        {
+            return null;
+        }
+        public function getRequestedPage(): string
+        {
+            return 'ojsSupportGateway';
+        }
+        public function getRequestedOp(): string
+        {
+            return 'submissionVerify';
+        }
     }
 
     // ================================================================
@@ -196,14 +238,14 @@ namespace {
     \APP\facades\Repo::$submissionsById[999] = new FakeSubmission(999, 8); // different journal
 
     // Author case: workflow stage carries the Author role.
-    \APP\facades\Repo::$workflowStagesByUserId["42:456"] = [[65538]]; // Role::ROLE_ID_AUTHOR
+    \APP\facades\Repo::$workflowStagesByUserId['42:456'] = [[65538]]; // Role::ROLE_ID_AUTHOR
     $authorContext = new SupportContext(7, 'journal-a', 42, [65538], 'index', 'index', 'en');
     $authorRelationship = $resolver->resolve($authorContext, \APP\facades\Repo::$submissionsById[456]);
     submissionVerifyCheck($authorRelationship !== null && $authorRelationship->has('author'), 'author can verify own submission');
     submissionVerifyCheck($authorRelationship->types() === ['author'], 'author-only relationship should not fabricate other types');
 
     // Reviewer case: an actual review assignment exists.
-    \APP\facades\Repo::$workflowStagesByUserId["43:456"] = [];
+    \APP\facades\Repo::$workflowStagesByUserId['43:456'] = [];
     \APP\facades\Repo::$reviewAssignments['456:43'] = true;
     $reviewerContext = new SupportContext(7, 'journal-a', 43, [65536], 'index', 'index', 'en'); // journal-level Reviewer role
     $reviewerRelationship = $resolver->resolve($reviewerContext, \APP\facades\Repo::$submissionsById[456]);
@@ -211,7 +253,7 @@ namespace {
 
     // Journal-level Reviewer role ALONE (no assignment, no workflow stage) must not verify.
     $unassignedReviewerContext = new SupportContext(7, 'journal-a', 44, [65536], 'index', 'index', 'en');
-    \APP\facades\Repo::$workflowStagesByUserId["44:456"] = [];
+    \APP\facades\Repo::$workflowStagesByUserId['44:456'] = [];
     $unassignedRelationship = $resolver->resolve($unassignedReviewerContext, \APP\facades\Repo::$submissionsById[456]);
     submissionVerifyCheck(
         $unassignedRelationship !== null && $unassignedRelationship->isEmpty(),
@@ -219,7 +261,7 @@ namespace {
     );
 
     // Multi-relationship: same user has both an author workflow stage AND a review assignment.
-    \APP\facades\Repo::$workflowStagesByUserId["45:456"] = [[65538]];
+    \APP\facades\Repo::$workflowStagesByUserId['45:456'] = [[65538]];
     \APP\facades\Repo::$reviewAssignments['456:45'] = true;
     $multiContext = new SupportContext(7, 'journal-a', 45, [65538, 65536], 'index', 'index', 'en');
     $multiRelationship = $resolver->resolve($multiContext, \APP\facades\Repo::$submissionsById[456]);
@@ -233,7 +275,7 @@ namespace {
     );
 
     // Unrelated user: no workflow stage, no assignment.
-    \APP\facades\Repo::$workflowStagesByUserId["46:456"] = [];
+    \APP\facades\Repo::$workflowStagesByUserId['46:456'] = [];
     $unrelatedContext = new SupportContext(7, 'journal-a', 46, [], 'index', 'index', 'en');
     $unrelatedRelationship = $resolver->resolve($unrelatedContext, \APP\facades\Repo::$submissionsById[456]);
     submissionVerifyCheck(
@@ -265,11 +307,11 @@ namespace {
     );
 
     // Live recompute: role change after "binding" (i.e. between two calls) is respected immediately.
-    \APP\facades\Repo::$workflowStagesByUserId["47:456"] = [[65538]];
+    \APP\facades\Repo::$workflowStagesByUserId['47:456'] = [[65538]];
     $liveUserContext = new SupportContext(7, 'journal-a', 47, [65538], 'index', 'index', 'en');
     $beforeRoleChange = $resolver->resolve($liveUserContext, \APP\facades\Repo::$submissionsById[456]);
     submissionVerifyCheck($beforeRoleChange->has('author'), 'precondition: user 47 starts as author');
-    \APP\facades\Repo::$workflowStagesByUserId["47:456"] = []; // author access revoked in OJS
+    \APP\facades\Repo::$workflowStagesByUserId['47:456'] = []; // author access revoked in OJS
     $afterRoleChange = $resolver->resolve($liveUserContext, \APP\facades\Repo::$submissionsById[456]);
     submissionVerifyCheck(
         $afterRoleChange->isEmpty(),
@@ -278,7 +320,7 @@ namespace {
 
     // Live recompute: review assignment removed after binding is respected immediately.
     \APP\facades\Repo::$reviewAssignments['456:48'] = true;
-    \APP\facades\Repo::$workflowStagesByUserId["48:456"] = [];
+    \APP\facades\Repo::$workflowStagesByUserId['48:456'] = [];
     $liveReviewerContext = new SupportContext(7, 'journal-a', 48, [65536], 'index', 'index', 'en');
     $beforeUnassign = $resolver->resolve($liveReviewerContext, \APP\facades\Repo::$submissionsById[456]);
     submissionVerifyCheck($beforeUnassign->has('reviewer'), 'precondition: user 48 starts as an assigned reviewer');
@@ -333,7 +375,7 @@ namespace {
     $loadedMissing = $bridge->loadSubmission(123456789);
     submissionVerifyCheck($loadedMissing === null, 'loading a nonexistent submission ID must return null, not throw');
 
-    \APP\facades\Repo::$workflowStagesByUserId["42:456"] = [[65538]];
+    \APP\facades\Repo::$workflowStagesByUserId['42:456'] = [[65538]];
     $authorContextForBridge = new SupportContext(7, 'journal-a', 42, [65538], 'index', 'index', 'en');
     $bridgeRelationship = $bridge->resolveSubmissionRelationship($authorContextForBridge, $loadedExisting);
     submissionVerifyCheck($bridgeRelationship !== null && $bridgeRelationship->has('author'), 'bridge must wire through to the real relationship resolver');
@@ -351,9 +393,18 @@ namespace {
         /** @var array<string,SupportSession> */
         public array $sessions = [];
 
-        public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+        public function create(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function save(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function findByPublicId(string $publicId): ?SupportSession
+        {
+            return $this->sessions[$publicId] ?? null;
+        }
 
         public function claimBindingToken(
             string $bindingTokenHash,
@@ -404,9 +455,16 @@ namespace {
             return null;
         }
 
-        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
-        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
-        public function purgeExpired(int $now): int { return 0; }
+        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
+        {
+        }
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void
+        {
+        }
+        public function purgeExpired(int $now): int
+        {
+            return 0;
+        }
     }
 
     $now = time();
@@ -429,7 +487,7 @@ namespace {
     $authorApiResult = $apiResolver->resolve(new FakeRequest(), 'corr-1', 7, 'service-secret', '1', '100', '500', 'submissionVerify');
     submissionVerifyCheck(!($authorApiResult instanceof SupportApiFailure) && $authorApiResult->verified(), 'the resolver must still verify the V2 conversation identity for submissionVerify');
 
-    \APP\facades\Repo::$workflowStagesByUserId["42:456"] = [[65538]];
+    \APP\facades\Repo::$workflowStagesByUserId['42:456'] = [[65538]];
     $submissionForRequest = $bridge->loadSubmission(456);
     $relationshipForRequest = $bridge->resolveSubmissionRelationship($authorApiResult->identity(), $submissionForRequest);
     submissionVerifyCheck($relationshipForRequest !== null && $relationshipForRequest->has('author'), 'end-to-end: author must resolve a relationship for their own submission');
@@ -513,7 +571,7 @@ namespace {
     submissionVerifyCheck(str_contains($pluginSource, "resourceAssurance = \$relationship ? 'v3'"), 'v3 must be computed per-request, gated on an actual relationship');
     submissionVerifyCheck(
         !preg_match('/assuranceLevel\(\)\s*=\s*[\'"]v3[\'"]/', $pluginSource)
-        && !str_contains($pluginSource, "session->save")
+        && !str_contains($pluginSource, 'session->save')
         && !str_contains($pluginSource, "'v3', \$contextId"),
         'v3 must never be written back onto the persisted support session'
     );

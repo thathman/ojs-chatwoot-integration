@@ -114,8 +114,14 @@ capabilityCheck($policyDenied->denialReason('submission.read_own_support_status'
 
 final class OverreachingProvider implements CapabilityProviderInterface
 {
-    public function providerId(): string { return 'overreach'; }
-    public function declaredCapabilities(): array { return ['journal.read_public_info']; }
+    public function providerId(): string
+    {
+        return 'overreach';
+    }
+    public function declaredCapabilities(): array
+    {
+        return ['journal.read_public_info'];
+    }
     public function candidateCapabilities(CapabilityRequest $request): array
     {
         return ['journal.read_public_info', 'payment.mark_paid', 'submission.read_own_payment_status'];

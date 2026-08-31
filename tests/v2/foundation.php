@@ -22,31 +22,66 @@ function check(bool $condition, string $message): void
 
 final class DummyRole
 {
-    public function __construct(private int $id) {}
-    public function getId(): int { return $this->id; }
+    public function __construct(private int $id)
+    {
+    }
+    public function getId(): int
+    {
+        return $this->id;
+    }
 }
 
 final class DummyUser
 {
-    public function __construct(private int $id, private array $roles) {}
-    public function getId(): int { return $this->id; }
-    public function getRoles(int $contextId): array { return $this->roles; }
+    public function __construct(private int $id, private array $roles)
+    {
+    }
+    public function getId(): int
+    {
+        return $this->id;
+    }
+    public function getRoles(int $contextId): array
+    {
+        return $this->roles;
+    }
 }
 
 final class DummyContext
 {
-    public function __construct(private int $id, private string $path) {}
-    public function getId(): int { return $this->id; }
-    public function getPath(): string { return $this->path; }
+    public function __construct(private int $id, private string $path)
+    {
+    }
+    public function getId(): int
+    {
+        return $this->id;
+    }
+    public function getPath(): string
+    {
+        return $this->path;
+    }
 }
 
 final class DummyRequest
 {
-    public function __construct(private $context, private $user = null) {}
-    public function getContext() { return $this->context; }
-    public function getUser() { return $this->user; }
-    public function getRequestedPage(): string { return 'submission'; }
-    public function getRequestedOp(): string { return 'wizard'; }
+    public function __construct(private $context, private $user = null)
+    {
+    }
+    public function getContext()
+    {
+        return $this->context;
+    }
+    public function getUser()
+    {
+        return $this->user;
+    }
+    public function getRequestedPage(): string
+    {
+        return 'submission';
+    }
+    public function getRequestedOp(): string
+    {
+        return 'wizard';
+    }
 }
 
 $adapter = new Ojs35CompatibilityAdapter();

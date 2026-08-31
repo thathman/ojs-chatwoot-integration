@@ -7,8 +7,14 @@ namespace PKP\plugins {
     {
         /** @var array<string,array<string,object>> */
         public static array $plugins = [];
-        public static function loadCategory(string $category, bool $enabledOnly = false): array { return self::$plugins[$category] ?? []; }
-        public static function getPlugin(string $category, string $name): ?object { return self::$plugins[$category][$name] ?? null; }
+        public static function loadCategory(string $category, bool $enabledOnly = false): array
+        {
+            return self::$plugins[$category] ?? [];
+        }
+        public static function getPlugin(string $category, string $name): ?object
+        {
+            return self::$plugins[$category][$name] ?? null;
+        }
     }
 }
 
@@ -31,11 +37,11 @@ namespace {
     require_once $root . '/classes/v2/bootstrap.php';
 
     use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\Ojs35CompatibilityAdapter;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeClassification;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeFact;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSourcePrecedence;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\OfficialPageKnowledgeProvider;
 
     function knowledgePagesCheck(bool $condition, string $message): void
@@ -48,16 +54,32 @@ namespace {
 
     final class FakeStaticPagesPlugin
     {
-        public function __construct(private bool $enabled) {}
-        public function getEnabled(): bool { return $this->enabled; }
+        public function __construct(private bool $enabled)
+        {
+        }
+        public function getEnabled(): bool
+        {
+            return $this->enabled;
+        }
     }
 
     final class FakeStaticPage
     {
-        public function __construct(private string $path, private array $titles, private array $contents) {}
-        public function getPath(): string { return $this->path; }
-        public function getTitle(string $locale): string { return $this->titles[$locale] ?? ''; }
-        public function getContent(string $locale): string { return $this->contents[$locale] ?? ''; }
+        public function __construct(private string $path, private array $titles, private array $contents)
+        {
+        }
+        public function getPath(): string
+        {
+            return $this->path;
+        }
+        public function getTitle(string $locale): string
+        {
+            return $this->titles[$locale] ?? '';
+        }
+        public function getContent(string $locale): string
+        {
+            return $this->contents[$locale] ?? '';
+        }
     }
 
     final class FakeStaticPagesDao
@@ -67,19 +89,35 @@ namespace {
         public function getByContextId(int $contextId): object
         {
             $pages = $this->pagesByContextId[$contextId] ?? [];
-            return new class($pages) {
-                public function __construct(private array $pages) {}
-                public function toArray(): array { return $this->pages; }
+            return new class ($pages) {
+                public function __construct(private array $pages)
+                {
+                }
+                public function toArray(): array
+                {
+                    return $this->pages;
+                }
             };
         }
     }
 
     final class FakeOfficialPagesContext
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
-        public function getSupportedLocales(): array { return ['en']; }
-        public function getPrimaryLocale(): string { return 'en'; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
+        public function getSupportedLocales(): array
+        {
+            return ['en'];
+        }
+        public function getPrimaryLocale(): string
+        {
+            return 'en';
+        }
     }
 
     // ================================================================
@@ -126,7 +164,10 @@ namespace {
     // ================================================================
     final class StructuredFactProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.structured'; }
+        public function providerId(): string
+        {
+            return 'test.structured';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [new KnowledgeFact('fee.publicationAmount', '100.00', KnowledgeClassification::PUBLIC, 'ojs.context', $locale, $this->providerId())];
@@ -135,7 +176,10 @@ namespace {
 
     final class StaleOfficialPageFactProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.stale_page'; }
+        public function providerId(): string
+        {
+            return 'test.stale_page';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [new KnowledgeFact('fee.publicationAmount', '75.00', KnowledgeClassification::PUBLIC, KnowledgeSourcePrecedence::SOURCE_OFFICIAL_PAGE, $locale, $this->providerId())];
@@ -144,7 +188,10 @@ namespace {
 
     final class UnknownSourceFactProvider implements KnowledgeProviderInterface
     {
-        public function providerId(): string { return 'test.unknown_source'; }
+        public function providerId(): string
+        {
+            return 'test.unknown_source';
+        }
         public function collect($context, $request, string $locale): array
         {
             return [new KnowledgeFact('fee.publicationAmount', '999.00', KnowledgeClassification::PUBLIC, 'totally.unrecognized.source', $locale, $this->providerId())];

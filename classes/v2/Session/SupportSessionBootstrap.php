@@ -18,11 +18,26 @@ final class SupportSessionBootstrap
     ) {
     }
 
-    public function sessionRef(): string { return $this->sessionRef; }
-    public function bindingToken(): string { return $this->bindingToken; }
-    public function assuranceLevel(): string { return $this->assuranceLevel; }
-    public function bindingExpiresAt(): int { return $this->bindingExpiresAt; }
-    public function sessionExpiresAt(): int { return $this->sessionExpiresAt; }
+    public function sessionRef(): string
+    {
+        return $this->sessionRef;
+    }
+    public function bindingToken(): string
+    {
+        return $this->bindingToken;
+    }
+    public function assuranceLevel(): string
+    {
+        return $this->assuranceLevel;
+    }
+    public function bindingExpiresAt(): int
+    {
+        return $this->bindingExpiresAt;
+    }
+    public function sessionExpiresAt(): int
+    {
+        return $this->sessionExpiresAt;
+    }
 
     /**
      * Ephemeral transport payload. This is a bearer bootstrap, not an

@@ -24,6 +24,7 @@ final class HandoffSummaryFormatter
      * @param array<string,mixed> $identitySummary Exactly what SupportIdentitySerializer::serialize() returns (HOF-002: verification method/expiry already included there).
      * @param array{status:string,doi:?string}|null $publicationFacts
      * @param array{feeEnabled:bool,status:?string}|null $paymentFacts
+     *
      * @return array<string,mixed>
      */
     public static function build(
@@ -81,7 +82,7 @@ final class HandoffSummaryFormatter
         $identity = $summary['identity'] ?? [];
         $verified = $identity['verified'] ?? false;
         $assurance = $identity['assurance'] ?? 'v0';
-        $lines[] = "- Verified: " . ($verified ? 'yes' : 'no') . " (assurance: {$assurance})";
+        $lines[] = '- Verified: ' . ($verified ? 'yes' : 'no') . " (assurance: {$assurance})";
 
         $roles = $identity['identity']['roles'] ?? [];
         if (is_array($roles) && $roles !== []) {

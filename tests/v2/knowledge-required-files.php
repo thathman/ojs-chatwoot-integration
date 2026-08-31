@@ -7,8 +7,14 @@ namespace PKP\plugins {
     {
         /** @var array<string,array<string,object>> */
         public static array $plugins = [];
-        public static function loadCategory(string $category, bool $enabledOnly = false): array { return self::$plugins[$category] ?? []; }
-        public static function getPlugin(string $category, string $name): ?object { return self::$plugins[$category][$name] ?? null; }
+        public static function loadCategory(string $category, bool $enabledOnly = false): array
+        {
+            return self::$plugins[$category] ?? [];
+        }
+        public static function getPlugin(string $category, string $name): ?object
+        {
+            return self::$plugins[$category][$name] ?? null;
+        }
     }
 }
 
@@ -20,16 +26,21 @@ namespace PKP\db {
 
         public static function getDAO(string $name): object
         {
-            return new class {
+            return new class () {
                 public function getById(int $id, int $contextId): ?object
                 {
                     $name = \PKP\db\DAORegistry::$genreNames[$id] ?? null;
                     if ($name === null) {
                         return null;
                     }
-                    return new class($name) {
-                        public function __construct(private string $name) {}
-                        public function getLocalizedName(): string { return $this->name; }
+                    return new class ($name) {
+                        public function __construct(private string $name)
+                        {
+                        }
+                        public function getLocalizedName(): string
+                        {
+                            return $this->name;
+                        }
                     };
                 }
             };
@@ -42,9 +53,17 @@ namespace APP\plugins\generic\requiredSubmissionFiles {
     final class RequiredSubmissionFilesPlugin
     {
         /** @param array<int,int[]> $genreIdsByContext real plugin settings are per-context, via getSetting($contextId, 'requiredGenreIds') */
-        public function __construct(private bool $enabled, private array $genreIdsByContext) {}
-        public function getEnabled(int $contextId): bool { return $this->enabled; }
-        public function getRequiredGenreIds(int $contextId): array { return $this->genreIdsByContext[$contextId] ?? []; }
+        public function __construct(private bool $enabled, private array $genreIdsByContext)
+        {
+        }
+        public function getEnabled(int $contextId): bool
+        {
+            return $this->enabled;
+        }
+        public function getRequiredGenreIds(int $contextId): array
+        {
+            return $this->genreIdsByContext[$contextId] ?? [];
+        }
     }
 }
 
@@ -66,11 +85,25 @@ namespace {
 
     final class FakeRequiredFilesContext
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
-        public function getData(string $key): mixed { return null; }
-        public function getSupportedLocales(): array { return ['en']; }
-        public function getPrimaryLocale(): string { return 'en'; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
+        public function getData(string $key): mixed
+        {
+            return null;
+        }
+        public function getSupportedLocales(): array
+        {
+            return ['en'];
+        }
+        public function getPrimaryLocale(): string
+        {
+            return 'en';
+        }
     }
 
     $adapter = new Ojs35CompatibilityAdapter();
