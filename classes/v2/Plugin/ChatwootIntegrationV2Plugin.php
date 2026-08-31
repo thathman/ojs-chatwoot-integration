@@ -68,6 +68,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureM
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
@@ -1286,6 +1287,53 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                     $actions,
                     $stateConfidence
                 );
+            }
+        );
+        $registry->register(
+            PublicationStatusTool::NAME,
+            PublicationStatusTool::DESCRIPTION,
+            PublicationStatusTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.publication.get_status');
+
+                $bridge = $this->runtimeContextBridge();
+                $submissionId = $this->v2PositiveInt($arguments['submissionId'] ?? null);
+                if ($submissionId === null) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'submissionId is required.');
+                }
+
+                $ctx = $this->v2ResolveMcpSubmissionContext($bridge, $result, $submissionId);
+                $relationship = $ctx['relationship'];
+                $decision = $ctx['decision'];
+                $actions = $ctx['actions'];
+
+                if (!$relationship || !$decision || !$decision->allows('submission.read_own_publication_status')) {
+                    return PublicationStatusSerializer::unverified($result, $actions);
+                }
+
+                $stateFields = $bridge->getSubmissionStateFields($ctx['submission']);
+                $supportState = SupportStateMapper::map(
+                    $stateFields['status'],
+                    $stateFields['stageId'],
+                    $stateFields['reviewRoundStatus'],
+                    $stateFields['submissionProgress']
+                );
+
+                if ($supportState !== 'published' && $supportState !== 'scheduled_for_publication') {
+                    return PublicationStatusTool::handleVerified($relationship, 'not_yet_published', null, null, null, $actions);
+                }
+
+                $publicationFields = $bridge->getPublicationFields($ctx['submission']);
+                $issue = null;
+                if ($publicationFields['issueId'] !== null) {
+                    $issueInfo = $bridge->getIssueInfo($publicationFields['issueId']);
+                    if ($issueInfo !== null && $issueInfo['published']) {
+                        $issue = ['volume' => $issueInfo['volume'], 'number' => $issueInfo['number'], 'year' => $issueInfo['year']];
+                    }
+                }
+                $publicUrl = $supportState === 'published' ? $bridge->getPublicSubmissionUrl($request, $ctx['submission']) : null;
+
+                return PublicationStatusTool::handleVerified($relationship, $supportState, $publicationFields['doi'], $publicUrl, $issue, $actions);
             }
         );
 
