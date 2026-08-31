@@ -18,6 +18,7 @@ final class InstallSupportGatewayMigration extends Migration
     public const CHALLENGE_TABLE = 'chatwoot_support_verification_challenges';
     public const KNOWLEDGE_SYNC_TABLE = 'chatwoot_support_knowledge_sync';
     public const AUDIT_LOG_TABLE = 'chatwoot_support_audit_log';
+    public const EVENT_QUEUE_TABLE = 'chatwoot_support_event_queue';
 
     public function up(): void
     {
@@ -25,6 +26,7 @@ final class InstallSupportGatewayMigration extends Migration
         $this->upChallenges();
         $this->upKnowledgeSync();
         $this->upAuditLog();
+        $this->upEventQueue();
     }
 
     private function upSessions(): void
@@ -179,8 +181,52 @@ final class InstallSupportGatewayMigration extends Migration
         });
     }
 
+    /**
+     * Persisted Event Bridge v2 delivery queue (docs/v2/TASKLIST.md
+     * EVT-011/EVT-014) — the "queued delivery" stage of `OJS Hook ->
+     * SupportEvent -> policy/filter -> queued delivery -> Chatwoot`
+     * (docs/v2/ARCHITECTURE.md §3.9). `idempotency_key` is unique: a
+     * `SupportEvent`'s own deterministic key (EVT-002) means a retried
+     * enqueue of the same real occurrence is naturally a no-op at the DB
+     * level, not something calling code needs to check first.
+     *
+     * `attributes` stores the event's own safe fact payload verbatim (see
+     * `SupportEvent::attributes()`'s own contract — never PII, since
+     * nothing upstream ever puts PII into a SupportEvent). `status`
+     * lifecycle: `pending` -> `delivered` or `failed` (a `failed` row past
+     * `max_attempts` is effectively the dead letter — no separate table,
+     * consistent with "one status column, not two systems" already used
+     * elsewhere in this schema).
+     */
+    private function upEventQueue(): void
+    {
+        if (Schema::hasTable(self::EVENT_QUEUE_TABLE)) {
+            return;
+        }
+
+        Schema::create(self::EVENT_QUEUE_TABLE, function (Blueprint $table): void {
+            $table->comment('Persisted Event Bridge v2 delivery queue.');
+            $table->bigIncrements('id');
+            $table->string('idempotency_key', 64)->unique();
+            $table->string('event_type', 64)->index();
+            $table->bigInteger('context_id')->index();
+            $table->string('resource_type', 32);
+            $table->bigInteger('resource_id');
+            $table->text('attributes')->nullable();
+            $table->string('delivery_mode', 32);
+            $table->string('status', 16)->default('pending')->index();
+            $table->unsignedSmallInteger('attempts')->default(0);
+            $table->dateTime('occurred_at');
+            $table->dateTime('created_at')->index();
+            $table->dateTime('run_after')->nullable()->index();
+            $table->dateTime('delivered_at')->nullable();
+            $table->string('last_error_code', 64)->nullable();
+        });
+    }
+
     public function down(): void
     {
+        Schema::dropIfExists(self::EVENT_QUEUE_TABLE);
         Schema::dropIfExists(self::AUDIT_LOG_TABLE);
         Schema::dropIfExists(self::KNOWLEDGE_SYNC_TABLE);
         Schema::dropIfExists(self::CHALLENGE_TABLE);
