@@ -67,6 +67,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\CapabilitiesListTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\EscalateSupportTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
@@ -1652,6 +1653,28 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 $hasMore = ($pagination->offset + count($page)) < $total;
 
                 return SubmissionListTool::handleVerified($result, $page, $pagination, $hasMore);
+            }
+        );
+        $registry->register(
+            CapabilitiesListTool::NAME,
+            CapabilitiesListTool::DESCRIPTION,
+            CapabilitiesListTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.capabilities.list_available');
+
+                $bridge = $this->runtimeContextBridge();
+                $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                    CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
+                    $result->assurance(),
+                    $result->identity()
+                ));
+
+                return CapabilitiesListTool::handle(
+                    $result->verified(),
+                    $result->assurance(),
+                    $decision ? $bridge->availableActions($decision) : [],
+                    $decision ? $bridge->disabledActions($decision) : []
+                );
             }
         );
 

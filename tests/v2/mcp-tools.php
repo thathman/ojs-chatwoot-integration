@@ -186,6 +186,14 @@ mcpToolsCheck(
     'the list-mine tool must degrade to the same generic unverified/denied shape REST uses (never a distinct error that would let a denied capability be enumerated), and serialize a real verified list through the real serializer'
 );
 
+mcpToolsCheck(str_contains($mcpMethodBody, 'CapabilitiesListTool::NAME'), 'mcpRequest() must register the real CapabilitiesListTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'CapabilitiesListTool::handle('), 'the capabilities tool must serialize through the real tool handler, never a bespoke inline shape');
+mcpToolsCheck(str_contains($mcpMethodBody, '$bridge->disabledActions($decision)'), 'the capabilities tool must expose the real disabled-actions list, same as REST');
+mcpToolsCheck(
+    !preg_match('/CapabilitiesListTool.*?CONSUMER_CHATWOOT_CAPTAIN_PUBLIC/s', $mcpMethodBody),
+    'the capabilities tool must evaluate capabilities under the real MCP consumer plane, never silently falling back to the Chatwoot Captain one'
+);
+
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
 mcpToolsCheck(str_contains($handlerSource, 'mcpRequest'), 'the MCP page handler must dispatch to the real plugin method');

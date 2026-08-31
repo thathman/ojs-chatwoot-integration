@@ -30,6 +30,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\CapabilitiesListTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\EscalateSupportTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
@@ -186,6 +187,19 @@ namespace {
     mcpIdentityCheck($listVerified['verified'] === true && count($listVerified['submissions']) === 2, 'the MCP list-mine tool must expose exactly the real resolved candidates, same as REST');
     mcpIdentityCheck($listVerified['submissions'][0]['id'] === 456 && $listVerified['submissions'][1]['id'] === 789, 'the MCP list-mine tool must expose the real submission ids from each relationship');
     mcpIdentityCheck($listVerified['pagination'] === ['limit' => 20, 'offset' => 0, 'hasMore' => false], 'the MCP list-mine tool must expose the real pagination window, same as REST');
+
+    // ================================================================
+    // CapabilitiesListTool — must expose exactly the same shape REST's
+    // supportActionsRequest() builds inline (no dedicated serializer
+    // exists for this in REST either, so the tool mirrors that directly).
+    // ================================================================
+    $capabilitiesResult = CapabilitiesListTool::handle(true, 'v3', ['view_status', 'contact_editorial_office'], [['action' => 'view_payment_status', 'reason' => 'verification_required']]);
+    mcpIdentityCheck($capabilitiesResult === [
+        'verified' => true,
+        'assurance' => 'v3',
+        'availableActions' => ['view_status', 'contact_editorial_office'],
+        'disabledActions' => [['action' => 'view_payment_status', 'reason' => 'verification_required']],
+    ], 'the MCP capabilities tool must expose exactly verified/assurance/availableActions/disabledActions, same as REST');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
