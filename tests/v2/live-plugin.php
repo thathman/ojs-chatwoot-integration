@@ -31,6 +31,43 @@ namespace PKP\core {
     }
 }
 
+namespace PKP\scheduledTask {
+    abstract class ScheduledTask
+    {
+        public function getName(): string { return 'test-task'; }
+        abstract protected function executeActions(): bool;
+        public function execute(): bool { return $this->executeActions(); }
+        public function addExecutionLogEntry(string $message, ?string $type = null): void {}
+    }
+
+    /** Mirrors only the fluent surface ChatwootIntegrationV2Plugin::registerSchedules() actually calls. */
+    final class PKPScheduler
+    {
+        public array $addedTasks = [];
+        public function addSchedule(ScheduledTask $task): FakeScheduleEvent
+        {
+            $this->addedTasks[] = $task;
+            return new FakeScheduleEvent();
+        }
+    }
+
+    final class FakeScheduleEvent
+    {
+        public ?string $name = null;
+        public bool $withoutOverlapping = false;
+        public function daily(): static { return $this; }
+        public function name(string $name): static { $this->name = $name; return $this; }
+        public function withoutOverlapping(): static { $this->withoutOverlapping = true; return $this; }
+    }
+}
+
+namespace PKP\plugins\interfaces {
+    interface HasTaskScheduler
+    {
+        public function registerSchedules(\PKP\scheduledTask\PKPScheduler $scheduler): void;
+    }
+}
+
 namespace PKP\facades {
     class Locale
     {
@@ -148,6 +185,20 @@ namespace {
     pluginCheck(
         preg_match('/\}\s*catch[^}]*\}\s*return parent::addChatwootWidget/s', $widgetMethod) === 1,
         'legacy v1 widget rendering must run unconditionally even if v2 support-session bootstrap throws'
+    );
+
+    // ================================================================
+    // Scheduled-task wiring (IDN-017): the plugin must actually register
+    // the purge task with OJS's real scheduler, not just define the class.
+    // ================================================================
+    pluginCheck($plugin instanceof \PKP\plugins\interfaces\HasTaskScheduler, 'plugin must implement HasTaskScheduler so PKPScheduler::registerPluginSchedules() discovers it automatically');
+
+    $scheduler = new \PKP\scheduledTask\PKPScheduler();
+    $plugin->registerSchedules($scheduler);
+    pluginCheck(count($scheduler->addedTasks) === 1, 'registerSchedules() must register exactly one task');
+    pluginCheck(
+        $scheduler->addedTasks[0] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask,
+        'the registered task must be the real PurgeExpiredSupportDataTask, not a stand-in'
     );
 
     fwrite(STDOUT, "Live plugin tests passed\n");
