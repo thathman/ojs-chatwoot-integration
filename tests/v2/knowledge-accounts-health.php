@@ -17,10 +17,31 @@ namespace PKP\orcid {
     }
 }
 
+namespace PKP\plugins {
+    final class PluginRegistry
+    {
+        /** @var array<string,array<string,object>> */
+        public static array $plugins = [];
+        public static function loadCategory(string $category, bool $enabledOnly = false): array { return self::$plugins[$category] ?? []; }
+        public static function getPlugin(string $category, string $name): ?object { return self::$plugins[$category][$name] ?? null; }
+    }
+}
+
+namespace APP\plugins\generic\magicLogin {
+    /** Mirrors only the surface AccountsKnowledgeProvider/adapter actually call — see a real local checkout of Airix360/ojs-magic-login. */
+    final class MagicLoginPlugin
+    {
+        public function __construct(private bool $pluginEnabled, private bool $settingEnabled) {}
+        public function getEnabled(int $contextId): bool { return $this->pluginEnabled; }
+        public function getSetting(int $contextId, string $name): mixed { return $name === 'enabled' ? $this->settingEnabled : null; }
+    }
+}
+
 namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
 
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\Ojs35CompatibilityAdapter;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\AccountsKnowledgeProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeClassification;
@@ -42,6 +63,7 @@ namespace {
     class FakeAccountsContext
     {
         public function __construct(private array $data) {}
+        public function getId(): int { return 1; }
         public function getPath(): string { return 'journal-a'; }
         public function getSupportedLocales(): array { return ['en']; }
         public function getPrimaryLocale(): string { return 'en'; }
@@ -64,8 +86,10 @@ namespace {
     // ================================================================
     // Part 1: AccountsKnowledgeProvider.
     // ================================================================
+    \PKP\plugins\PluginRegistry::$plugins = [];
+    $adapter = new Ojs35CompatibilityAdapter();
     $compiler = new KnowledgeCompiler();
-    $compiler->registerProvider(new AccountsKnowledgeProvider());
+    $compiler->registerProvider(new AccountsKnowledgeProvider($adapter));
     $request = new FakeAccountsRequest();
 
     \PKP\orcid\OrcidManager::$enabled = false;
@@ -88,6 +112,25 @@ namespace {
     $orcidCompilation = $compiler->compile($openRegContext, $request, 1, 'en');
     knowledgeAccountsCheck($orcidCompilation->fact('accounts.orcidEnabled')?->value() === 'true', 'ORCID enabled must report orcidEnabled=true');
 
+    // ================================================================
+    // Airix Magic Login availability: absent/disabled/enabled, URL correctness, no email lookup.
+    // ================================================================
+    $noMagicLoginCompilation = $compiler->compile($openRegContext, $request, 1, 'en');
+    knowledgeAccountsCheck($noMagicLoginCompilation->fact('accounts.magicLoginEnabled') === null, 'no magic-login fact when the plugin is absent');
+
+    \PKP\plugins\PluginRegistry::$plugins['generic']['magicloginplugin'] = new \APP\plugins\generic\magicLogin\MagicLoginPlugin(false, true);
+    $pluginDisabledCompilation = $compiler->compile($openRegContext, $request, 1, 'en');
+    knowledgeAccountsCheck($pluginDisabledCompilation->fact('accounts.magicLoginEnabled') === null, 'no magic-login fact when the plugin itself is disabled, even if its own "enabled" setting is on');
+
+    \PKP\plugins\PluginRegistry::$plugins['generic']['magicloginplugin'] = new \APP\plugins\generic\magicLogin\MagicLoginPlugin(true, false);
+    $settingDisabledCompilation = $compiler->compile($openRegContext, $request, 1, 'en');
+    knowledgeAccountsCheck($settingDisabledCompilation->fact('accounts.magicLoginEnabled') === null, 'no magic-login fact when the journal has not opted in via its own "enabled" setting');
+
+    \PKP\plugins\PluginRegistry::$plugins['generic']['magicloginplugin'] = new \APP\plugins\generic\magicLogin\MagicLoginPlugin(true, true);
+    $magicLoginCompilation = $compiler->compile($openRegContext, $request, 1, 'en');
+    knowledgeAccountsCheck($magicLoginCompilation->fact('accounts.magicLoginEnabled')?->value() === 'true', 'enabled plugin + enabled setting must surface magicLoginEnabled=true');
+    knowledgeAccountsCheck($magicLoginCompilation->fact('accounts.magicLoginUrl')?->value() === 'https://example.test/journal-a/magicLogin/request', 'magic-login URL must use the real magicLogin/request route');
+
     // No individual account data / no email lookup anywhere in this provider's source.
     $providerSource = '';
     foreach (token_get_all((string) file_get_contents($root . '/classes/v2/Knowledge/AccountsKnowledgeProvider.php')) as $token) {
@@ -96,7 +139,7 @@ namespace {
         }
         $providerSource .= is_array($token) ? $token[1] : $token;
     }
-    foreach (['getUserByEmail', 'getUserById', '$email', 'SupportSession', 'getEnabled()->'] as $forbidden) {
+    foreach (['getUserByEmail', 'getUserById', '$email', 'SupportSession', 'getEnabled()->', 'sendVerificationLink', 'confirm(', 'token'] as $forbidden) {
         knowledgeAccountsCheck(!str_contains($providerSource, $forbidden), "AccountsKnowledgeProvider must never reference \"{$forbidden}\" — this is help information, never account state or an identity lookup");
     }
 

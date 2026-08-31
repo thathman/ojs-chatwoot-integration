@@ -124,6 +124,13 @@ disabled journal never publishes a misleading link), `accounts.loginUrl`,
 `accounts.passwordResetUrl` (both always available, independent of
 registration), and `accounts.orcidEnabled` (via ORCID's own published
 `\PKP\orcid\OrcidManager::isEnabled($context)`, not a raw settings read).
+Also `accounts.magicLoginEnabled`/`accounts.magicLoginUrl` (AIRIX360_TASKLIST.md
+AML-002): `Airix360/ojs-magic-login`'s own plugin-enabled flag AND its
+separate journal-level `enabled` setting must both be true (verified
+against a real local checkout — `pages/MagicLoginHandler::request()` is
+the real public GET `magicLogin`/`request` route rendering the "email me
+a link" form); this fact carries no email parameter anywhere in its call
+chain, so it structurally cannot leak whether any address has an account.
 Journal-specific approved FAQs are not implemented yet.
 
 ## 4. Generated Captain knowledge

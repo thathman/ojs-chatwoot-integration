@@ -152,13 +152,13 @@ Target repo: `Airix360/contributorUserSync`.
 
 Target repo: `Airix360/ojs-magic-login`.
 
-- [ ] **AML-001** Detect installed/enabled/version per journal.
-- [ ] **AML-002** Expose public magic-login availability/request URL.
-- [ ] **AML-003** Integrate magic-login suggestion into account diagnostic.
-- [ ] **AML-004** Preserve anti-enumeration behavior; never report whether an email has an account.
-- [ ] **AML-005** Never expose magic tokens/verifiers/activity entries to Captain.
-- [ ] **AML-006** Keep Chatwoot verification session separate from OJS Magic Login session/token semantics.
-- [ ] **AML-007** Contract-test exact supported Magic Login releases.
+- [ ] **AML-001** Detect installed/enabled/version per journal. — partial: `Ojs35CompatibilityAdapter::getAirixMagicLoginAvailability()` detects installed/enabled (plugin-level `getEnabled()` + the plugin's own `enabled` setting), no version constraint check yet.
+- [x] **AML-002** Expose public magic-login availability/request URL. — `AccountsKnowledgeProvider::addMagicLogin()`: `accounts.magicLoginEnabled`/`accounts.magicLoginUrl`, verified against a real local checkout of `Airix360/ojs-magic-login` (`MagicLoginPlugin::getSetting($contextId,'enabled')`, `pages/MagicLoginHandler::request()` — the real public GET `magicLogin`/`request` route).
+- [ ] **AML-003** Integrate magic-login suggestion into account diagnostic. — Not built; `AccountDiagnosticEngine` does not yet reference Magic Login availability.
+- [x] **AML-004** Preserve anti-enumeration behavior; never report whether an email has an account. — trivially satisfied: this fact has no email parameter anywhere in its call chain (`getAirixMagicLoginAvailability($context, $request)` — no identity input at all).
+- [x] **AML-005** Never expose magic tokens/verifiers/activity entries to Captain. — the adapter method returns only `{enabled, requestUrl}`; verified by a source-level test scan that neither it nor `AccountsKnowledgeProvider` ever references a token/verifier/confirm-flow symbol.
+- [ ] **AML-006** Keep Chatwoot verification session separate from OJS Magic Login session/token semantics. — Not applicable yet at the knowledge-fact level (this slice never touches sessions); revisit if/when a Magic Login *action* (not just availability) is ever exposed as a tool.
+- [ ] **AML-007** Contract-test exact supported Magic Login releases. — No version constraint exists yet (see AML-001); nothing to contract-test against.
 
 ## ARF — Required Submission Files Provider
 
