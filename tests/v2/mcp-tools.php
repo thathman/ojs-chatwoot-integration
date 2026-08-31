@@ -123,6 +123,12 @@ mcpToolsCheck(str_contains($mcpMethodBody, 'RequiredActionsTool'), 'mcpRequest()
 mcpToolsCheck(str_contains($mcpMethodBody, 'v2ResolveMcpSubmissionContext'), 'the required-actions tool must resolve its submission relationship through the shared helper, never a bespoke inline copy');
 mcpToolsCheck(str_contains($mcpMethodBody, 'CONSUMER_MCP_PUBLIC_SUPPORT'), 'MCP capability evaluation must use the real MCP consumer plane, never silently reuse the Chatwoot Captain one');
 mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_required_actions'"), 'the required-actions tool must gate on the real submission.read_own_required_actions capability, same as REST');
+mcpToolsCheck(str_contains($mcpMethodBody, 'SubmissionSupportStatusTool'), 'mcpRequest() must register the real SubmissionSupportStatusTool');
+mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_support_status'"), 'the submission-support-status tool must gate on the real submission.read_own_support_status capability, same as REST');
+mcpToolsCheck(
+    substr_count($mcpMethodBody, 'v2ResolveMcpSubmissionContext') >= 2,
+    'both submission-scoped tools built so far must resolve through the same shared helper, never each inventing its own copy'
+);
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');

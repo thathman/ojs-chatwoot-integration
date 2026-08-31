@@ -26,8 +26,10 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 
     function mcpIdentityCheck(bool $condition, string $message): void
     {
@@ -76,6 +78,25 @@ namespace {
     mcpIdentityCheck($verifiedResult['verified'] === true && $verifiedResult['resourceVerified'] === true, 'the MCP required-actions tool must report verified/resourceVerified=true, same as REST');
     mcpIdentityCheck($verifiedResult['requiredActions'] === ['submit_revisions'], 'the MCP required-actions tool must expose the computed required actions verbatim');
     mcpIdentityCheck(!array_key_exists('evidence', $verifiedResult), 'the MCP required-actions tool must never expose internal relationship evidence, same as REST');
+
+    // ================================================================
+    // SubmissionSupportStatusTool — must reuse SubmissionSupportSerializer::verified()
+    // verbatim (REST/MCP equivalence by construction).
+    // ================================================================
+    $supportState = SupportStateMapper::map(1, 3);
+    $stateConfidence = SupportStateMapper::confidence(1, 3);
+    $supportResult = SubmissionSupportStatusTool::handleVerified(
+        $authorRelationship,
+        'A Safe Manuscript Title',
+        $supportState,
+        SupportStateMapper::explain($supportState),
+        ['view_status'],
+        $stateConfidence
+    );
+    mcpIdentityCheck($supportResult['verified'] === true && $supportResult['resourceVerified'] === true, 'the MCP submission-support-status tool must report verified/resourceVerified=true, same as REST');
+    mcpIdentityCheck($supportResult['supportState'] === $supportState, 'the MCP submission-support-status tool must expose the real normalized support state');
+    mcpIdentityCheck($supportResult['stateConfidence'] === $stateConfidence, 'the MCP submission-support-status tool must expose the real state confidence (STA-008)');
+    mcpIdentityCheck($supportResult['title'] === 'A Safe Manuscript Title', 'the MCP submission-support-status tool must expose the real title');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
