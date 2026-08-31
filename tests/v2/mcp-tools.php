@@ -14,7 +14,9 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpHandlerError;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpProtocol;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 
 function mcpToolsCheck(bool $condition, string $message): void
 {
@@ -74,6 +76,8 @@ $facts = [
     new KnowledgeFact('journal.contactEmail', 'editor@example.com', KnowledgeClassification::PUBLIC, 'ojs.context', 'en', 'core.journal', 'contactEmail'),
     new KnowledgeFact('submission.authorGuidelines', 'Follow the template.', KnowledgeClassification::PUBLIC, 'ojs.context', 'en', 'core.journal', 'authorGuidelines'),
 ];
+$facts[] = new KnowledgeFact('fee.submissionEnabled', 'true', KnowledgeClassification::PUBLIC, 'ojs.payment_manager', 'en', 'core.payment', 'submissionFee');
+$facts[] = new KnowledgeFact('fee.submissionAmount', '75.00', KnowledgeClassification::PUBLIC, 'ojs.payment_manager', 'en', 'core.payment', 'submissionFeeAmount');
 $compilation = new KnowledgeCompilation(7, 'en', $facts, 'fingerprint-1', time());
 
 $profile = JournalProfileTool::handle($compilation);
@@ -81,6 +85,14 @@ mcpToolsCheck($profile === ['journal.name' => 'Journal of Testing', 'journal.con
 foreach ($profile as $value) {
     mcpToolsCheck(is_string($value), 'every value in the tool result must be a plain string — never a KnowledgeFact object or nested provenance structure');
 }
+
+mcpToolsCheck(SubmissionPolicyTool::handle(null) === [], 'no compilation available must degrade to an empty policy, never fatal');
+$submissionPolicy = SubmissionPolicyTool::handle($compilation);
+mcpToolsCheck($submissionPolicy === ['submission.authorGuidelines' => 'Follow the template.'], 'the submission policy tool must return exactly the submission.* facts, excluding journal.*/fee.* facts');
+
+mcpToolsCheck(FeePolicyTool::handle(null) === [], 'no compilation available must degrade to an empty fee policy, never fatal');
+$feePolicy = FeePolicyTool::handle($compilation);
+mcpToolsCheck($feePolicy === ['fee.submissionEnabled' => 'true', 'fee.submissionAmount' => '75.00'], 'the fee policy tool must return exactly the fee.* facts, excluding journal.*/submission.* facts');
 
 // ================================================================
 // Wiring: the plugin's mcpRequest() must authenticate via the MCP's own
@@ -101,6 +113,8 @@ mcpToolsCheck(
     'authentication must happen before the request body is ever parsed, so an unauthenticated caller can never use parse errors as a probing oracle'
 );
 mcpToolsCheck(str_contains($mcpMethodBody, JournalProfileTool::class) || str_contains($mcpMethodBody, 'JournalProfileTool'), 'mcpRequest() must register the real JournalProfileTool, not a placeholder');
+mcpToolsCheck(str_contains($mcpMethodBody, 'SubmissionPolicyTool'), 'mcpRequest() must register the real SubmissionPolicyTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'FeePolicyTool'), 'mcpRequest() must register the real FeePolicyTool');
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');

@@ -65,7 +65,9 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequestParser;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -1171,6 +1173,18 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             JournalProfileTool::DESCRIPTION,
             JournalProfileTool::inputSchema(),
             fn (array $arguments): array => JournalProfileTool::handle($compilation)
+        );
+        $registry->register(
+            SubmissionPolicyTool::NAME,
+            SubmissionPolicyTool::DESCRIPTION,
+            SubmissionPolicyTool::inputSchema(),
+            fn (array $arguments): array => SubmissionPolicyTool::handle($compilation)
+        );
+        $registry->register(
+            FeePolicyTool::NAME,
+            FeePolicyTool::DESCRIPTION,
+            FeePolicyTool::inputSchema(),
+            fn (array $arguments): array => FeePolicyTool::handle($compilation)
         );
 
         $dispatcher = new McpDispatcher();
