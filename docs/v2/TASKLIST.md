@@ -180,31 +180,31 @@ inspecting `AirixSubmissionFeeProvider`'s obligations.
 
 ## PAY — Payment & Publication
 
-- [ ] **PAY-001** Read public publication fee/currency through OJS adapter.
-- [ ] **PAY-002** Resolve completed publication payment for authorized submission.
-- [ ] **PAY-003** Normalize `not_applicable|unpaid|paid|waived|unknown`.
-- [ ] **PAY-004** Verify unauthorized submission payment query is denied.
-- [ ] **PAY-005** Ensure payment provider failure returns unknown, not unpaid.
-- [ ] **PAY-006** Publication status provider.
-- [ ] **PAY-007** Issue assignment/public URL provider.
-- [ ] **PAY-008** DOI safe status provider.
-- [ ] **PAY-009** Keep public plane payment writes disabled.
+- [x] **PAY-001** Read public publication fee/currency through OJS adapter. — `Ojs35CompatibilityAdapter::getPaymentFeeInfo()`.
+- [x] **PAY-002** Resolve completed publication payment for authorized submission. — `Ojs35CompatibilityAdapter::hasPaidPublicationFee()`.
+- [x] **PAY-003** Normalize `not_applicable|unpaid|paid|waived|unknown`. — `PaymentObligationStatus` (also `PARTIALLY_WAIVED`/`REFUND_REVIEW`/`REFUNDED`, a superset of the originally-scoped set).
+- [x] **PAY-004** Verify unauthorized submission payment query is denied. — `tests/v2/payment-status.php`'s "capability denied by default (payment_support policy is off)" case, exercised through the real `CapabilityPolicyEngine`.
+- [x] **PAY-005** Ensure payment provider failure returns unknown, not unpaid. — `SupportProviderRegistry::resolveObligations()`'s `ObligationResolution::hasFailures()` branch; `supportPaymentStatusRequest()` reports `PaymentObligationStatus::UNKNOWN` rather than silently falling back to a different producer's state (verified by both `tests/v2/provider-registry.php` and a plugin-source check).
+- [x] **PAY-006** Publication status provider. — `PublicationStatusSerializer` + `Ojs35CompatibilityAdapter::getPublicationFields()`.
+- [x] **PAY-007** Issue assignment/public URL provider. — `Ojs35CompatibilityAdapter::getIssueInfo()`/`getPublicSubmissionUrl()`.
+- [x] **PAY-008** DOI safe status provider. — `getPublicationFields()`'s `doi` field, exposed through `PublicationStatusSerializer`.
+- [x] **PAY-009** Keep public plane payment writes disabled. — no payment write/mutation endpoint exists anywhere in the plugin; confirmed by absence rather than an explicit block (there is nothing to disable — consistent with the "no public staff mutations" guardrail applied throughout this build).
 
 ## DIA — Diagnostics
 
-- [ ] **DIA-001** Define diagnostic result schema.
-- [ ] **DIA-002** Account/login diagnostic.
-- [ ] **DIA-003** Registration/reset-path diagnostic.
-- [ ] **DIA-004** Submission access diagnostic.
-- [ ] **DIA-005** Submission workflow/progress diagnostic.
-- [ ] **DIA-006** Required metadata/file diagnostic where deterministic.
-- [ ] **DIA-007** Upload PHP/OJS limit diagnostic.
-- [ ] **DIA-008** Review access diagnostic.
-- [ ] **DIA-009** Payment diagnostic.
-- [ ] **DIA-010** Publication/DOI diagnostic.
-- [ ] **DIA-011** Mail configuration/send-path diagnostic.
-- [ ] **DIA-012** Public vs staff diagnostic serializers.
-- [ ] **DIA-013** Unknown/needs-human behavior tests.
+- [x] **DIA-001** Define diagnostic result schema. — `DiagnosticResult` (`confirmed`/`likely`/`unknown`/`needs_human`, privacy-safe machine-readable evidence codes only, never a raw DAO row/exception message/internal config value).
+- [x] **DIA-002** Account/login diagnostic. — `AccountDiagnosticEngine::SCOPE_ACCOUNT_ACCESS`/`SCOPE_LOGIN`.
+- [x] **DIA-003** Registration/reset-path diagnostic. — `AccountDiagnosticEngine::SCOPE_PASSWORD_RESET` (deliberately always `unknown` — no OJS evidence about email delivery/reset-link validity exists to check, so this scope's whole job is refusing to guess) / `SCOPE_PROFILE` for email validation.
+- [x] **DIA-004** Submission access diagnostic. — `SubmissionDiagnosticEngine::SCOPE_SUBMISSION_ACCESS`.
+- [x] **DIA-005** Submission workflow/progress diagnostic. — `SubmissionDiagnosticEngine::SCOPE_SUBMISSION_PROGRESS`.
+- [ ] **DIA-006** Required metadata/file diagnostic where deterministic. — not done: `SCOPE_REQUIRED_ACTION` diagnoses the generic pending-required-actions list (`RequiredActionMapper`), not specifically missing metadata/required-file-genre state — a genuinely distinct, still-open check.
+- [ ] **DIA-007** Upload PHP/OJS limit diagnostic. — not done; no php.ini/OJS upload-limit comparison exists anywhere in the plugin.
+- [x] **DIA-008** Review access diagnostic. — `SubmissionDiagnosticEngine::SCOPE_REVIEW_ACCESS`.
+- [x] **DIA-009** Payment diagnostic. — `SubmissionDiagnosticEngine::SCOPE_PAYMENT`.
+- [x] **DIA-010** Publication/DOI diagnostic. — `SubmissionDiagnosticEngine::SCOPE_PUBLICATION`.
+- [ ] **DIA-011** Mail configuration/send-path diagnostic. — not done; `SCOPE_PASSWORD_RESET`'s docblock explicitly punts on email delivery evidence rather than implementing a mail-configuration check.
+- [ ] **DIA-012** Public vs staff diagnostic serializers. — not done, deliberately: only `DiagnosticResultSerializer` (public) exists — same scope boundary as POL-004/007 (no staff consumer plane built yet).
+- [x] **DIA-013** Unknown/needs-human behavior tests. — extensively covered for `unknown` across both `tests/v2/account-diagnostics.php` and `tests/v2/submission-diagnostics.php` (missing evidence, ambiguous null fields, unrecognized scope, denied capability never revealing specific state). No engine currently constructs `needs_human` — the status exists in the schema (`DiagnosticResult::needsHuman()`) but no scope has a real trigger for it yet, so that half of the status enum is untested by necessity, not by omission.
 
 ## EVT — Event Bridge
 
