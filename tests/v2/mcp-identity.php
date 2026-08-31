@@ -19,6 +19,7 @@ namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
 
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaginationParams;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
@@ -34,9 +35,11 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionDiagnosticsTool;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionListTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
     use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 
     function mcpIdentityCheck(bool $condition, string $message): void
@@ -157,6 +160,32 @@ namespace {
         'the escalate tool must require exactly the same conversation tuple plus reason that REST requires'
     );
     mcpIdentityCheck(($escalateSchema['additionalProperties'] ?? true) === false, 'the escalate tool schema must reject unknown arguments');
+
+    // ================================================================
+    // SubmissionListTool — must reuse SubmissionListSerializer::unverified()/
+    // verified() verbatim (REST/MCP equivalence by construction).
+    // ================================================================
+    $listUnverified = SubmissionListTool::handle($unverifiedContext);
+    mcpIdentityCheck($listUnverified['verified'] === false && $listUnverified['submissions'] === [], 'the MCP list-mine tool must degrade to the same generic empty shape REST uses for an unverified/denied caller');
+
+    $reviewerRelationship = new ResourceRelationship('submission', 789, ['reviewer'], ['reviewer' => true]);
+    $listPagination = PaginationParams::parse(20, 0);
+    mcpIdentityCheck($listPagination !== null, 'PaginationParams::parse must accept a valid limit/offset pair');
+    $listEntries = [
+        ['relationship' => $authorRelationship, 'title' => 'Manuscript A', 'supportState' => 'in_review', 'actionRequired' => null],
+        ['relationship' => $reviewerRelationship, 'title' => 'Manuscript B', 'supportState' => 'under_review', 'actionRequired' => null],
+    ];
+    $verifiedContext = SupportApiRequestContext::verifiedWith(
+        'corr-1',
+        7,
+        'v3',
+        $unverifiedIdentity,
+        new SupportSession('pub-1', 7, 42, 'authenticated_session', 'v3', null, null, null, null, null, null, 1000, 1000, 5000, 9000, null)
+    );
+    $listVerified = SubmissionListTool::handleVerified($verifiedContext, $listEntries, $listPagination, false);
+    mcpIdentityCheck($listVerified['verified'] === true && count($listVerified['submissions']) === 2, 'the MCP list-mine tool must expose exactly the real resolved candidates, same as REST');
+    mcpIdentityCheck($listVerified['submissions'][0]['id'] === 456 && $listVerified['submissions'][1]['id'] === 789, 'the MCP list-mine tool must expose the real submission ids from each relationship');
+    mcpIdentityCheck($listVerified['pagination'] === ['limit' => 20, 'offset' => 0, 'hasMore' => false], 'the MCP list-mine tool must expose the real pagination window, same as REST');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
