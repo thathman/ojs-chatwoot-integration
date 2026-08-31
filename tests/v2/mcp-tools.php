@@ -135,6 +135,13 @@ mcpToolsCheck(str_contains($mcpMethodBody, 'PaymentStatusTool'), 'mcpRequest() m
 mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_payment_status'"), 'the payment-status tool must gate on the real submission.read_own_payment_status capability, same as REST');
 mcpToolsCheck(str_contains($mcpMethodBody, 'v2ResolvePaymentObligations'), 'the payment-status tool must resolve provider obligations through the same shared helper REST uses, never a bespoke copy');
 mcpToolsCheck(str_contains($mcpMethodBody, "['payment_status' => \$feeInfo['enabled']]"), 'the payment-status tool must pass the real payment_status feature flag into capability evaluation, same as REST');
+mcpToolsCheck(str_contains($mcpMethodBody, 'AccountDiagnosticsTool'), 'mcpRequest() must register the real AccountDiagnosticsTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'AccountDiagnosticEngine::SCOPES'), 'the account-diagnostics tool must validate scope against the real registered scope list, never a hardcoded copy');
+mcpToolsCheck(str_contains($mcpMethodBody, "'account.diagnose_own'"), 'the account-diagnostics tool must gate on the real account.diagnose_own capability, same as REST');
+mcpToolsCheck(
+    !preg_match('/getUserVar\([\'"](email|username|userId|user_id)[\'"]\)/', $mcpMethodBody),
+    'no MCP tool built so far may accept a caller-supplied email/username/userId via getUserVar — arguments are read from the parsed tool call, and account diagnostics must only ever diagnose the verified caller\'s own account, same as REST'
+);
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
