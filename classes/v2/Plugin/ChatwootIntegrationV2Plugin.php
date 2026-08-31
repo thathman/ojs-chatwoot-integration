@@ -68,6 +68,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureM
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
@@ -1194,22 +1195,50 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             SupportIdentityTool::DESCRIPTION,
             SupportIdentityTool::inputSchema(),
             function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
-                $correlationId = CorrelationId::fromRequestOrGenerate();
-                $result = $identityResolver->resolve(
-                    $request,
-                    $correlationId,
-                    $contextId,
-                    $configuredMcpToken,
-                    trim((string) ($arguments['chatwootAccountId'] ?? '')),
-                    trim((string) ($arguments['chatwootContactId'] ?? '')),
-                    trim((string) ($arguments['chatwootConversationId'] ?? '')),
-                    'mcp.identity.get_support_identity',
-                    $locale
-                );
-                if ($result instanceof SupportApiFailure) {
-                    throw McpSupportApiFailureMapper::toHandlerError($result);
-                }
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.identity.get_support_identity');
                 return SupportIdentityTool::handle($result);
+            }
+        );
+        $registry->register(
+            RequiredActionsTool::NAME,
+            RequiredActionsTool::DESCRIPTION,
+            RequiredActionsTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.submission.get_required_actions');
+
+                $bridge = $this->runtimeContextBridge();
+                $submissionId = $this->v2PositiveInt($arguments['submissionId'] ?? null);
+                if ($submissionId === null) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'submissionId is required.');
+                }
+
+                $ctx = $this->v2ResolveMcpSubmissionContext($bridge, $result, $submissionId);
+                $relationship = $ctx['relationship'];
+                $decision = $ctx['decision'];
+                $actions = $ctx['actions'];
+
+                if (!$relationship || !$decision || !$decision->allows('submission.read_own_required_actions')) {
+                    return RequiredActionsSerializer::unverified($result, $actions);
+                }
+
+                $requiredActions = [];
+                if ($relationship->has('author')) {
+                    $stateFields = $bridge->getSubmissionStateFields($ctx['submission']);
+                    $supportState = SupportStateMapper::map(
+                        $stateFields['status'],
+                        $stateFields['stageId'],
+                        $stateFields['reviewRoundStatus'],
+                        $stateFields['submissionProgress']
+                    );
+                    $requiredActions = array_merge($requiredActions, RequiredActionMapper::forAuthor($supportState));
+                }
+                if ($relationship->has('reviewer')) {
+                    $reviewStatuses = $bridge->getReviewAssignmentStatuses($submissionId, $result->identity()->userId() ?? 0);
+                    $requiredActions = array_merge($requiredActions, RequiredActionMapper::forReviewer($reviewStatuses));
+                }
+                $requiredActions = array_values(array_unique($requiredActions));
+
+                return RequiredActionsTool::handleVerified($relationship, $requiredActions, $actions);
             }
         );
 
@@ -1235,6 +1264,75 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         header('Content-Type: application/json');
         echo json_encode($response->toArray());
         exit;
+    }
+
+    /**
+     * Shared by every identity-dependent MCP tool: resolves identity
+     * through the exact same SupportApiRequestResolver REST uses, reading
+     * the Chatwoot conversation tuple from tool arguments instead of
+     * getUserVar(). A resolver failure becomes a real McpHandlerError,
+     * never silently swallowed.
+     */
+    private function v2ResolveMcpIdentity(
+        array $arguments,
+        SupportApiRequestResolver $resolver,
+        $request,
+        int $contextId,
+        string $configuredMcpToken,
+        string $locale,
+        string $endpoint
+    ): SupportApiRequestContext {
+        $result = $resolver->resolve(
+            $request,
+            CorrelationId::fromRequestOrGenerate(),
+            $contextId,
+            $configuredMcpToken,
+            trim((string) ($arguments['chatwootAccountId'] ?? '')),
+            trim((string) ($arguments['chatwootContactId'] ?? '')),
+            trim((string) ($arguments['chatwootConversationId'] ?? '')),
+            $endpoint,
+            $locale
+        );
+        if ($result instanceof SupportApiFailure) {
+            throw McpSupportApiFailureMapper::toHandlerError($result);
+        }
+        return $result;
+    }
+
+    /**
+     * Shared by every submission-scoped MCP tool — mirrors the exact same
+     * loadSubmission -> resolveSubmissionRelationship -> evaluateCapabilities
+     * sequence every submission-scoped REST endpoint already repeats.
+     * Evaluated under CONSUMER_MCP_PUBLIC_SUPPORT (MCP-002), never the
+     * Chatwoot Captain consumer plane, even though today's capability
+     * catalog does not yet discriminate between the two.
+     *
+     * @return array{relationship:?ResourceRelationship,submission:?object,decision:?CapabilityDecision,actions:array<int,string>}
+     */
+    private function v2ResolveMcpSubmissionContext(RuntimeContextBridge $bridge, SupportApiRequestContext $result, int $submissionId): array
+    {
+        $relationship = null;
+        $submission = null;
+        if ($result->verified()) {
+            $submission = $bridge->loadSubmission($submissionId);
+            if ($submission) {
+                $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                if ($candidate && !$candidate->isEmpty()) {
+                    $relationship = $candidate;
+                }
+            }
+        }
+
+        $resourceAssurance = $relationship ? 'v3' : $result->assurance();
+        $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+            CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
+            $resourceAssurance,
+            $result->identity(),
+            $relationship
+        ));
+        $actions = $decision ? $bridge->availableActions($decision) : [];
+
+        return ['relationship' => $relationship, 'submission' => $submission, 'decision' => $decision, 'actions' => $actions];
     }
 
     /**
