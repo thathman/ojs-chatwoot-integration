@@ -114,6 +114,18 @@ namespace {
     $doiCompilation = $compiler->compile($doiContext, $request, 1, 'en');
     knowledgePublicationCheck($doiCompilation->fact('publication.doiAssigned')?->value() === 'true', 'enableDois=true must surface publication.doiAssigned');
 
+    // KNO-009: DOI prefix — only ever surfaced alongside doiAssigned, never on its own.
+    knowledgePublicationCheck($doiCompilation->fact('publication.doiPrefix') === null, 'a blank/unset doiPrefix must never fabricate a fact');
+    $doiPrefixContext = new FakePublicationContext(['publishingMode' => 0, 'enableDois' => true, 'doiPrefix' => '10.1234']);
+    $doiPrefixCompilation = $compiler->compile($doiPrefixContext, $request, 1, 'en');
+    knowledgePublicationCheck($doiPrefixCompilation->fact('publication.doiPrefix')?->value() === '10.1234', 'a configured doiPrefix must be surfaced verbatim');
+    $doiDisabledWithPrefixContext = new FakePublicationContext(['publishingMode' => 0, 'enableDois' => false, 'doiPrefix' => '10.1234']);
+    $doiDisabledCompilation = $compiler->compile($doiDisabledWithPrefixContext, $request, 1, 'en');
+    knowledgePublicationCheck(
+        $doiDisabledCompilation->fact('publication.doiPrefix') === null,
+        'a configured doiPrefix must never be surfaced when DOIs are disabled for the journal, even if a stale prefix setting remains'
+    );
+
     // ================================================================
     // Open-access policy text: localized, sanitized, omitted when unset.
     // ================================================================
