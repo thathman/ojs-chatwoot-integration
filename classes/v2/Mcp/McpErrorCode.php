@@ -26,6 +26,9 @@ final class McpErrorCode
     /** MCP-specific: the caller's credential does not authorize this call. */
     public const UNAUTHORIZED = -32003;
 
+    /** MCP-specific: the caller is being rate-limited — same meaning as the REST Support API's RATE_LIMITED. */
+    public const RATE_LIMITED = -32004;
+
     private function __construct()
     {
     }
