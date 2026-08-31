@@ -2,6 +2,7 @@
 
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Handoff;
 
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 
 /**
@@ -24,6 +25,7 @@ final class HandoffSummaryFormatter
      * @param array<string,mixed> $identitySummary Exactly what SupportIdentitySerializer::serialize() returns (HOF-002: verification method/expiry already included there).
      * @param array{status:string,doi:?string}|null $publicationFacts
      * @param array{feeEnabled:bool,status:?string}|null $paymentFacts
+     * @param DiagnosticResult|null $diagnostic HOF-005: internally re-derived from the same already-verified $requiredActions, never a caller-supplied diagnostic — Captain could claim any code, so it is never trusted as input here.
      *
      * @return array<string,mixed>
      */
@@ -34,7 +36,8 @@ final class HandoffSummaryFormatter
         array $requiredActions,
         ?array $publicationFacts,
         ?array $paymentFacts,
-        string $reason
+        string $reason,
+        ?DiagnosticResult $diagnostic = null
     ): array {
         $summary = [
             'identity' => $identitySummary,
@@ -63,6 +66,14 @@ final class HandoffSummaryFormatter
 
         if ($paymentFacts !== null) {
             $summary['payment'] = $paymentFacts;
+        }
+
+        if ($diagnostic !== null) {
+            $summary['diagnostic'] = [
+                'status' => $diagnostic->status(),
+                'code' => $diagnostic->code(),
+                'summary' => $diagnostic->summary(),
+            ];
         }
 
         return $summary;
@@ -110,6 +121,10 @@ final class HandoffSummaryFormatter
         if (isset($summary['payment'])) {
             $paymentStatus = $summary['payment']['status'] ?? 'unavailable';
             $lines[] = "- Payment status: {$paymentStatus}";
+        }
+
+        if (isset($summary['diagnostic']['summary'])) {
+            $lines[] = "- Diagnostic: {$summary['diagnostic']['summary']}";
         }
 
         $lines[] = '';

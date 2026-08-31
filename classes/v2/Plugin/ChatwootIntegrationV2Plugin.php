@@ -698,6 +698,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $requiredActions = [];
         $publicationFacts = null;
         $paymentFacts = null;
+        $diagnostic = null;
 
         if ($submissionId !== null && $result->verified()) {
             $submission = $bridge->loadSubmission($submissionId);
@@ -720,6 +721,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                             $relationship->has('author') ? RequiredActionMapper::forAuthor($supportState) : [],
                             $relationship->has('reviewer') ? RequiredActionMapper::forReviewer($bridge->getReviewAssignmentStatuses($submissionId, $result->identity()->userId() ?? 0)) : []
                         )));
+                        // HOF-005: re-derived internally from the required
+                        // actions this same request already independently
+                        // verified — never a caller-supplied diagnostic
+                        // (Captain could claim any code).
+                        $diagnostic = SubmissionDiagnosticEngine::diagnoseRequiredAction($requiredActions);
                     }
                     if ($resourceDecision && $resourceDecision->allows('submission.read_own_publication_status') && $supportState !== null) {
                         $publicationFacts = ['status' => $supportState === 'published' || $supportState === 'scheduled_for_publication' ? $supportState : 'not_yet_published', 'doi' => null];
@@ -746,7 +752,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             $requiredActions,
             $publicationFacts,
             $paymentFacts,
-            $reason
+            $reason,
+            $diagnostic
         );
 
         $chatwootAccountId = trim((string) $request->getUserVar('chatwootAccountId'));
