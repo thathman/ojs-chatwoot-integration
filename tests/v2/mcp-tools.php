@@ -172,6 +172,20 @@ mcpToolsCheck(
     'the escalate tool must evaluate capabilities under the real MCP consumer plane, never silently falling back to the Chatwoot Captain one'
 );
 
+mcpToolsCheck(str_contains($mcpMethodBody, 'SubmissionListTool::NAME'), 'mcpRequest() must register the real SubmissionListTool');
+mcpToolsCheck(str_contains($mcpMethodBody, "->allows('submission.list_own')"), 'the list-mine tool must gate on the real submission.list_own capability, same as REST');
+mcpToolsCheck(str_contains($mcpMethodBody, 'listCandidateSubmissions('), 'the list-mine tool must source candidates through the same broad, safe OJS-native query REST uses, never a bespoke copy');
+mcpToolsCheck(str_contains($mcpMethodBody, "!\$relationship->has('author') && !\$relationship->has('reviewer')"), 'the list-mine tool must exclude editorial-only relationships, same as REST');
+mcpToolsCheck(str_contains($mcpMethodBody, 'PaginationParams::parse('), 'the list-mine tool must validate limit/offset through the real shared pagination parser, never a bespoke copy');
+mcpToolsCheck(
+    !preg_match('/SubmissionListTool.*?CONSUMER_CHATWOOT_CAPTAIN_PUBLIC/s', $mcpMethodBody),
+    'the list-mine tool must evaluate capabilities under the real MCP consumer plane, never silently falling back to the Chatwoot Captain one'
+);
+mcpToolsCheck(
+    str_contains($mcpMethodBody, 'SubmissionListTool::handle($result)') && str_contains($mcpMethodBody, 'SubmissionListTool::handleVerified('),
+    'the list-mine tool must degrade to the same generic unverified/denied shape REST uses (never a distinct error that would let a denied capability be enumerated), and serialize a real verified list through the real serializer'
+);
+
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
 mcpToolsCheck(str_contains($handlerSource, 'mcpRequest'), 'the MCP page handler must dispatch to the real plugin method');
