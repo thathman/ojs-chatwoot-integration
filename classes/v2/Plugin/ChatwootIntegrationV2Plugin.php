@@ -68,6 +68,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureM
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
@@ -1336,6 +1337,51 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 return PublicationStatusTool::handleVerified($relationship, $supportState, $publicationFields['doi'], $publicUrl, $issue, $actions);
             }
         );
+        $registry->register(
+            PaymentStatusTool::NAME,
+            PaymentStatusTool::DESCRIPTION,
+            PaymentStatusTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.payment.get_submission_status');
+
+                $bridge = $this->runtimeContextBridge();
+                $submissionId = $this->v2PositiveInt($arguments['submissionId'] ?? null);
+                if ($submissionId === null) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'submissionId is required.');
+                }
+
+                $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
+
+                $ctx = $this->v2ResolveMcpSubmissionContext($bridge, $result, $submissionId, ['payment_status' => $feeInfo['enabled']]);
+                $relationship = $ctx['relationship'];
+                $decision = $ctx['decision'];
+                $actions = $ctx['actions'];
+
+                if (!$relationship || !$decision || !$decision->allows('submission.read_own_payment_status')) {
+                    return PaymentStatusSerializer::unverified($result, $feeInfo, $actions);
+                }
+
+                $userId = $result->identity()->userId() ?? 0;
+                $resolution = $this->v2ResolvePaymentObligations($bridge, $request, $ctx['submission'], $userId);
+                $obligations = $resolution ? $resolution->obligations() : [];
+
+                $airixObligation = $obligations[0] ?? null;
+                if ($airixObligation !== null) {
+                    $status = $airixObligation['status'];
+                    $feeInfo = ['enabled' => true, 'amount' => $airixObligation['amount'], 'currency' => $airixObligation['currency']];
+                } elseif ($resolution && $resolution->hasFailures()) {
+                    $status = \APP\plugins\generic\chatwootIntegration\classes\v2\Provider\PaymentObligationStatus::UNKNOWN;
+                } else {
+                    $status = 'not_applicable';
+                    if ($feeInfo['enabled']) {
+                        $paid = $bridge->hasPaidPublicationFee($userId, $submissionId);
+                        $status = $paid ? 'paid' : 'unpaid';
+                    }
+                }
+
+                return PaymentStatusTool::handleVerified($relationship, $feeInfo, $status, $actions, $obligations);
+            }
+        );
 
         $dispatcher = new McpDispatcher();
         $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_LIST, fn (McpRequest $r): array => ['tools' => $registry->list()]);
@@ -1404,7 +1450,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
      *
      * @return array{relationship:?ResourceRelationship,submission:?object,decision:?CapabilityDecision,actions:array<int,string>}
      */
-    private function v2ResolveMcpSubmissionContext(RuntimeContextBridge $bridge, SupportApiRequestContext $result, int $submissionId): array
+    private function v2ResolveMcpSubmissionContext(RuntimeContextBridge $bridge, SupportApiRequestContext $result, int $submissionId, array $featureFlags = []): array
     {
         $relationship = null;
         $submission = null;
@@ -1423,7 +1469,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
             $resourceAssurance,
             $result->identity(),
-            $relationship
+            $relationship,
+            $featureFlags
         ));
         $actions = $decision ? $bridge->availableActions($decision) : [];
 
