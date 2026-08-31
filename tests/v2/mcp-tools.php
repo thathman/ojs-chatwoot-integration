@@ -119,6 +119,10 @@ mcpToolsCheck(str_contains($mcpMethodBody, 'SupportIdentityTool'), 'mcpRequest()
 mcpToolsCheck(str_contains($mcpMethodBody, 'new SupportApiRequestResolver('), 'the identity tool must resolve identity through the real, same SupportApiRequestResolver REST uses — never a second, parallel identity resolution path');
 mcpToolsCheck(str_contains($mcpMethodBody, '$configuredMcpToken'), 'the identity tool must pass the distinct MCP token into the resolver, never a Chatwoot/Support-API token');
 mcpToolsCheck(str_contains($mcpMethodBody, 'McpSupportApiFailureMapper::toHandlerError('), 'a resolver failure must be mapped to a real McpHandlerError, never silently swallowed or generically rethrown');
+mcpToolsCheck(str_contains($mcpMethodBody, 'RequiredActionsTool'), 'mcpRequest() must register the real RequiredActionsTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'v2ResolveMcpSubmissionContext'), 'the required-actions tool must resolve its submission relationship through the shared helper, never a bespoke inline copy');
+mcpToolsCheck(str_contains($mcpMethodBody, 'CONSUMER_MCP_PUBLIC_SUPPORT'), 'MCP capability evaluation must use the real MCP consumer plane, never silently reuse the Chatwoot Captain one');
+mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_required_actions'"), 'the required-actions tool must gate on the real submission.read_own_required_actions capability, same as REST');
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
