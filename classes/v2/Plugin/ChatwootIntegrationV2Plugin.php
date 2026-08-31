@@ -64,10 +64,12 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpProtocol;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequestParser;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -1185,6 +1187,30 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             FeePolicyTool::DESCRIPTION,
             FeePolicyTool::inputSchema(),
             fn (array $arguments): array => FeePolicyTool::handle($compilation)
+        );
+        $identityResolver = new SupportApiRequestResolver($this->runtimeContextBridge());
+        $registry->register(
+            SupportIdentityTool::NAME,
+            SupportIdentityTool::DESCRIPTION,
+            SupportIdentityTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $correlationId = CorrelationId::fromRequestOrGenerate();
+                $result = $identityResolver->resolve(
+                    $request,
+                    $correlationId,
+                    $contextId,
+                    $configuredMcpToken,
+                    trim((string) ($arguments['chatwootAccountId'] ?? '')),
+                    trim((string) ($arguments['chatwootContactId'] ?? '')),
+                    trim((string) ($arguments['chatwootConversationId'] ?? '')),
+                    'mcp.identity.get_support_identity',
+                    $locale
+                );
+                if ($result instanceof SupportApiFailure) {
+                    throw McpSupportApiFailureMapper::toHandlerError($result);
+                }
+                return SupportIdentityTool::handle($result);
+            }
         );
 
         $dispatcher = new McpDispatcher();
