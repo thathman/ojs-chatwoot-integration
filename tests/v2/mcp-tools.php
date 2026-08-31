@@ -115,6 +115,10 @@ mcpToolsCheck(
 mcpToolsCheck(str_contains($mcpMethodBody, JournalProfileTool::class) || str_contains($mcpMethodBody, 'JournalProfileTool'), 'mcpRequest() must register the real JournalProfileTool, not a placeholder');
 mcpToolsCheck(str_contains($mcpMethodBody, 'SubmissionPolicyTool'), 'mcpRequest() must register the real SubmissionPolicyTool');
 mcpToolsCheck(str_contains($mcpMethodBody, 'FeePolicyTool'), 'mcpRequest() must register the real FeePolicyTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'SupportIdentityTool'), 'mcpRequest() must register the real SupportIdentityTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'new SupportApiRequestResolver('), 'the identity tool must resolve identity through the real, same SupportApiRequestResolver REST uses — never a second, parallel identity resolution path');
+mcpToolsCheck(str_contains($mcpMethodBody, '$configuredMcpToken'), 'the identity tool must pass the distinct MCP token into the resolver, never a Chatwoot/Support-API token');
+mcpToolsCheck(str_contains($mcpMethodBody, 'McpSupportApiFailureMapper::toHandlerError('), 'a resolver failure must be mapped to a real McpHandlerError, never silently swallowed or generically rethrown');
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
