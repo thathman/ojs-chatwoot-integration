@@ -20,9 +20,10 @@ final class SubmissionSupportSerializer
         string $title,
         string $supportState,
         string $workflowExplanation,
-        array $availableActions
+        array $availableActions,
+        ?string $stateConfidence = null
     ): array {
-        return [
+        $payload = [
             'verified' => true,
             'resourceVerified' => true,
             'assurance' => 'v3',
@@ -36,6 +37,12 @@ final class SubmissionSupportSerializer
             'workflowExplanation' => $workflowExplanation,
             'availableActions' => $availableActions,
         ];
+
+        if ($stateConfidence !== null) {
+            $payload['stateConfidence'] = $stateConfidence;
+        }
+
+        return $payload;
     }
 
     /**
