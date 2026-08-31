@@ -227,6 +227,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;
@@ -441,6 +442,34 @@ namespace {
     submissionListCheck(SupportStateMapper::map(1, 1, null, '') === 'submitted', 'an empty-string submissionProgress means genuinely complete, must not map to draft');
     submissionListCheck(SupportStateMapper::map(1, 1, null, null) === 'submitted', 'a null submissionProgress (unknown/not read) must not be treated as a draft signal, must fall through to normal mapping');
     submissionListCheck(SupportStateMapper::map(3, 5, null, 'step2') === 'draft', 'submissionProgress must take precedence even over an otherwise-terminal status like published, since it is the more direct signal');
+
+    // STA-008: confidence()/evidenceCode() must be derived from the exact
+    // same inputs/branches as map() — every real state is fully confirmed
+    // by the authoritative OJS field that produced it; only "unknown" is
+    // ever unconfirmed.
+    foreach ([
+        [4, null, null, null, 'STATUS_DECLINED'],
+        [3, null, null, null, 'STATUS_PUBLISHED'],
+        [5, null, null, null, 'STATUS_SCHEDULED'],
+        [1, 1, null, null, 'STATUS_QUEUED_STAGE_SUBMISSION'],
+        [1, 3, null, null, 'STATUS_QUEUED_STAGE_REVIEW'],
+        [1, 3, 1, null, 'REVIEW_ROUND_STATUS_REVISIONS_REQUESTED'],
+        [1, 4, null, null, 'STATUS_QUEUED_STAGE_EDITING'],
+        [1, 5, null, null, 'STATUS_QUEUED_STAGE_PRODUCTION'],
+        [1, 1, null, 'step2', 'SUBMISSION_PROGRESS_NON_EMPTY'],
+    ] as [$status, $stageId, $reviewRoundStatus, $submissionProgress, $expectedEvidenceCode]) {
+        submissionListCheck(
+            SupportStateMapper::evidenceCode($status, $stageId, $reviewRoundStatus, $submissionProgress) === $expectedEvidenceCode,
+            "evidenceCode() for status={$status}/stageId={$stageId} must be {$expectedEvidenceCode}"
+        );
+        submissionListCheck(
+            SupportStateMapper::confidence($status, $stageId, $reviewRoundStatus, $submissionProgress) === DiagnosticResult::STATUS_CONFIRMED,
+            "confidence() for status={$status}/stageId={$stageId} must be confirmed — it comes directly from an authoritative OJS field"
+        );
+    }
+    submissionListCheck(SupportStateMapper::evidenceCode(999, 1) === 'INSUFFICIENT_EVIDENCE', 'an unrecognized status must produce the insufficient-evidence code, never a fabricated one');
+    submissionListCheck(SupportStateMapper::confidence(999, 1) === DiagnosticResult::STATUS_UNKNOWN, 'an unrecognized status must never be reported as confirmed');
+    submissionListCheck(SupportStateMapper::confidence(null, null) === DiagnosticResult::STATUS_UNKNOWN, 'missing evidence must never be reported as confirmed');
 
     // ================================================================
     // Part 2: PaginationParams — bounded, fail-closed.
