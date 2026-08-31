@@ -32,6 +32,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteC
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainCustomToolProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainDocumentProvisioner;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainProvisioningHealthReport;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainProvisioningHealthService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainScenarioProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
@@ -929,6 +931,29 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
             $provisioner = new CaptainScenarioProvisioner($chatwoot, new DatabaseSupportKnowledgeSyncRepository());
             return $provisioner->provisionAll($contextId, $locale, $assistantId, time());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Captain provisioning/drift health (CaptainProvisioningHealthService)
+     * — a pure local-state read over the same `chatwoot_support_knowledge_sync`
+     * records the three provisioners above write, never a Chatwoot API
+     * call itself. Not yet wired to any route — same not-yet-built
+     * admin-UI/cron caveat as `KnowledgeHealthService` (KNO-020): the
+     * service/model exists and is fully tested, no UI consumes it yet.
+     */
+    public function captainProvisioningHealth($request): ?CaptainProvisioningHealthReport
+    {
+        $context = $request->getContext();
+        if (!$context || !method_exists($context, 'getId')) {
+            return null;
+        }
+
+        try {
+            $service = new CaptainProvisioningHealthService(new DatabaseSupportKnowledgeSyncRepository());
+            return $service->buildReport((int) $context->getId(), (string) Locale::getLocale());
         } catch (\Throwable $e) {
             return null;
         }
