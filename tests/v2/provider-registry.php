@@ -151,15 +151,37 @@ namespace {
     // Part 1: SupportProviderRegistry — isolation, filtering, discovery.
     // ================================================================
     $registry = new SupportProviderRegistry();
-    providerCheck($registry->resolveObligations(new \stdClass(), new FakeSubmission(), 1) === [], 'registry with no providers must resolve to an empty array, never null/throw');
+    $emptyResolution = $registry->resolveObligations(new \stdClass(), new FakeSubmission(), 1);
+    providerCheck($emptyResolution->obligations() === [], 'registry with no providers must resolve to an empty array, never null/throw');
+    providerCheck(!$emptyResolution->hasFailures(), 'registry with no providers must report no failures');
 
     $registry->registerPaymentProvider(new ThrowingProvider());
     $registry->registerPaymentProvider(new UnavailableProvider());
     $registry->registerPaymentProvider(new InertProvider());
     $registry->registerPaymentProvider(new RealObligationProvider());
-    $obligations = $registry->resolveObligations(new \stdClass(), new FakeSubmission(), 1);
+    $resolution = $registry->resolveObligations(new \stdClass(), new FakeSubmission(), 1);
+    $obligations = $resolution->obligations();
     providerCheck(count($obligations) === 1, 'a throwing/unavailable/inert provider must never break resolution of an unrelated real provider');
     providerCheck($obligations[0]['producer'] === 'test.real', 'the one real obligation must survive the mixed provider set');
+    providerCheck($resolution->hasFailures() && in_array('test.throwing', $resolution->failedProviderIds(), true), 'a throwing provider must be recorded as a genuine failure');
+    providerCheck(!in_array('test.unavailable', $resolution->failedProviderIds(), true), 'a provider reporting a legitimate not-applicable health state (DISABLED) must never be recorded as a failure');
+    providerCheck(!in_array('test.inert', $resolution->failedProviderIds(), true), 'a provider that ran fine and simply had nothing to say must never be recorded as a failure');
+
+    final class BrokenHealthProvider implements PaymentSupportProviderInterface
+    {
+        public function providerId(): string { return 'test.broken_health'; }
+        public function health($context): string { return ProviderHealth::UNAVAILABLE; }
+        public function resolveObligation($context, $submission, int $userId): ?array
+        {
+            providerCheck(false, 'registry must never call resolveObligation() on a provider reporting a genuinely broken health state');
+            return null;
+        }
+    }
+    $brokenHealthRegistry = new SupportProviderRegistry();
+    $brokenHealthRegistry->registerPaymentProvider(new BrokenHealthProvider());
+    $brokenHealthResolution = $brokenHealthRegistry->resolveObligations(new \stdClass(), new FakeSubmission(), 1);
+    providerCheck($brokenHealthResolution->obligations() === [], 'a genuinely broken provider must never contribute a fabricated obligation');
+    providerCheck(in_array('test.broken_health', $brokenHealthResolution->failedProviderIds(), true), 'a provider reporting UNAVAILABLE (not a legitimate not-applicable state) must be recorded as a failure, so the caller reports unknown rather than falling back silently');
 
     $hookRegistry = new SupportProviderRegistry();
     \PKP\plugins\Hook::add('ChatwootIntegration::SupportProviders', function ($hookName, $args) {
@@ -233,6 +255,24 @@ namespace {
     providerCheck($detected instanceof PaymentSupportProviderInterface, 'enabled compatible sibling plugin must resolve to a real provider');
     providerCheck($detected->providerId() === 'airix.submission_fee', 'adapter-detected provider must report the documented provider id');
     providerCheck($detected->health($context) === ProviderHealth::AVAILABLE, 'adapter-detected provider health must reflect the live plugin state');
+
+    // ================================================================
+    // Part 3: the payment-status endpoint must report `unknown` on a
+    // genuine provider failure, never silently fall back to the native
+    // producer's paid/unpaid state (docs/v2/PAYMENT_PORTFOLIO.md).
+    // ================================================================
+    $root = dirname(__DIR__, 2);
+    $pluginSource = '';
+    foreach (token_get_all((string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php')) as $token) {
+        if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
+            continue;
+        }
+        $pluginSource .= is_array($token) ? $token[1] : $token;
+    }
+    providerCheck(
+        str_contains($pluginSource, 'hasFailures()') && str_contains($pluginSource, 'PaymentObligationStatus::UNKNOWN'),
+        'supportPaymentStatusRequest() must branch on ObligationResolution::hasFailures() and report PaymentObligationStatus::UNKNOWN — never silently fall back to the native producer when the real provider genuinely failed'
+    );
 
     fwrite(STDOUT, "Provider registry tests passed\n");
 }
