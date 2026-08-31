@@ -1,0 +1,430 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "OJS Support Gateway API",
+    "version": "v1",
+    "description": "As actually implemented (API-017): every operation below is a real, tested endpoint in classes/v2/Plugin/ChatwootIntegrationV2Plugin.php, routed through classes/v2/Http/SupportGatewayPageHandler.php. All operations are POST-only, service-authenticated (never CSRF-checked), form-encoded (application/x-www-form-urlencoded, read via OJS getUserVar()), and respond through the single envelope every endpoint emits via SupportApiResponse. This is the REST surface only — the separate MCP (JSON-RPC over stateless Streamable HTTP) surface is documented in docs/v2/ADRS.md ADR-023 and docs/v2/API_MCP_SPEC.md, not here, since it is not REST-shaped."
+  },
+  "servers": [
+    {
+      "url": "/index.php/{journalPath}/ojsSupportGateway",
+      "variables": {
+        "journalPath": {
+          "default": "journal-a",
+          "description": "The journal's URL path segment."
+        }
+      }
+    }
+  ],
+  "components": {
+    "schemas": {
+      "SuccessEnvelope": {
+        "type": "object",
+        "required": ["ok", "data", "meta"],
+        "properties": {
+          "ok": { "type": "boolean", "enum": [true] },
+          "data": { "type": "object" },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "required": ["ok", "error", "meta"],
+        "properties": {
+          "ok": { "type": "boolean", "enum": [false] },
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string", "description": "One of the SupportApiErrorCode constants (e.g. VALIDATION_ERROR, AUTHENTICATION_FAILED, RATE_LIMITED, CAPABILITY_DENIED, INTERNAL_ERROR)." },
+              "message": { "type": "string" }
+            }
+          },
+          "meta": { "$ref": "#/components/schemas/Meta" }
+        }
+      },
+      "Meta": {
+        "type": "object",
+        "required": ["apiVersion", "correlationId"],
+        "properties": {
+          "apiVersion": { "type": "string", "enum": ["v1"] },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "ConversationTuple": {
+        "type": "object",
+        "description": "Every service-authenticated operation reads this same Chatwoot conversation-binding tuple as form fields (never transport/session state) to resolve identity via SupportApiRequestResolver.",
+        "properties": {
+          "chatwootAccountId": { "type": "string" },
+          "chatwootContactId": { "type": "string" },
+          "chatwootConversationId": { "type": "string" }
+        }
+      },
+      "ResourceRef": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "id": { "type": "integer" }
+        }
+      },
+      "StatusOrActionsData": {
+        "type": "object",
+        "required": ["verified", "assurance", "availableActions"],
+        "properties": {
+          "verified": { "type": "boolean" },
+          "assurance": { "type": "string", "enum": ["v0", "v1", "v2", "v3"] },
+          "availableActions": { "type": "array", "items": { "type": "string" } },
+          "disabledActions": {
+            "type": "array",
+            "description": "Only present on /actions, not /status.",
+            "items": {
+              "type": "object",
+              "properties": { "action": { "type": "string" }, "reason": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "IdentityData": {
+        "type": "object",
+        "required": ["verified", "assurance", "identity"],
+        "properties": {
+          "verified": { "type": "boolean" },
+          "assurance": { "type": "string" },
+          "identity": {
+            "type": "object",
+            "properties": {
+              "authenticated": { "type": "boolean" },
+              "roles": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "journal": {
+            "type": "object",
+            "description": "Present only when verified with an active session.",
+            "properties": { "id": { "type": "integer" }, "path": { "type": "string" } }
+          },
+          "session": {
+            "type": "object",
+            "description": "Present only when verified with an active session.",
+            "properties": { "method": { "type": "string" }, "expiresAt": { "type": "string", "format": "date-time" } }
+          }
+        }
+      },
+      "ResourceScopedUnverified": {
+        "type": "object",
+        "required": ["verified", "resourceVerified", "assurance", "availableActions"],
+        "description": "The single generic shape every resource-scoped endpoint returns for every reason a resource could not be verified (anti-enumeration: these must stay indistinguishable).",
+        "properties": {
+          "verified": { "type": "boolean" },
+          "resourceVerified": { "type": "boolean", "enum": [false] },
+          "assurance": { "type": "string" },
+          "availableActions": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "SubmissionVerificationData": {
+        "type": "object",
+        "required": ["verified", "resourceVerified", "assurance", "resource", "relationships", "availableActions"],
+        "properties": {
+          "verified": { "type": "boolean", "enum": [true] },
+          "resourceVerified": { "type": "boolean", "enum": [true] },
+          "assurance": { "type": "string", "enum": ["v3"] },
+          "resource": { "$ref": "#/components/schemas/ResourceRef" },
+          "relationships": { "type": "array", "items": { "type": "string" } },
+          "availableActions": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "RequiredActionsData": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SubmissionVerificationData" },
+          {
+            "type": "object",
+            "required": ["requiredActions"],
+            "properties": { "requiredActions": { "type": "array", "items": { "type": "string" } } }
+          }
+        ]
+      },
+      "SubmissionSupportData": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SubmissionVerificationData" },
+          {
+            "type": "object",
+            "required": ["title", "supportState", "workflowExplanation"],
+            "properties": {
+              "title": { "type": "string" },
+              "supportState": { "type": "string" },
+              "workflowExplanation": { "type": "string" },
+              "stateConfidence": { "type": "string", "description": "Present only when the underlying state mapping itself reports one (STA-008)." }
+            }
+          }
+        ]
+      },
+      "PublicationStatusData": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SubmissionVerificationData" },
+          {
+            "type": "object",
+            "required": ["status", "doi", "publicUrl", "issue"],
+            "properties": {
+              "status": { "type": "string", "enum": ["not_yet_published", "published", "scheduled_for_publication"] },
+              "doi": { "type": ["string", "null"] },
+              "publicUrl": { "type": ["string", "null"] },
+              "issue": {
+                "type": ["object", "null"],
+                "properties": { "volume": { "type": ["integer", "null"] }, "number": { "type": ["integer", "null"] }, "year": { "type": ["integer", "null"] } }
+              }
+            }
+          }
+        ]
+      },
+      "PaymentStatusData": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SubmissionVerificationData" },
+          {
+            "type": "object",
+            "required": ["feeEnabled", "amount", "currency", "status", "payUrl", "obligations"],
+            "properties": {
+              "feeEnabled": { "type": "boolean" },
+              "amount": { "type": ["number", "null"] },
+              "currency": { "type": ["string", "null"] },
+              "status": { "type": "string", "enum": ["not_applicable", "unpaid", "paid", "waived", "partially_waived", "refunded", "refund_review", "unknown"] },
+              "payUrl": { "type": ["string", "null"] },
+              "obligations": { "type": "array", "items": { "type": "object" } }
+            }
+          }
+        ]
+      },
+      "DiagnosticData": {
+        "type": "object",
+        "required": ["verified", "diagnosed", "status", "code", "summary", "evidenceCodes", "nextActions", "retryable", "availableActions"],
+        "properties": {
+          "verified": { "type": "boolean", "enum": [true] },
+          "diagnosed": { "type": "boolean", "enum": [true] },
+          "status": { "type": "string", "enum": ["confirmed", "likely", "unknown", "needs_human"] },
+          "code": { "type": "string" },
+          "summary": { "type": "string" },
+          "evidenceCodes": { "type": "array", "items": { "type": "string" } },
+          "nextActions": { "type": "array", "items": { "type": "string" } },
+          "retryable": { "type": "boolean" },
+          "availableActions": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "DiagnosticUnverifiedData": {
+        "type": "object",
+        "required": ["verified", "diagnosed", "assurance", "availableActions"],
+        "properties": {
+          "verified": { "type": "boolean" },
+          "diagnosed": { "type": "boolean", "enum": [false] },
+          "assurance": { "type": "string" },
+          "availableActions": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "SubmissionListData": {
+        "type": "object",
+        "required": ["verified", "assurance", "submissions", "pagination"],
+        "properties": {
+          "verified": { "type": "boolean" },
+          "assurance": { "type": "string" },
+          "submissions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "integer" },
+                "title": { "type": "string" },
+                "relationships": { "type": "array", "items": { "type": "string" } },
+                "supportState": { "type": "string" },
+                "actionRequired": { "type": ["boolean", "null"] }
+              }
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "limit": { "type": "integer" },
+              "offset": { "type": "integer" },
+              "hasMore": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "EscalateData": {
+        "type": "object",
+        "required": ["escalated", "noteCreated", "duplicate", "summary"],
+        "properties": {
+          "escalated": { "type": "boolean", "enum": [true] },
+          "noteCreated": { "type": "boolean" },
+          "duplicate": { "type": "boolean" },
+          "summary": { "type": "object", "description": "HandoffSummaryFormatter output — a safe DTO composed from already-verified identity/relationship/state facts, never raw OJS data." }
+        }
+      },
+      "VerificationRequestedData": {
+        "type": "object",
+        "required": ["verificationRequested"],
+        "properties": { "verificationRequested": { "type": "boolean", "enum": [true] } }
+      },
+      "VerificationConfirmData": {
+        "type": "object",
+        "required": ["verified"],
+        "properties": {
+          "verified": { "type": "boolean" },
+          "assurance": { "type": "string", "description": "Present only when verified is true." }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/status": {
+      "post": {
+        "operationId": "supportStatus",
+        "summary": "Cheap verification probe (ojs_get_status).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "$ref": "#/components/schemas/ConversationTuple" } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/StatusOrActionsData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/identity": {
+      "post": {
+        "operationId": "supportIdentity",
+        "summary": "Sanitized verified identity (ojs_get_support_identity).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "$ref": "#/components/schemas/ConversationTuple" } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/IdentityData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/actions": {
+      "post": {
+        "operationId": "supportActions",
+        "summary": "Capability/action discovery, separated from status (ojs_get_available_actions).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "$ref": "#/components/schemas/ConversationTuple" } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/StatusOrActionsData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/submissionVerify": {
+      "post": {
+        "operationId": "supportSubmissionVerify",
+        "summary": "Verify caller's relationship to one submission (ojs_verify_submission).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/SubmissionVerificationData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/submissions": {
+      "post": {
+        "operationId": "supportSubmissionList",
+        "summary": "List submissions the caller has an author/reviewer relationship to (submission.list_mine).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "properties": { "limit": { "type": "integer" }, "offset": { "type": "integer" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/SubmissionListData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/submissionSupport": {
+      "post": {
+        "operationId": "supportSubmissionSupport",
+        "summary": "Normalized support state for one submission (ojs_get_submission_support).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/SubmissionSupportData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/requiredActions": {
+      "post": {
+        "operationId": "supportRequiredActions",
+        "summary": "Actions currently required from the caller for one submission (ojs_get_required_actions).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/RequiredActionsData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/publicationStatus": {
+      "post": {
+        "operationId": "supportPublicationStatus",
+        "summary": "Publication status/doi/issue for one submission (ojs_get_publication_status).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/PublicationStatusData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/paymentStatus": {
+      "post": {
+        "operationId": "supportPaymentStatus",
+        "summary": "Publication fee status for one submission (ojs_get_payment_status).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/PaymentStatusData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/accountDiagnostics": {
+      "post": {
+        "operationId": "supportAccountDiagnostics",
+        "summary": "Privacy-preserving account/login diagnostic (ojs_diagnose_account).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["scope"], "properties": { "scope": { "type": "string", "description": "One of AccountDiagnosticEngine::SCOPES." } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/DiagnosticData" }, { "$ref": "#/components/schemas/DiagnosticUnverifiedData" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/submissionDiagnostics": {
+      "post": {
+        "operationId": "supportSubmissionDiagnostics",
+        "summary": "Privacy-preserving submission-access/payment diagnostic (ojs_diagnose_submission).",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId", "scope"], "properties": { "submissionId": { "type": "integer" }, "scope": { "type": "string", "description": "One of SubmissionDiagnosticEngine::SCOPES." } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/DiagnosticData" }, { "$ref": "#/components/schemas/DiagnosticUnverifiedData" }] } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/escalate": {
+      "post": {
+        "operationId": "supportEscalate",
+        "summary": "Create a structured human handoff (ojs_escalate_support). Deliberately available even to an unverified caller.",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["reason"], "properties": { "reason": { "type": "string" }, "submissionId": { "type": "integer" }, "idempotencyKey": { "type": "string" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/EscalateData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/verificationRequest": {
+      "post": {
+        "operationId": "supportVerificationRequest",
+        "summary": "Request a PIN/link verification challenge (ojs_request_verification). Response timing is normalized to a fixed floor (IDN-015) regardless of whether the account exists.",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["email", "purpose"], "properties": { "email": { "type": "string" }, "purpose": { "type": "string" }, "method": { "type": "string", "enum": ["pin", "link"] } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/VerificationRequestedData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/verificationConfirm": {
+      "post": {
+        "operationId": "supportVerificationConfirm",
+        "summary": "Confirm a PIN against a previously requested challenge (ojs_confirm_verification, PIN path). On success, establishes a V2 support session bound to this conversation.",
+        "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["challenge", "purpose", "pin"], "properties": { "challenge": { "type": "string" }, "purpose": { "type": "string" }, "pin": { "type": "string" } } }] } } } },
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/VerificationConfirmData" } } }] } } } },
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    }
+  }
+}
