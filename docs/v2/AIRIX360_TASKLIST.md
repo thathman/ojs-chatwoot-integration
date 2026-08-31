@@ -164,14 +164,14 @@ Target repo: `Airix360/ojs-magic-login`.
 
 Target repo: `Airix360/ojs-required-submission-files-airix`.
 
-- [ ] **ARF-001** Detect installed/enabled/version.
-- [ ] **ARF-002** Read configured required genre IDs/names through adapter.
-- [ ] **ARF-003** Publish required file genres as submission guidance where appropriate.
-- [ ] **ARF-004** For authorized submission, determine missing required genres.
+- [ ] **ARF-001** Detect installed/enabled/version. — partial: `Ojs35CompatibilityAdapter::getAirixRequiredSubmissionFileGenres()` detects installed/enabled via `PluginRegistry`, no version constraint check yet.
+- [x] **ARF-002** Read configured required genre IDs/names through adapter. — `RequiredSubmissionFilesPlugin::getRequiredGenreIds()` + `GenreDAO::getById()`/`getLocalizedName()`, verified against a real local checkout of `Airix360/ojs-required-submission-files-airix` (mirrors its own `checkRequiredGenres()` hook's exact resolution — a genre ID configured on a prior context, since disabled/removed, is silently skipped, never surfaced as broken).
+- [x] **ARF-003** Publish required file genres as submission guidance where appropriate. — `CoreJournalKnowledgeProvider::addRequiredFileGenres()` publishes `submission.requiredFileGenres` (comma-joined genre names) when the plugin is enabled and at least one genre resolves.
+- [ ] **ARF-004** For authorized submission, determine missing required genres. — Not built; this is a specific submission's diagnosis, a separate authorized feature from the journal-level knowledge fact above (verified: the adapter method never references `filterBySubmissionIds`/`submissionFile`/a submission ID at all).
 - [ ] **ARF-005** Add missing file genres to `get_required_actions`.
 - [ ] **ARF-006** Add deterministic submission diagnostic reason code.
 - [ ] **ARF-007** Compose with OJS core genre `required` mechanism without duplicate/conflicting explanation.
-- [ ] **ARF-008** Contract-test exact supported Required Submission Files releases.
+- [ ] **ARF-008** Contract-test exact supported Required Submission Files releases. — No version constraint exists yet (see ARF-001).
 
 ## AVS — Visibility Suite Provider
 
