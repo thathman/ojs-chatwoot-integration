@@ -25,6 +25,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
@@ -109,6 +110,14 @@ namespace {
     $published = PublicationStatusTool::handleVerified($authorRelationship, 'published', '10.1234/example', 'https://journal-a.example.com/article/view/456', ['volume' => 12, 'number' => 3, 'year' => 2026], ['view_publication_status']);
     mcpIdentityCheck($published['status'] === 'published' && $published['doi'] === '10.1234/example', 'the MCP publication-status tool must expose the real doi once published');
     mcpIdentityCheck($published['issue'] === ['volume' => 12, 'number' => 3, 'year' => 2026], 'the MCP publication-status tool must expose the real issue metadata once published');
+
+    // ================================================================
+    // PaymentStatusTool — must reuse PaymentStatusSerializer verbatim
+    // (REST/MCP equivalence by construction).
+    // ================================================================
+    $paidResult = PaymentStatusTool::handleVerified($authorRelationship, ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'], 'paid', ['view_payment_status']);
+    mcpIdentityCheck($paidResult['verified'] === true && $paidResult['status'] === 'paid', 'the MCP payment-status tool must report the real paid status');
+    mcpIdentityCheck($paidResult['amount'] === 50.0 && $paidResult['currency'] === 'USD', 'the MCP payment-status tool must expose the real fee amount/currency');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
