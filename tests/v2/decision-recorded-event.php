@@ -48,16 +48,30 @@ final class FakeDecisionForDecisionEvent
 }
 
 const ACCEPT = 2;
+const PENDING_REVISIONS = 4;
 const DECLINE = 6;
+const RECOMMEND_EXTERNAL_REVIEW = 13;
 
 $submission = new FakeSubmissionForDecisionEvent(900, 3);
 $decision = new FakeDecisionForDecisionEvent(501, ['decision' => ACCEPT, 'submissionId' => 900]);
 $event = DecisionRecordedEventAdapter::fromDecision($decision, $submission, 7, 'Test Submission');
 
 decisionRecordedEventCheck($event !== null, 'a valid decision must produce an event');
-decisionRecordedEventCheck($event->type() === SupportEventType::SUBMISSION_DECISION_RECORDED, 'type must be submission.decision_recorded');
+decisionRecordedEventCheck($event->type() === SupportEventType::SUBMISSION_ACCEPTED, 'an ACCEPT decision must map to submission.accepted (EVT-006: same decision hook, no separate hook exists)');
 decisionRecordedEventCheck($event->resourceType() === 'submission' && $event->resourceId() === 900, 'the event resource must be the submission, not the decision');
 decisionRecordedEventCheck($event->attributes() === ['title' => 'Test Submission', 'decisionCode' => ACCEPT, 'stageId' => 3], 'attributes must contain only the safe, already-known fields');
+
+$revisionDecision = new FakeDecisionForDecisionEvent(503, ['decision' => PENDING_REVISIONS, 'submissionId' => 900]);
+$revisionEvent = DecisionRecordedEventAdapter::fromDecision($revisionDecision, $submission, 7, 'Test Submission');
+decisionRecordedEventCheck($revisionEvent->type() === SupportEventType::SUBMISSION_REVISION_REQUESTED, 'a PENDING_REVISIONS decision must map to submission.revision_requested');
+
+$declineDecision = new FakeDecisionForDecisionEvent(504, ['decision' => DECLINE, 'submissionId' => 900]);
+$declineEvent = DecisionRecordedEventAdapter::fromDecision($declineDecision, $submission, 7, 'Test Submission');
+decisionRecordedEventCheck($declineEvent->type() === SupportEventType::SUBMISSION_REJECTED, 'a DECLINE decision must map to submission.rejected');
+
+$unmappedDecision = new FakeDecisionForDecisionEvent(505, ['decision' => RECOMMEND_EXTERNAL_REVIEW, 'submissionId' => 900]);
+$unmappedEvent = DecisionRecordedEventAdapter::fromDecision($unmappedDecision, $submission, 7, 'Test Submission');
+decisionRecordedEventCheck($unmappedEvent->type() === SupportEventType::SUBMISSION_DECISION_RECORDED, 'a decision code with no specific mapping must fall back to the generic submission.decision_recorded');
 
 $jsonEvent = (string) json_encode($event->toArray());
 foreach (['email', 'author', 'identifier', 'name'] as $forbidden) {
