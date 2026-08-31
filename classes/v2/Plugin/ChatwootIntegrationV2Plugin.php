@@ -70,6 +70,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
@@ -1239,6 +1240,52 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 $requiredActions = array_values(array_unique($requiredActions));
 
                 return RequiredActionsTool::handleVerified($relationship, $requiredActions, $actions);
+            }
+        );
+        $registry->register(
+            SubmissionSupportStatusTool::NAME,
+            SubmissionSupportStatusTool::DESCRIPTION,
+            SubmissionSupportStatusTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.submission.get_support_status');
+
+                $bridge = $this->runtimeContextBridge();
+                $submissionId = $this->v2PositiveInt($arguments['submissionId'] ?? null);
+                if ($submissionId === null) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'submissionId is required.');
+                }
+
+                $ctx = $this->v2ResolveMcpSubmissionContext($bridge, $result, $submissionId);
+                $relationship = $ctx['relationship'];
+                $decision = $ctx['decision'];
+                $actions = $ctx['actions'];
+
+                if (!$relationship || !$decision || !$decision->allows('submission.read_own_support_status')) {
+                    return SubmissionSupportSerializer::unverified($result, $actions);
+                }
+
+                $stateFields = $bridge->getSubmissionStateFields($ctx['submission']);
+                $supportState = SupportStateMapper::map(
+                    $stateFields['status'],
+                    $stateFields['stageId'],
+                    $stateFields['reviewRoundStatus'],
+                    $stateFields['submissionProgress']
+                );
+                $stateConfidence = SupportStateMapper::confidence(
+                    $stateFields['status'],
+                    $stateFields['stageId'],
+                    $stateFields['reviewRoundStatus'],
+                    $stateFields['submissionProgress']
+                );
+
+                return SubmissionSupportStatusTool::handleVerified(
+                    $relationship,
+                    $bridge->getSubmissionTitle($ctx['submission']),
+                    $supportState,
+                    SupportStateMapper::explain($supportState),
+                    $actions,
+                    $stateConfidence
+                );
             }
         );
 
