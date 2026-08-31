@@ -355,6 +355,22 @@ namespace {
     $isReviewer = SubmissionDiagnosticEngine::diagnoseReviewAccess(true, [5]);
     submissionDiagnosticsCheck($isReviewer->status() === DiagnosticResult::STATUS_CONFIRMED && $isReviewer->code() === 'REVIEWER_ASSIGNMENT_FOUND', 'a real reviewer with assignment evidence must confirm REVIEWER_ASSIGNMENT_FOUND');
 
+    // required_files (DIA-006)
+    submissionDiagnosticsCheck(in_array(SubmissionDiagnosticEngine::SCOPE_REQUIRED_FILES, SubmissionDiagnosticEngine::SCOPES, true), 'required_files must be a real registered scope');
+    $noneMissing = SubmissionDiagnosticEngine::diagnoseRequiredFiles([]);
+    submissionDiagnosticsCheck(
+        $noneMissing->status() === DiagnosticResult::STATUS_CONFIRMED && $noneMissing->code() === 'REQUIRED_FILES_COMPLETE',
+        'an empty missing-genres list must confirm REQUIRED_FILES_COMPLETE (covers both "nothing required" and "everything uploaded")'
+    );
+    $someMissing = SubmissionDiagnosticEngine::diagnoseRequiredFiles(['Data Availability Statement']);
+    submissionDiagnosticsCheck(
+        $someMissing->status() === DiagnosticResult::STATUS_CONFIRMED
+            && $someMissing->code() === 'REQUIRED_FILES_MISSING'
+            && str_contains($someMissing->summary(), 'Data Availability Statement')
+            && in_array('upload_required_files', $someMissing->nextActions(), true),
+        'a non-empty missing-genres list must confirm REQUIRED_FILES_MISSING, name the missing genre, and suggest upload_required_files'
+    );
+
     // publication
     $notPublished = SubmissionDiagnosticEngine::diagnosePublication('review_in_progress');
     submissionDiagnosticsCheck($notPublished->code() === 'PUBLICATION_NOT_YET_PUBLISHED', 'a non-published state must confirm PUBLICATION_NOT_YET_PUBLISHED');
