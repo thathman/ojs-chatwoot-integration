@@ -136,12 +136,22 @@ final class HandoffSummaryFormatter
 
     /**
      * Caller-supplied free text describing why a human is needed — the one
-     * field in this DTO that isn't server-derived. Capped and stripped of
-     * control characters before it can ever reach a private note.
+     * field in this DTO that isn't server-derived, and the one place an
+     * attacker (a malicious author, or a prompt-injected Captain simply
+     * relaying what one told it) has any influence over this note's text
+     * (SEC-006). Capped, stripped of control characters, and — critically —
+     * collapsed to a single line: without this, an embedded newline could
+     * inject a fake `- Field: value` line or even a fake second
+     * `**Support Gateway Handoff**` header into the rendered note,
+     * spoofing structured facts that were never actually verified, to
+     * either the human agent reading it or an LLM later asked to summarize
+     * it. Collapsing newlines removes that entire injection class while
+     * keeping the reason's actual content fully readable.
      */
     private static function sanitizeReason(string $reason): string
     {
         $reason = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $reason) ?? '';
+        $reason = preg_replace('/[\r\n\t]+/', ' ', $reason) ?? '';
         $reason = trim($reason);
         if (function_exists('mb_substr')) {
             return mb_substr($reason, 0, self::MAX_REASON_LENGTH);
