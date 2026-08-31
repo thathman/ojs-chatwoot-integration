@@ -348,6 +348,23 @@ tools by design (knowledge/FAQ lookup only) — verified this is the one
 canonical scenario that always succeeds even before any Custom Tool
 exists.
 
+**As actually implemented (CWO-013), drift/health:** `CaptainProvisioningHealthService`
+builds a full drift snapshot across every expected Captain resource — the
+one Document, all 12 canonical Custom Tools, all 5 canonical Scenarios —
+by comparing the expected set against the local `CaptainSyncState`
+records already written during provisioning. Per-resource state is one
+of `owned` (provisioned, last attempt succeeded), `degraded` (owned, but
+the most recent sync/update attempt errored — a prior success still
+exists remotely, just stale), `conflict` (an unmanaged remote resource
+with the same name/title was detected, never adopted), `failed` (a
+create attempt failed outright), or `not_provisioned` (never attempted).
+Overall state is `healthy` only when every resource is `owned`,
+`not_provisioned` only when nothing has been attempted at all, and
+`degraded` otherwise. This is deliberately a pure local read — it never
+calls the Chatwoot API itself, so building it carries no network
+dependency or "Captain unavailable" handling of its own. No admin UI
+consumes it yet, matching KNO-020's same deliberate scope boundary.
+
 ## 7. Recommended Captain scenarios
 
 ### Journal information
