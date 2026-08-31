@@ -256,7 +256,7 @@ Note: `ojs_get_payment_status` (API-012) was originally built directly against O
 - [ ] **MCP-006** REST/MCP equivalence contract tests.
 - [ ] **MCP-007** Verify public client cannot reach staff capability.
 - [ ] **MCP-008** OpenClaw integration test.
-- [ ] **MCP-009** Document that Chatwoot-native MCP is not required.
+- [x] **MCP-009** Document that Chatwoot-native MCP is not required. — verified against a real chatwoot/chatwoot checkout: there is no MCP client/server code anywhere in it (`rg -l 'model.context.protocol|\bmcp\b'` over the Ruby source returns nothing outside this integration's own docs). Chatwoot's real Captain Custom Tools integrate over plain remote-endpoint HTTP (`CanonicalToolDefinition`'s endpoint URL + auth token, already built/provisioned in this plugin) — never MCP. This is confirmed by a real independent precedent already running in production: a standalone Node.js MCP server (`@modelcontextprotocol/sdk`) that gives an external agent scoped access to Chatwoot's `Captain::AssistantResponse` data by shelling out to `docker exec rails runner` — i.e., MCP access to Chatwoot is always a separate adapter built *around* Chatwoot from the outside, never a feature Chatwoot ships itself. `docs/v2/ARCHITECTURE.md` §3.13 already states this design intent ("no assumption that Chatwoot itself is the MCP client"); this entry closes MCP-009 by recording the concrete verification behind that statement. Consistent with everything else in the MCP-* section (MCP-001 through MCP-008) remaining open: this build has never needed to add its own MCP adapter, since the real, verified integration surface (Captain Custom Tools) already works fully over the existing REST Support API.
 
 ## AUD — Audit & Observability
 
