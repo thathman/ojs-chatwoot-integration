@@ -66,6 +66,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequestParser;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
@@ -1380,6 +1381,37 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 }
 
                 return PaymentStatusTool::handleVerified($relationship, $feeInfo, $status, $actions, $obligations);
+            }
+        );
+        $registry->register(
+            AccountDiagnosticsTool::NAME,
+            AccountDiagnosticsTool::DESCRIPTION,
+            AccountDiagnosticsTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.diagnostics.account');
+
+                $scope = trim((string) ($arguments['scope'] ?? ''));
+                if (!in_array($scope, AccountDiagnosticEngine::SCOPES, true)) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'scope must be one of: ' . implode(', ', AccountDiagnosticEngine::SCOPES));
+                }
+
+                $bridge = $this->runtimeContextBridge();
+                $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                    CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
+                    $result->assurance(),
+                    $result->identity()
+                ));
+                $actions = $decision ? $bridge->availableActions($decision) : [];
+
+                if (!$decision || !$decision->allows('account.diagnose_own')) {
+                    return DiagnosticResultSerializer::unverified($result, $actions);
+                }
+
+                $accountFields = $bridge->getUserAccountFields($result->identity()->userId() ?? 0);
+                $mailConfig = $scope === AccountDiagnosticEngine::SCOPE_MAIL_CONFIGURATION ? $bridge->getMailTransportConfiguration() : null;
+                $diagnosis = AccountDiagnosticEngine::diagnose($scope, $accountFields['disabled'], $accountFields['dateValidated'], $mailConfig);
+
+                return AccountDiagnosticsTool::handleVerified($diagnosis, $actions);
             }
         );
 

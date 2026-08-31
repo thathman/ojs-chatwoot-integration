@@ -23,8 +23,10 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
@@ -118,6 +120,16 @@ namespace {
     $paidResult = PaymentStatusTool::handleVerified($authorRelationship, ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'], 'paid', ['view_payment_status']);
     mcpIdentityCheck($paidResult['verified'] === true && $paidResult['status'] === 'paid', 'the MCP payment-status tool must report the real paid status');
     mcpIdentityCheck($paidResult['amount'] === 50.0 && $paidResult['currency'] === 'USD', 'the MCP payment-status tool must expose the real fee amount/currency');
+
+    // ================================================================
+    // AccountDiagnosticsTool — must reuse DiagnosticResultSerializer::verified()
+    // and the real AccountDiagnosticEngine verbatim (REST/MCP equivalence
+    // by construction).
+    // ================================================================
+    $diagnosis = AccountDiagnosticEngine::diagnose(AccountDiagnosticEngine::SCOPE_ACCOUNT_ACCESS, false, null);
+    $diagnosticsResult = AccountDiagnosticsTool::handleVerified($diagnosis, ['view_status']);
+    mcpIdentityCheck($diagnosticsResult['verified'] === true && $diagnosticsResult['diagnosed'] === true, 'the MCP account-diagnostics tool must report verified/diagnosed=true, same as REST');
+    mcpIdentityCheck($diagnosticsResult['code'] === 'ACCOUNT_ACTIVE', 'the MCP account-diagnostics tool must expose the real diagnostic code');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
