@@ -81,11 +81,29 @@ $parameter = $resolver->resolve($workflow, new FakeResourceRequest('303'), new F
 resourceCheck($parameter?->id() === 303 && $parameter?->source() === 'request_parameter', 'explicit submissionId may be detected as a non-authoritative hint');
 
 $route = $resolver->resolve($workflow, new FakeResourceRequest(null, ['404', 'extra']), null);
-resourceCheck($route?->id() === 404 && $route?->source() === 'known_route', 'known workflow route first argument may be detected');
+resourceCheck($route?->id() === 404 && $route?->source() === 'known_route:workflow', 'known workflow route first argument may be detected');
 
 $submissionPage = new SupportContext(7, 'journal-a', 42, [65536], 'submission', 'wizard', 'en');
 $unsafeRoute = $resolver->resolve($submissionPage, new FakeResourceRequest(null, ['2', '505']), null);
 resourceCheck($unsafeRoute === null, 'arbitrary numeric submission-page route arguments must not be guessed as resource IDs');
+
+// CTX-007: the reviewer route's `submission` operation authorizes via the
+// same args[0]-as-submissionId shape as the workflow page (verified against
+// a real pkp-lib SubmissionAccessPolicy/DataObjectRequiredPolicy checkout) —
+// it must resolve, but only for the specific reviewer operations that are
+// actually role-assigned to that route, never arbitrary ones.
+$reviewerRoute = new SupportContext(7, 'journal-a', 42, [65536], 'reviewer', 'submission', 'en');
+$reviewerDetected = $resolver->resolve($reviewerRoute, new FakeResourceRequest(null, ['505']), null);
+resourceCheck($reviewerDetected?->type() === 'submission' && $reviewerDetected?->id() === 505, 'reviewer submission route must resolve to the in-view submission');
+resourceCheck($reviewerDetected?->source() === 'known_route:reviewer', 'reviewer route source must be distinguishable from the workflow route');
+
+$reviewerStepRoute = new SupportContext(7, 'journal-a', 42, [65536], 'reviewer', 'step', 'en');
+$reviewerStepDetected = $resolver->resolve($reviewerStepRoute, new FakeResourceRequest(null, ['606']), null);
+resourceCheck($reviewerStepDetected?->id() === 606, 'reviewer step operation must also resolve, matching the real role-assigned operation list');
+
+$reviewerUnknownOp = new SupportContext(7, 'journal-a', 42, [65536], 'reviewer', 'notARealOperation', 'en');
+$reviewerUnknownDetected = $resolver->resolve($reviewerUnknownOp, new FakeResourceRequest(null, ['707']), null);
+resourceCheck($reviewerUnknownDetected === null, 'an operation never role-assigned to the reviewer route must not be guessed as a resource-bearing route');
 
 $badParameter = $resolver->resolve($workflow, new FakeResourceRequest('101 OR 1=1'), null);
 resourceCheck($badParameter === null, 'non-canonical numeric input must be rejected');
