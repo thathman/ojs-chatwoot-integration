@@ -7,7 +7,6 @@ require_once $root . '/classes/v2/bootstrap.php';
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpHandlerError;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpProtocol;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResourceRegistry;
 
 function mcpResourcesCheck(bool $condition, string $message): void
@@ -70,7 +69,7 @@ $mcpMethodBody = $nextMethodStart !== false ? substr($pluginSource, $methodStart
 mcpResourcesCheck(str_contains($mcpMethodBody, 'McpProtocol::METHOD_RESOURCES_LIST'), 'mcpRequest() must register a real resources/list handler');
 mcpResourcesCheck(str_contains($mcpMethodBody, 'McpProtocol::METHOD_RESOURCES_READ'), 'mcpRequest() must register a real resources/read handler');
 mcpResourcesCheck(str_contains($mcpMethodBody, 'new McpResourceRegistry()'), 'mcpRequest() must build a real McpResourceRegistry, never a bespoke ad-hoc list');
-mcpResourcesCheck(substr_count($mcpMethodBody, "ojs://journal/{\$contextId}/") >= 3, 'the resource hierarchy must be journal-scoped under ojs://journal/{contextId}/..., per ADR-023');
+mcpResourcesCheck(substr_count($mcpMethodBody, 'ojs://journal/{$contextId}/') >= 3, 'the resource hierarchy must be journal-scoped under ojs://journal/{contextId}/..., per ADR-023');
 mcpResourcesCheck(
     str_contains($mcpMethodBody, 'JournalProfileTool::handle($compilation)') && str_contains($mcpMethodBody, 'SubmissionPolicyTool::handle($compilation)') && str_contains($mcpMethodBody, 'FeePolicyTool::handle($compilation)'),
     'every resource must source its content from the real Knowledge Compiler tools, never a second parallel path to journal/submission/fee facts'
