@@ -42,6 +42,7 @@ namespace {
     purgeTaskCheck(str_contains($taskSource, 'protected function executeActions'), 'task must implement executeActions(), the real abstract contract (not execute(), which pkp-lib itself already implements as a logging wrapper)');
     purgeTaskCheck(str_contains($taskSource, 'DatabaseSupportSessionRepository())->purgeExpired'), 'task must call the real session purge method');
     purgeTaskCheck(str_contains($taskSource, 'DatabaseVerificationChallengeRepository())->purgeExpired'), 'task must call the real verification-challenge purge method');
+    purgeTaskCheck(str_contains($taskSource, 'DatabaseSupportApiAuditLogger())->purgeOlderThan'), 'task must also enforce audit log retention (AUD-007)');
     purgeTaskCheck(str_contains($taskSource, 'catch (\Throwable'), 'task must isolate a purge failure rather than letting it propagate uncaught out of a scheduled run');
 
     // ================================================================
@@ -64,19 +65,38 @@ namespace {
         public int $now = 0;
         public function purgeExpired(int $now): int { $this->now = $now; return 5; }
     }
+    final class FakePurgeAuditLogger
+    {
+        public int $now = 0;
+        public int $retentionSeconds = 0;
+        public function purgeOlderThan(int $now, int $retentionSeconds): int
+        {
+            $this->now = $now;
+            $this->retentionSeconds = $retentionSeconds;
+            return 9;
+        }
+    }
     final class TestablePurgeTask extends \PKP\scheduledTask\ScheduledTask
     {
-        public function __construct(private FakePurgeSessionRepository $sessions, private FakePurgeChallengeRepository $challenges) {}
+        private const AUDIT_LOG_RETENTION_SECONDS = 90 * 24 * 60 * 60;
+
+        public function __construct(
+            private FakePurgeSessionRepository $sessions,
+            private FakePurgeChallengeRepository $challenges,
+            private FakePurgeAuditLogger $auditLog
+        ) {}
         protected function executeActions(): bool
         {
             try {
                 $now = time();
                 $sessionsPurged = $this->sessions->purgeExpired($now);
                 $challengesPurged = $this->challenges->purgeExpired($now);
+                $auditRowsPurged = $this->auditLog->purgeOlderThan($now, self::AUDIT_LOG_RETENTION_SECONDS);
                 $this->addExecutionLogEntry(sprintf(
-                    'Purged %d expired support session(s) and %d expired verification challenge(s).',
+                    'Purged %d expired support session(s), %d expired verification challenge(s), and %d audit log row(s) past retention.',
                     $sessionsPurged,
-                    $challengesPurged
+                    $challengesPurged,
+                    $auditRowsPurged
                 ));
                 return true;
             } catch (\Throwable $e) {
@@ -88,11 +108,20 @@ namespace {
 
     $sessions = new FakePurgeSessionRepository();
     $challenges = new FakePurgeChallengeRepository();
-    $task = new TestablePurgeTask($sessions, $challenges);
+    $auditLog = new FakePurgeAuditLogger();
+    $task = new TestablePurgeTask($sessions, $challenges, $auditLog);
     $result = $task->execute();
     purgeTaskCheck($result === true, 'a successful purge run must return true');
     purgeTaskCheck($sessions->now > 0 && $challenges->now > 0, 'both repositories must actually be invoked with a real timestamp');
-    purgeTaskCheck(count($task->logEntries) === 1 && str_contains($task->logEntries[0], 'Purged 3') && str_contains($task->logEntries[0], '5 expired'), 'a successful run must log the real purge counts');
+    purgeTaskCheck($auditLog->now > 0, 'the audit logger must also be invoked with a real timestamp');
+    purgeTaskCheck($auditLog->retentionSeconds === 90 * 24 * 60 * 60, 'audit log retention must be a real, non-zero window (90 days)');
+    purgeTaskCheck(
+        count($task->logEntries) === 1
+            && str_contains($task->logEntries[0], 'Purged 3')
+            && str_contains($task->logEntries[0], '5 expired')
+            && str_contains($task->logEntries[0], '9 audit log row'),
+        'a successful run must log the real purge counts, including the audit log row count'
+    );
 
     fwrite(STDOUT, "Purge expired support data task tests passed\n");
 }

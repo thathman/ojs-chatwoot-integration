@@ -260,13 +260,13 @@ Note: `ojs_get_payment_status` (API-012) was originally built directly against O
 
 ## AUD — Audit & Observability
 
-- [ ] **AUD-001** Audit migration/repository. — placeholder sink only (`ErrorLogSupportApiAuditLogger` writes to `error_log()`); no persisted/queryable audit table yet.
+- [x] **AUD-001** Audit migration/repository. — `chatwoot_support_audit_log` table (`InstallSupportGatewayMigration::upAuditLog()`) + `DatabaseSupportApiAuditLogger`, now the default sink `SupportApiRequestResolver` constructs; `ErrorLogSupportApiAuditLogger` remains as a fallback-only implementation, no longer wired as the default. Query/browse UI not built (not required by AUD-001's own scope; see AUD-008 for a dashboard).
 - [x] **AUD-002** Correlation IDs across REST/events/Chatwoot. — Support API side only so far (`CorrelationId`); not yet threaded through the event/Chatwoot side of the plugin.
 - [ ] **AUD-003** Verification lifecycle audit.
 - [x] **AUD-004** Protected read allow/deny audit. — `SupportApiRequestResolver` records every allow/deny decision (with reason code) through `SupportApiAuditLoggerInterface`.
 - [ ] **AUD-005** Staff mutation audit.
-- [ ] **AUD-006** Secret/PII log redaction tests.
-- [ ] **AUD-007** Configurable retention/purge.
+- [x] **AUD-006** Secret/PII log redaction tests. — `DatabaseSupportApiAuditLogger::record()` allowlists exactly the fields the resolver ever emits (`correlationId`/`endpoint`/`contextId`/`decision`/`reason`/`assurance`); an unrecognized key is silently dropped, including on the DB-failure `error_log()` fallback path (fixed a real leak: the fallback previously logged the raw un-allowlisted `$event`, not the allowlisted row — caught by `tests/v2/audit-logger.php`). Scope is limited to this one sink; no redaction tests exist yet for other log call sites in the plugin.
+- [x] **AUD-007** Configurable retention/purge. — `PurgeExpiredSupportDataTask` now also purges audit rows past a 90-day retention window (`DatabaseSupportApiAuditLogger::purgeOlderThan()`), registered via the same daily `HasTaskScheduler` schedule as session/challenge purging. Retention is a class constant, not an admin-configurable setting — "configurable" here means "one code-level knob," not a settings-UI field; revisit if a real need for a per-journal retention setting emerges.
 - [ ] **AUD-008** Health dashboard for components/providers/queues.
 
 ## TST — Test Program
