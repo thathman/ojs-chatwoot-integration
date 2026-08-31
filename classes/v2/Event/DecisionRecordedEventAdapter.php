@@ -3,9 +3,13 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Event;
 
 /**
- * Converts a real OJS editorial decision into a normalized
- * `submission.decision_recorded` SupportEvent (docs/v2/TASKLIST.md
- * EVT-004), mirroring v1's `ChatwootIntegrationPlugin::handleEditorDecision()`.
+ * Converts a real OJS editorial decision into a normalized SupportEvent
+ * (docs/v2/TASKLIST.md EVT-004/EVT-006), mirroring v1's
+ * `ChatwootIntegrationPlugin::handleEditorDecision()` and its
+ * `mapDecisionEventKey()` helper — the same real hook is v1's only source
+ * for revision-requested/accepted/rejected detection (there is no separate
+ * v1 revision hook; EVT-006 "where stable" is satisfied by this decision
+ * mapping, not a new hook).
  *
  * Excludes author identity — same delivery-vs-fact separation as
  * `SubmissionCreatedEventAdapter` (EVT-003).
@@ -20,6 +24,16 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Event;
  */
 final class DecisionRecordedEventAdapter
 {
+    private const PENDING_REVISIONS = 4;
+    private const RESUBMIT = 5;
+    private const RECOMMEND_PENDING_REVISIONS = 10;
+    private const RECOMMEND_RESUBMIT = 11;
+    private const ACCEPT = 2;
+    private const RECOMMEND_ACCEPT = 9;
+    private const DECLINE = 6;
+    private const INITIAL_DECLINE = 8;
+    private const RECOMMEND_DECLINE = 12;
+
     public static function fromDecision($decision, $submission, int $contextId, string $title): ?SupportEvent
     {
         if (!is_object($decision) || !method_exists($decision, 'getId') || !method_exists($decision, 'getData')) {
@@ -39,7 +53,7 @@ final class DecisionRecordedEventAdapter
         $stageId = (int) ($decision->getData('stageId') ?? (method_exists($submission, 'getData') ? $submission->getData('stageId') : 0));
 
         return SupportEvent::create(
-            SupportEventType::SUBMISSION_DECISION_RECORDED,
+            self::mapDecisionEventType($decisionCode),
             $contextId,
             'submission',
             $submissionId,
@@ -50,5 +64,15 @@ final class DecisionRecordedEventAdapter
                 'stageId' => $stageId,
             ]
         );
+    }
+
+    private static function mapDecisionEventType(int $decisionCode): string
+    {
+        return match (true) {
+            in_array($decisionCode, [self::PENDING_REVISIONS, self::RESUBMIT, self::RECOMMEND_PENDING_REVISIONS, self::RECOMMEND_RESUBMIT], true) => SupportEventType::SUBMISSION_REVISION_REQUESTED,
+            in_array($decisionCode, [self::ACCEPT, self::RECOMMEND_ACCEPT], true) => SupportEventType::SUBMISSION_ACCEPTED,
+            in_array($decisionCode, [self::DECLINE, self::INITIAL_DECLINE, self::RECOMMEND_DECLINE], true) => SupportEventType::SUBMISSION_REJECTED,
+            default => SupportEventType::SUBMISSION_DECISION_RECORDED,
+        };
     }
 }
