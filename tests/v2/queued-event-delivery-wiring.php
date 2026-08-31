@@ -55,6 +55,23 @@ queuedEventDeliveryWiringCheck(str_contains($rowBody, 'findContactByEmail'), 'mu
 queuedEventDeliveryWiringCheck(str_contains($rowBody, 'createConversationNote'), 'must actually post the note via the real Chatwoot API client');
 queuedEventDeliveryWiringCheck(str_contains($rowBody, "\$baseUrl === '' || \$apiToken === ''"), 'must fail closed (return false) when Chatwoot isn\'t configured for this journal, never attempt delivery with blank credentials');
 
+// EVT-013: opt-in customer message delivery.
+queuedEventDeliveryWiringCheck(str_contains($rowBody, 'EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE'), 'must handle the opt-in customer message delivery mode, not just private note/open-update');
+queuedEventDeliveryWiringCheck(str_contains($rowBody, 'createConversationMessage'), 'opt-in customer message delivery must use the real, distinct Chatwoot messages endpoint, never the private-only notes endpoint');
+queuedEventDeliveryWiringCheck(
+    (bool) preg_match('/createConversationMessage\(.*,\s*false\)/s', $rowBody),
+    'opt-in customer message delivery must explicitly pass private=false — otherwise it would silently become just another private note'
+);
+queuedEventDeliveryWiringCheck(
+    (bool) preg_match('/AUDIT_ONLY.*return true/s', $rowBody),
+    'AUDIT_ONLY mode must return true without ever touching the Chatwoot API — the queue row\'s own lifecycle is the audit trail for this mode'
+);
+
+$chatwootApiServiceSource = (string) file_get_contents($root . '/ChatwootApiService.php');
+queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, 'function createConversationMessage'), 'ChatwootApiService must implement the real messages-endpoint method');
+queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, '/messages"'), 'createConversationMessage() must post to the real /messages endpoint, distinct from the /notes shortcut');
+queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, "'private' => \$private"), 'createConversationMessage() must actually forward the private flag to Chatwoot, not hardcode it');
+
 // ================================================================
 // Scheduled task wiring.
 // ================================================================

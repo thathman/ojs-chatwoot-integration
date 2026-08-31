@@ -131,6 +131,24 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return (bool) $result['ok'];
     }
 
+    /**
+     * EVT-013: the real Chatwoot conversation messages endpoint — verified
+     * against a real chatwoot/chatwoot `develop` checkout
+     * (`app/controllers/api/v1/accounts/conversations/messages_controller.rb`
+     * + `app/builders/messages/message_builder.rb`, which reads
+     * `params[:private]` (default `false`) and `params[:message_type]`
+     * (default `'outgoing'`)). Distinct from `createConversationNote()`'s
+     * `/notes` shortcut, which is always private and never customer-visible
+     * — `private: false` here is what actually makes a message visible to
+     * the contact, which `/notes` structurally cannot do.
+     */
+    public function createConversationMessage($conversationId, $content, bool $private = true) {
+        $result = $this->requestJson('POST', "accounts/{$this->accountId}/conversations/{$conversationId}/messages", [
+            'json' => ['content' => $content, 'private' => $private]
+        ]);
+        return (bool) $result['ok'];
+    }
+
     public function createConversation(int $contactId, int $inboxId, string $message = ''): ?array {
         $payload = [
             'source_id' => 'ojs-' . $contactId . '-' . time(),
