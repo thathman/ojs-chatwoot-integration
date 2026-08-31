@@ -36,7 +36,16 @@ final class ChallengeAttemptOutcome
         return new self($status, null);
     }
 
-    public function status(): string { return $this->status; }
-    public function challenge(): ?VerificationChallenge { return $this->challenge; }
-    public function isConsumed(): bool { return $this->status === self::STATUS_CONSUMED; }
+    public function status(): string
+    {
+        return $this->status;
+    }
+    public function challenge(): ?VerificationChallenge
+    {
+        return $this->challenge;
+    }
+    public function isConsumed(): bool
+    {
+        return $this->status === self::STATUS_CONSUMED;
+    }
 }

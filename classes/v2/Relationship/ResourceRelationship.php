@@ -31,12 +31,30 @@ final class ResourceRelationship
         $this->evidence = $evidence;
     }
 
-    public function resourceType(): string { return $this->resourceType; }
-    public function resourceId(): int { return $this->resourceId; }
-    public function types(): array { return $this->types; }
-    public function evidence(): array { return $this->evidence; }
-    public function has(string $type): bool { return in_array($type, $this->types, true); }
-    public function isEmpty(): bool { return $this->types === []; }
+    public function resourceType(): string
+    {
+        return $this->resourceType;
+    }
+    public function resourceId(): int
+    {
+        return $this->resourceId;
+    }
+    public function types(): array
+    {
+        return $this->types;
+    }
+    public function evidence(): array
+    {
+        return $this->evidence;
+    }
+    public function has(string $type): bool
+    {
+        return in_array($type, $this->types, true);
+    }
+    public function isEmpty(): bool
+    {
+        return $this->types === [];
+    }
 
     public function toArray(): array
     {

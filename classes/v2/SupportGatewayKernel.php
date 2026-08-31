@@ -4,22 +4,22 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility\CompatibilityAdapterFactory;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\ContextResolver;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\AvailableActionMapper;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityPolicyEngine;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\AccountsKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePaymentKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePublicationKnowledgeProvider;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\OfficialPageKnowledgeProvider;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\AccountsKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthReport;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthService;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\OfficialPageKnowledgeProvider;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\AvailableActionMapper;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityPolicyEngine;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
@@ -52,7 +52,9 @@ final class SupportGatewayKernel
     public static function forOjsVersion(string $ojsVersion): ?self
     {
         $adapter = CompatibilityAdapterFactory::forVersion($ojsVersion);
-        if (!$adapter) return null;
+        if (!$adapter) {
+            return null;
+        }
 
         $knowledgeCompiler = new KnowledgeCompiler();
         $knowledgeCompiler->registerProvider(new CoreJournalKnowledgeProvider($adapter));
@@ -75,11 +77,26 @@ final class SupportGatewayKernel
         );
     }
 
-    public function ojsVersion(): string { return $this->ojsVersion; }
-    public function resolveContext($request, string $locale = ''): ?SupportContext { return $this->contextResolver->resolve($request, $locale); }
-    public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext { return $this->contextResolver->resolveForUser($request, $userId, $locale); }
-    public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship { return $this->submissionRelationshipResolver->resolve($context, $submission); }
-    public function loadSubmission(int $submissionId) { return $this->adapter->getSubmissionById($submissionId); }
+    public function ojsVersion(): string
+    {
+        return $this->ojsVersion;
+    }
+    public function resolveContext($request, string $locale = ''): ?SupportContext
+    {
+        return $this->contextResolver->resolve($request, $locale);
+    }
+    public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext
+    {
+        return $this->contextResolver->resolveForUser($request, $userId, $locale);
+    }
+    public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship
+    {
+        return $this->submissionRelationshipResolver->resolve($context, $submission);
+    }
+    public function loadSubmission(int $submissionId)
+    {
+        return $this->adapter->getSubmissionById($submissionId);
+    }
 
     /** @return array<int,mixed> */
     public function listCandidateSubmissions(int $contextId, int $userId, int $candidateCap): array
@@ -87,27 +104,81 @@ final class SupportGatewayKernel
         return $this->adapter->listCandidateSubmissions($contextId, $userId, $candidateCap);
     }
 
-    public function getSubmissionTitle($submission): string { return $this->adapter->getSubmissionTitle($submission); }
+    public function getSubmissionTitle($submission): string
+    {
+        return $this->adapter->getSubmissionTitle($submission);
+    }
 
     /** @return array{status:?int,stageId:?int} */
-    public function getSubmissionStateFields($submission): array { return $this->adapter->getSubmissionStateFields($submission); }
-    public function getReviewAssignmentStatuses(int $submissionId, int $userId): array { return $this->adapter->getReviewAssignmentStatuses($submissionId, $userId); }
-    public function getPublicationFields($submission): array { return $this->adapter->getPublicationFields($submission); }
-    public function getIssueInfo(int $issueId): ?array { return $this->adapter->getIssueInfo($issueId); }
-    public function getPublicSubmissionUrl($request, $submission): ?string { return $this->adapter->getPublicSubmissionUrl($request, $submission); }
-    public function getPaymentFeeInfo($context): array { return $this->adapter->getPaymentFeeInfo($context); }
-    public function hasPaidPublicationFee(int $userId, int $submissionId): bool { return $this->adapter->hasPaidPublicationFee($userId, $submissionId); }
-    public function getContext($request) { return $this->adapter->getContext($request); }
-    public function getUserAccountFields(int $userId): array { return $this->adapter->getUserAccountFields($userId); }
-    public function getUserByEmail(string $email): ?object { return $this->adapter->getUserByEmail($email); }
-    public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string { return $this->adapter->getVerificationLinkUrl($request, $publicReference, $token); }
-    public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface { return $this->adapter->getAirixSubmissionFeeProvider($context); }
-    public function compileKnowledge($context, $request, int $contextId, string $locale): KnowledgeCompilation { return $this->knowledgeCompiler->compile($context, $request, $contextId, $locale); }
-    public function buildKnowledgeHealthReport($context, $request, int $contextId, string $locale): KnowledgeHealthReport { return $this->knowledgeHealthService->buildReport($context, $request, $contextId, $locale); }
-    public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision { return $this->capabilityPolicyEngine->evaluate($request); }
+    public function getSubmissionStateFields($submission): array
+    {
+        return $this->adapter->getSubmissionStateFields($submission);
+    }
+    public function getReviewAssignmentStatuses(int $submissionId, int $userId): array
+    {
+        return $this->adapter->getReviewAssignmentStatuses($submissionId, $userId);
+    }
+    public function getPublicationFields($submission): array
+    {
+        return $this->adapter->getPublicationFields($submission);
+    }
+    public function getIssueInfo(int $issueId): ?array
+    {
+        return $this->adapter->getIssueInfo($issueId);
+    }
+    public function getPublicSubmissionUrl($request, $submission): ?string
+    {
+        return $this->adapter->getPublicSubmissionUrl($request, $submission);
+    }
+    public function getPaymentFeeInfo($context): array
+    {
+        return $this->adapter->getPaymentFeeInfo($context);
+    }
+    public function hasPaidPublicationFee(int $userId, int $submissionId): bool
+    {
+        return $this->adapter->hasPaidPublicationFee($userId, $submissionId);
+    }
+    public function getContext($request)
+    {
+        return $this->adapter->getContext($request);
+    }
+    public function getUserAccountFields(int $userId): array
+    {
+        return $this->adapter->getUserAccountFields($userId);
+    }
+    public function getUserByEmail(string $email): ?object
+    {
+        return $this->adapter->getUserByEmail($email);
+    }
+    public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string
+    {
+        return $this->adapter->getVerificationLinkUrl($request, $publicReference, $token);
+    }
+    public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface
+    {
+        return $this->adapter->getAirixSubmissionFeeProvider($context);
+    }
+    public function compileKnowledge($context, $request, int $contextId, string $locale): KnowledgeCompilation
+    {
+        return $this->knowledgeCompiler->compile($context, $request, $contextId, $locale);
+    }
+    public function buildKnowledgeHealthReport($context, $request, int $contextId, string $locale): KnowledgeHealthReport
+    {
+        return $this->knowledgeHealthService->buildReport($context, $request, $contextId, $locale);
+    }
+    public function evaluateCapabilities(CapabilityRequest $request): CapabilityDecision
+    {
+        return $this->capabilityPolicyEngine->evaluate($request);
+    }
 
-    public function availableActions(CapabilityDecision $decision): array { return $this->availableActionMapper->map($decision); }
-    public function disabledActions(CapabilityDecision $decision): array { return $this->availableActionMapper->mapDenied($decision); }
+    public function availableActions(CapabilityDecision $decision): array
+    {
+        return $this->availableActionMapper->map($decision);
+    }
+    public function disabledActions(CapabilityDecision $decision): array
+    {
+        return $this->availableActionMapper->mapDenied($decision);
+    }
 
     public function bootstrapAuthenticatedSupportSession(SupportContext $context): SupportSessionBootstrap
     {
@@ -157,7 +228,14 @@ final class SupportGatewayKernel
         string $pepper
     ): ?PreparedChallenge {
         return $this->verificationChallengeService->requestChallenge(
-            $contextId, $userId, $purpose, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $pepper
+            $contextId,
+            $userId,
+            $purpose,
+            $method,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $pepper
         );
     }
 
@@ -172,7 +250,14 @@ final class SupportGatewayKernel
         string $pepper
     ): ChallengeAttemptOutcome {
         return $this->verificationChallengeService->confirmPin(
-            $publicReference, $pin, $contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $purpose, $pepper
+            $publicReference,
+            $pin,
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $purpose,
+            $pepper
         );
     }
 
@@ -190,7 +275,12 @@ final class SupportGatewayKernel
         string $chatwootConversationId
     ): SupportSession {
         return $this->supportSessionService->establishFromExternalVerification(
-            $contextId, $userId, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId
+            $contextId,
+            $userId,
+            $method,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId
         );
     }
 }

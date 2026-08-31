@@ -36,6 +36,7 @@ final class CaptainCustomToolProvisioner
 
     /**
      * @param array<string,string> $operationUrls operation => absolute Support API endpoint URL
+     *
      * @return array<string,CaptainSyncResult> keyed by canonical tool key
      */
     public function provisionAll(int $contextId, string $locale, array $operationUrls, string $serviceToken, int $now): array

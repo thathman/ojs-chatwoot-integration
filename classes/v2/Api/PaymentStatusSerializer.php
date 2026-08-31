@@ -32,6 +32,7 @@ final class PaymentStatusSerializer
     /**
      * @param array{enabled:bool,amount:?float,currency:?string} $feeInfo
      * @param array<int,array<string,mixed>> $obligations
+     *
      * @return array<string,mixed>
      */
     /**
@@ -102,6 +103,7 @@ final class PaymentStatusSerializer
      * they carry no information about any specific user or submission.
      *
      * @param array{enabled:bool,amount:?float,currency:?string} $feeInfo
+     *
      * @return array<string,mixed>
      */
     public static function unverified(SupportApiRequestContext $context, array $feeInfo, array $availableActions): array

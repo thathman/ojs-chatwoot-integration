@@ -68,12 +68,30 @@ final class DiagnosticResult
         return new self(self::STATUS_NEEDS_HUMAN, $code, $summary, $evidenceCodes, $nextActions);
     }
 
-    public function status(): string { return $this->status; }
-    public function code(): string { return $this->code; }
-    public function summary(): string { return $this->summary; }
+    public function status(): string
+    {
+        return $this->status;
+    }
+    public function code(): string
+    {
+        return $this->code;
+    }
+    public function summary(): string
+    {
+        return $this->summary;
+    }
     /** @return string[] */
-    public function evidenceCodes(): array { return $this->evidenceCodes; }
+    public function evidenceCodes(): array
+    {
+        return $this->evidenceCodes;
+    }
     /** @return string[] */
-    public function nextActions(): array { return $this->nextActions; }
-    public function retryable(): bool { return $this->retryable; }
+    public function nextActions(): array
+    {
+        return $this->nextActions;
+    }
+    public function retryable(): bool
+    {
+        return $this->retryable;
+    }
 }

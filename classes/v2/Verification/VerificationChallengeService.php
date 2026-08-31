@@ -58,19 +58,29 @@ final class VerificationChallengeService
         $now = $this->now();
 
         if ($this->repository->countRecentForConversation(
-            $contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $now - $this->rateLimitWindowSeconds
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $now - $this->rateLimitWindowSeconds
         ) >= $this->maxPerConversationPerWindow) {
             return null;
         }
 
         if ($userId > 0 && $this->repository->countRecentForIdentity(
-            $contextId, $userId, $now - $this->rateLimitWindowSeconds
+            $contextId,
+            $userId,
+            $now - $this->rateLimitWindowSeconds
         ) >= $this->maxPerIdentityPerWindow) {
             return null;
         }
 
         $lastCreatedAt = $this->repository->mostRecentCreatedAtForConversationPurpose(
-            $contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $purpose
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $purpose
         );
         if ($lastCreatedAt !== null && ($now - $lastCreatedAt) < $this->cooldownSeconds) {
             return null;
@@ -79,7 +89,12 @@ final class VerificationChallengeService
         // Resend behavior: a new valid request invalidates the previous
         // unconsumed challenge for this exact context+conversation+purpose.
         $this->repository->supersedeActiveForConversationPurpose(
-            $contextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $purpose, $now
+            $contextId,
+            $chatwootAccountId,
+            $chatwootContactId,
+            $chatwootConversationId,
+            $purpose,
+            $now
         );
 
         $method = $method === VerificationChallenge::METHOD_LINK ? VerificationChallenge::METHOD_LINK : VerificationChallenge::METHOD_PIN;
@@ -199,7 +214,13 @@ final class VerificationChallengeService
         );
     }
 
-    public function purgeExpired(): int { return $this->repository->purgeExpired($this->now()); }
+    public function purgeExpired(): int
+    {
+        return $this->repository->purgeExpired($this->now());
+    }
 
-    private function now(): int { return (int) ($this->clock)(); }
+    private function now(): int
+    {
+        return (int) ($this->clock)();
+    }
 }

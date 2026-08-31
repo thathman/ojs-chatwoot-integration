@@ -49,6 +49,7 @@ interface ChatwootCaptainClientInterface
 
     /**
      * @param array{title:string,description:string,endpoint_url:string,http_method:string,auth_type:string,auth_config:array<string,string>,param_schema:array<int,array{name:string,type:string,description:string,required:bool}>,request_template:?string,response_template:?string} $definition
+     *
      * @return array{id:int|string}|null
      */
     public function createCaptainCustomTool(array $definition): ?array;
@@ -68,6 +69,7 @@ interface ChatwootCaptainClientInterface
 
     /**
      * @param array{title:string,description:string,instruction:string,enabled:bool} $definition
+     *
      * @return array{id:int|string}|null
      */
     public function createCaptainScenario(int $assistantId, array $definition): ?array;

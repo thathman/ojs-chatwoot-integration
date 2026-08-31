@@ -41,10 +41,28 @@ final class SupportApiRequestContext
         return new self($correlationId, $contextId, true, $assurance, $identity, $session);
     }
 
-    public function correlationId(): string { return $this->correlationId; }
-    public function contextId(): int { return $this->contextId; }
-    public function verified(): bool { return $this->verified; }
-    public function assurance(): string { return $this->assurance; }
-    public function identity(): SupportContext { return $this->identity; }
-    public function session(): ?SupportSession { return $this->session; }
+    public function correlationId(): string
+    {
+        return $this->correlationId;
+    }
+    public function contextId(): int
+    {
+        return $this->contextId;
+    }
+    public function verified(): bool
+    {
+        return $this->verified;
+    }
+    public function assurance(): string
+    {
+        return $this->assurance;
+    }
+    public function identity(): SupportContext
+    {
+        return $this->identity;
+    }
+    public function session(): ?SupportSession
+    {
+        return $this->session;
+    }
 }

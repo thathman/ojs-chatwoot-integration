@@ -41,10 +41,16 @@ final class CapabilityDecision
     }
 
     /** @return string[] */
-    public function allowed(): array { return $this->allowed; }
+    public function allowed(): array
+    {
+        return $this->allowed;
+    }
 
     /** @return array<string,string> */
-    public function denied(): array { return $this->denied; }
+    public function denied(): array
+    {
+        return $this->denied;
+    }
 
     public function denialReason(string $capability): ?string
     {
@@ -52,7 +58,10 @@ final class CapabilityDecision
     }
 
     /** @return string[] */
-    public function rejectedProviderCapabilities(): array { return $this->rejectedProviderCapabilities; }
+    public function rejectedProviderCapabilities(): array
+    {
+        return $this->rejectedProviderCapabilities;
+    }
 
     public function toArray(): array
     {

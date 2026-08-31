@@ -15,6 +15,12 @@ final class PreparedChallenge
     ) {
     }
 
-    public function challenge(): VerificationChallenge { return $this->challenge; }
-    public function plaintextSecret(): string { return $this->plaintextSecret; }
+    public function challenge(): VerificationChallenge
+    {
+        return $this->challenge;
+    }
+    public function plaintextSecret(): string
+    {
+        return $this->plaintextSecret;
+    }
 }

@@ -16,6 +16,7 @@ final class PublicationStatusSerializer
 {
     /**
      * @param array{volume:?int,number:?int,year:?int}|null $issue
+     *
      * @return array<string,mixed>
      */
     public static function verified(

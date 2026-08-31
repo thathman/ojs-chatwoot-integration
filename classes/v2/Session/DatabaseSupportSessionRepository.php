@@ -203,12 +203,19 @@ final class DatabaseSupportSessionRepository implements SupportSessionRepository
         );
     }
 
-    private function toDatabaseTime(int $timestamp): string { return gmdate('Y-m-d H:i:s', $timestamp); }
+    private function toDatabaseTime(int $timestamp): string
+    {
+        return gmdate('Y-m-d H:i:s', $timestamp);
+    }
 
     private function fromDatabaseTime(mixed $value): ?int
     {
-        if ($value === null || $value === '') return null;
-        if (is_int($value)) return $value;
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_int($value)) {
+            return $value;
+        }
         $timestamp = strtotime((string) $value . ' UTC');
         return $timestamp === false ? null : $timestamp;
     }

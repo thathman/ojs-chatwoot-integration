@@ -65,11 +65,26 @@ final class CapabilityRequest
         $this->journalPolicy = $this->normalizeBooleanMap($journalPolicy);
     }
 
-    public function consumerPlane(): string { return $this->consumerPlane; }
-    public function verificationAssurance(): string { return $this->verificationAssurance; }
-    public function verificationLevel(): int { return self::ASSURANCE_LEVELS[$this->verificationAssurance]; }
-    public function supportContext(): SupportContext { return $this->supportContext; }
-    public function relationship(): ?ResourceRelationship { return $this->relationship; }
+    public function consumerPlane(): string
+    {
+        return $this->consumerPlane;
+    }
+    public function verificationAssurance(): string
+    {
+        return $this->verificationAssurance;
+    }
+    public function verificationLevel(): int
+    {
+        return self::ASSURANCE_LEVELS[$this->verificationAssurance];
+    }
+    public function supportContext(): SupportContext
+    {
+        return $this->supportContext;
+    }
+    public function relationship(): ?ResourceRelationship
+    {
+        return $this->relationship;
+    }
 
     public function featureEnabled(string $key, bool $default = false): bool
     {
@@ -82,10 +97,16 @@ final class CapabilityRequest
     }
 
     /** @return array<string,bool> */
-    public function featureFlags(): array { return $this->featureFlags; }
+    public function featureFlags(): array
+    {
+        return $this->featureFlags;
+    }
 
     /** @return array<string,bool> */
-    public function journalPolicy(): array { return $this->journalPolicy; }
+    public function journalPolicy(): array
+    {
+        return $this->journalPolicy;
+    }
 
     /** @return array<string,bool> */
     private function normalizeBooleanMap(array $input): array

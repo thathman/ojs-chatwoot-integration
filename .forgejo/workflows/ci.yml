@@ -36,6 +36,15 @@ jobs:
             php "$f"
             echo "::endgroup::"
           done
+      - name: v2 coding style (FND-011)
+        # Scoped to classes/v2 + tests/v2 only: legacy v1 files predate
+        # this ruleset and have not been reformatted (a separate,
+        # out-of-scope change); gating only the actively developed v2
+        # surface is the real, honest boundary rather than a repo-wide
+        # gate that would fail on unrelated legacy code today.
+        run: |
+          curl -sL -o /tmp/php-cs-fixer.phar https://cs.symfony.com/download/php-cs-fixer-v3.phar
+          php /tmp/php-cs-fixer.phar fix --dry-run --diff --config=.php-cs-fixer.php --path-mode=intersection -- classes/v2 tests/v2
       - name: Release-source guards
         run: |
           test -f LICENSE

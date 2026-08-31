@@ -61,6 +61,7 @@ final class SupportIdentitySerializer
 
     /**
      * @param int[] $roleIds
+     *
      * @return string[]
      */
     private static function roleLabels(array $roleIds): array

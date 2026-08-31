@@ -205,12 +205,23 @@ final class SupportSessionService
     public function revoke(string $publicId): bool
     {
         $session = $this->repository->findByPublicId(trim($publicId));
-        if (!$session || $session->isRevoked()) return false;
+        if (!$session || $session->isRevoked()) {
+            return false;
+        }
         $this->repository->save($session->revoked($this->now()));
         return true;
     }
 
-    public function purgeExpired(): int { return $this->repository->purgeExpired($this->now()); }
-    private function now(): int { return (int) ($this->clock)(); }
-    private function randomToken(int $bytes): string { return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '='); }
+    public function purgeExpired(): int
+    {
+        return $this->repository->purgeExpired($this->now());
+    }
+    private function now(): int
+    {
+        return (int) ($this->clock)();
+    }
+    private function randomToken(int $bytes): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes($bytes)), '+/', '-_'), '=');
+    }
 }

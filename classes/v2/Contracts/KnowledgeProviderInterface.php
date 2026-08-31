@@ -29,6 +29,7 @@ interface KnowledgeProviderInterface
     /**
      * @param object $context The OJS Context (journal); duck-typed, never assumed to be a specific class.
      * @param object $request The OJS PKPRequest, needed only for building public URLs.
+     *
      * @return KnowledgeFact[]
      */
     public function collect($context, $request, string $locale): array;
