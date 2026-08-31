@@ -201,3 +201,35 @@ This intentionally changes unsafe v1 behavior.
 **Status:** Accepted
 
 Crossref, DataCite, ORCID, Paystack/other payment plugins and future integrations are verified and versioned individually before their features are advertised. The Provider Registry is the extension mechanism.
+
+---
+
+## ADR-023 — MCP transport, SDK boundary, and scope (MCP-001)
+
+**Status:** Accepted
+
+**Protocol/transport:** target MCP revision `2026-07-28`, using stateless Streamable HTTP as the v2 remote transport — no deprecated HTTP+SSE transport, no STDIO in the OJS plugin runtime. OJS is an HTTP application; the MCP endpoint is a normal journal-scoped remote endpoint. This revision is intentionally stateless (no `initialize`/`initialized` handshake, no `Mcp-Session-Id`; each HTTP request is self-describing), which fits the existing stateless Support Gateway request model far better than introducing a second transport-session system alongside `SupportSession`.
+
+**SDK boundary:** `mcp/sdk` (the official PHP SDK) is not a required plugin runtime dependency for v2 — it remains pre-1.0/experimental, and this plugin currently ships with no runtime Composer dependency tree of its own. The wire/protocol implementation is custom but strictly isolated under `classes/v2/Mcp/`, containing protocol adaptation only:
+
+```
+OJS MCP PageHandler / HTTP adapter
+        |
+small MCP protocol layer
+        |
+MCP tool/resource registry
+        |
+existing Support Core/domain services
+```
+
+This keeps the door open to swap in the official SDK later without touching identity, relationships, capabilities, serializers, diagnostics, payment providers, the Knowledge Compiler, handoff, or the Support State Engine. The official SDK, MCP Inspector, and/or official conformance fixtures are used as development/test oracles where practical — never a second, divergent business/security implementation.
+
+**Scope:** initial server capability is `server/discover`, `tools/list`, `tools/call`, `resources/list`, `resources/read` only. No sampling, roots, legacy SSE, unnecessary prompts, Tasks, MCP Apps, or server-initiated capabilities unless a real product requirement later justifies them.
+
+**Authentication:** MCP transport authentication and end-user authorization are separate concepts. A valid MCP client credential proves only that the calling application may talk to the MCP server — never that a specific user owns a specific resource. MCP reuses the same authoritative chain every other adapter already uses: MCP client auth → Support identity → Relationship → Capability → allowlist serializer → safe response. MCP never trusts a client-supplied email/OJS user id/role/relationship/Chatwoot attribute/capability name as authoritative, and never lets possession of an MCP credential create V2/V3 assurance by itself.
+
+**Credential namespace:** a distinct MCP credential/config namespace — never a silent reuse of the Chatwoot API token, Captain API token, or Support API service token merely because all are bearer-shaped secrets. Public MCP and any future staff MCP plane use separate credentials/scopes. v2 builds only the public/read support MCP plane; per MCP-005, the staff MCP namespace stays reserved-but-unimplemented if no staff consumer plane exists yet in v2 — this is satisfied by making the public namespace structurally incapable of staff capabilities and testing that a public MCP credential cannot reach staff authority, never by inventing staff features to close a checkbox.
+
+**Tools/resources:** expose already-agreed Support Core concepts (`journal.get_profile`, `identity.get_support_identity`, `submission.get_support_status`, `support.escalate`, etc. — reconciled against the real Support Core at implementation time), never a mechanical one-tool-per-PHP-method wrapper and never provider internals. MCP resources surface only Knowledge Compiler public facts under an `ojs://journal/...` hierarchy; submission/user-specific live state stays behind authenticated tools, never a public static resource.
+
+**Sequencing:** MCP ships in slices (ADR/transport foundation → client auth/public consumer model → tool registry/first tools → full public tool set → Knowledge Compiler resources → REST equivalence + public/staff denial security tests → OpenClaw integration → docs/tasklist reconciliation), each independently mergeable, never one giant PR. After MCP: API-017 (OpenAPI schema) and API-018 (contract tests) reconcile the REST/MCP/Captain-Custom-Tools surfaces against the same domain/security model — shared schema definitions are extracted only when this work actually discovers real duplication, never as a speculative refactor. After that: the real OJS/DB integration runtime harness (TST-002/003), which is also where EVT-015's remaining real-database race proof completes. User-facing docs (DOC-001/002/...) follow once the externally visible MCP/OpenAPI/runtime surfaces have stabilized, not before.

@@ -248,7 +248,7 @@ Note: `ojs_get_payment_status` (API-012) was originally built directly against O
 
 ## MCP — MCP Adapter
 
-- [ ] **MCP-001** Select protocol/library implementation strategy.
+- [x] **MCP-001** Select protocol/library implementation strategy. — decided and recorded in `docs/v2/ADRS.md` ADR-023: MCP revision `2026-07-28`, stateless Streamable HTTP transport (no deprecated HTTP+SSE, no STDIO), custom protocol layer isolated under `classes/v2/Mcp/` rather than a required `mcp/sdk` runtime dependency (pre-1.0/experimental; this plugin ships no runtime Composer tree today). Initial scope: `server/discover`/`tools/list`/`tools/call`/`resources/list`/`resources/read` only. Transport foundation built: `McpProtocol` (revision + supported-method allowlist), `McpErrorCode` (JSON-RPC 2.0 codes + 3 MCP-specific ones), `McpRequest`/`McpResponse` (value objects), `McpRequestParser` (malformed JSON/wrong-shaped request/missing-or-wrong protocol revision all fail deterministically, never guessed), `McpDispatcher` (routes only methods in the supported-method allowlist, wraps handler exceptions into a generic error that never leaks internal detail, refuses to even register a handler for an unsupported method name). `tests/v2/mcp-protocol.php` covers test requirements 2/3/4 from ADR-023's list (malformed JSON, unsupported protocol revision, unknown method all fail safely). No tool/resource registry, no auth layer, and no Support Core wiring yet — that begins with MCP-002/003.
 - [ ] **MCP-002** Define MCP authentication/client model.
 - [ ] **MCP-003** Implement public/read MCP tool set.
 - [ ] **MCP-004** Implement safe public resources.
