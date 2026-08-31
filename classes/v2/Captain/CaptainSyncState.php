@@ -17,6 +17,7 @@ final class CaptainSyncState
 {
     public const RESOURCE_DOCUMENT = 'captain_document';
     public const RESOURCE_CUSTOM_TOOL = 'captain_custom_tool';
+    public const RESOURCE_SCENARIO = 'captain_scenario';
 
     public function __construct(
         private int $contextId,

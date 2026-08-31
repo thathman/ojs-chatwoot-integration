@@ -32,6 +32,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteC
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainCustomToolProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainDocumentProvisioner;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainScenarioProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\DatabaseSupportKnowledgeSyncRepository;
@@ -892,6 +893,42 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
             $provisioner = new CaptainCustomToolProvisioner($chatwoot, new DatabaseSupportKnowledgeSyncRepository());
             return $provisioner->provisionAll($contextId, $locale, $operationUrls, $serviceToken, time());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Idempotent Captain Scenario provisioning (CanonicalScenarioCatalog,
+     * CaptainScenarioProvisioner) — same not-yet-wired-to-a-route/cron
+     * caveat as the Document/Custom Tool provisioning entry points above.
+     * Depends on Custom Tool provisioning having already run for this
+     * journal, since a scenario's instruction can only reference a tool
+     * by its real assigned slug.
+     *
+     * @return array<string,CaptainSyncResult>|null
+     */
+    public function provisionCaptainScenarios($request): ?array
+    {
+        $context = $request->getContext();
+        if (!$context || !method_exists($context, 'getId')) {
+            return null;
+        }
+        $contextId = (int) $context->getId();
+
+        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+        $assistantId = (int) $this->v2EffectiveSetting($contextId, 'chatwootCaptainAssistantId', 0);
+        if ($baseUrl === '' || $apiToken === '' || $assistantId <= 0) {
+            return null;
+        }
+
+        $locale = (string) Locale::getLocale();
+
+        try {
+            $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+            $provisioner = new CaptainScenarioProvisioner($chatwoot, new DatabaseSupportKnowledgeSyncRepository());
+            return $provisioner->provisionAll($contextId, $locale, $assistantId, time());
         } catch (\Throwable $e) {
             return null;
         }

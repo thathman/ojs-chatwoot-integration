@@ -313,9 +313,40 @@ would have appeared missing. Fixed with `JsonRequestBodyParser`, which
 bridges a JSON body into `$_POST` (never overwriting an existing key, and
 only for scalar values) before any endpoint reads `getUserVar()`.
 
-Scenario provisioning (CWO-011) is not implemented yet, though the real
-Chatwoot route already confirmed to exist is `resources :scenarios`
-nested under `assistants`.
+**As actually implemented (CWO-011), Scenarios:** `CaptainScenarioProvisioner`
++ `CanonicalScenarioCatalog`, verified against real
+`enterprise/app/controllers/api/v1/accounts/captain/scenarios_controller.rb`
+(nested under one assistant) and `enterprise/app/models/captain/scenario.rb`.
+The one finding that shapes this entirely: `Captain::Scenario` has a
+`before_save :resolve_tool_references` callback that recomputes its
+`tools` column by regex-parsing `[Title](tool://slug)` markdown
+references directly out of the `instruction` text
+(`TOOL_REFERENCE_REGEX` in `captain_tools_helpers.rb`) — the `tools`
+array the create/update API accepts is not the real source of truth, so
+this provisioner never sends it at all. Instead, each canonical
+scenario's instruction template carries `{{tool:<canonicalToolKey>}}`
+placeholders, resolved to the real `[Title](tool://slug)` reference using
+the actual slug Chatwoot assigned when the tool was created (`slug` is
+server-generated with a collision suffix, never predictable/computed
+locally — resolved by reading it back from `listCaptainCustomTools()`).
+
+Provisioning Scenarios therefore depends on Custom Tool provisioning
+having already run for the same journal. A scenario whose required tools
+are not yet resolvable fails that one scenario closed with
+`required_tool_unavailable` — it is never provisioned with a broken or
+missing tool reference, and this does not block the other, independently
+resolvable scenarios in the same pass. Ownership/ conflict/idempotency
+follow the same shape as Custom Tools: a local `CaptainSyncState` record
+(`resourceType=captain_scenario`, keyed per scenario), an existing
+unmanaged scenario with the same title is a recorded conflict (never
+adopted/duplicated), and Scenarios do have a real update endpoint, so a
+changed instruction (e.g. from a tool being re-provisioned) pushes a
+genuine update.
+
+Per docs/v2/KNOWLEDGE_DIAGNOSTICS.md §7, "Journal Information" uses zero
+tools by design (knowledge/FAQ lookup only) — verified this is the one
+canonical scenario that always succeeds even before any Custom Tool
+exists.
 
 ## 7. Recommended Captain scenarios
 

@@ -65,6 +65,21 @@ final class FakeToolClient implements ChatwootCaptainClientInterface
         $this->updatedDefinitions[$toolId] = $definition;
         return $this->updateResult;
     }
+
+    public function listCaptainScenarios(int $assistantId): array
+    {
+        return [];
+    }
+
+    public function createCaptainScenario(int $assistantId, array $definition): ?array
+    {
+        return null;
+    }
+
+    public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool
+    {
+        return false;
+    }
 }
 
 function operationUrlsFor(): array

@@ -209,4 +209,28 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         ]);
         return (bool) $result['ok'];
     }
+
+    public function listCaptainScenarios(int $assistantId): array {
+        $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistants/{$assistantId}/scenarios");
+        if (!$result['ok']) return [];
+        $data = $result['data'] ?? [];
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        return array_values(array_filter($payload, 'is_array'));
+    }
+
+    public function createCaptainScenario(int $assistantId, array $definition): ?array {
+        $result = $this->requestJson('POST', "accounts/{$this->accountId}/captain/assistants/{$assistantId}/scenarios", [
+            'json' => ['scenario' => $definition],
+        ]);
+        if (!$result['ok']) return null;
+        $data = $result['data'] ?? [];
+        return is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : null);
+    }
+
+    public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool {
+        $result = $this->requestJson('PATCH', "accounts/{$this->accountId}/captain/assistants/{$assistantId}/scenarios/{$scenarioId}", [
+            'json' => ['scenario' => $definition],
+        ]);
+        return (bool) $result['ok'];
+    }
 }
