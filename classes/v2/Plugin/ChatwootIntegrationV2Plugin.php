@@ -63,6 +63,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpHandlerError;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpProtocol;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequestParser;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResourceRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
@@ -1678,6 +1679,29 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             }
         );
 
+        $resourceRegistry = new McpResourceRegistry();
+        $resourceRegistry->register(
+            "ojs://journal/{$contextId}/support-profile",
+            'Journal support profile',
+            'Public journal.* support facts compiled by the Knowledge Compiler.',
+            'application/json',
+            fn (): array => JournalProfileTool::handle($compilation)
+        );
+        $resourceRegistry->register(
+            "ojs://journal/{$contextId}/submission-guidelines",
+            'Submission guidelines',
+            'Public submission.* facts compiled by the Knowledge Compiler.',
+            'application/json',
+            fn (): array => SubmissionPolicyTool::handle($compilation)
+        );
+        $resourceRegistry->register(
+            "ojs://journal/{$contextId}/fee-policy",
+            'Fee policy',
+            'Public fee.* facts compiled by the Knowledge Compiler.',
+            'application/json',
+            fn (): array => FeePolicyTool::handle($compilation)
+        );
+
         $dispatcher = new McpDispatcher();
         $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_LIST, fn (McpRequest $r): array => ['tools' => $registry->list()]);
         $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_CALL, function (McpRequest $r) use ($registry): array {
@@ -1690,6 +1714,14 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'params.arguments must be an object when present.');
             }
             return ['content' => $registry->call($name, $arguments)];
+        });
+        $dispatcher->registerHandler(McpProtocol::METHOD_RESOURCES_LIST, fn (McpRequest $r): array => ['resources' => $resourceRegistry->list()]);
+        $dispatcher->registerHandler(McpProtocol::METHOD_RESOURCES_READ, function (McpRequest $r) use ($resourceRegistry): array {
+            $uri = $r->params()['uri'] ?? null;
+            if (!is_string($uri) || $uri === '') {
+                throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'params.uri must be a non-empty string.');
+            }
+            return ['contents' => [$resourceRegistry->read($uri)]];
         });
 
         $this->v2McpRespond($dispatcher->dispatch($parsed));
