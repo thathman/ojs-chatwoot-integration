@@ -4,18 +4,18 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## FND — Foundation
 
-- [ ] **FND-001** Add root GPL-compatible `LICENSE`.
-- [ ] **FND-002** Add root `SECURITY.md` and private vulnerability process.
-- [ ] **FND-003** Add `CONTRIBUTING.md` and v2 branch/review conventions.
-- [ ] **FND-004** Inventory all v1 settings and classify keep/migrate/deprecate/remove.
-- [ ] **FND-005** Inventory all v1 hooks against supported OJS versions.
-- [ ] **FND-006** Baseline v1 widget/API/event regression tests.
-- [ ] **FND-007** Define service/container structure for v2 modules.
-- [ ] **FND-008** Create OJS compatibility adapter interface(s).
-- [ ] **FND-009** Build install/upgrade/uninstall migration framework.
-- [ ] **FND-010** Remove secrets from normal settings export/default diagnostics.
-- [ ] **FND-011** Add coding/static-analysis rules compatible with PKP target.
-- [ ] **FND-012** Add CI skeleton for package/tests.
+- [x] **FND-001** Add root GPL-compatible `LICENSE`. — root `LICENSE` (GPL-3.0-or-later, SPDX-tagged).
+- [x] **FND-002** Add root `SECURITY.md` and private vulnerability process.
+- [x] **FND-003** Add `CONTRIBUTING.md` and v2 branch/review conventions.
+- [ ] **FND-004** Inventory all v1 settings and classify keep/migrate/deprecate/remove. — partial: `docs/v2/V1_INVENTORY.md` §"v1 settings classification" covers connection/identity, widget/privacy/visibility, global defaults, and retry/event-bridge settings groups with a keep/migrate/deprecate disposition each; not a literal per-setting-key table.
+- [ ] **FND-005** Inventory all v1 hooks against supported OJS versions. — partial: `docs/v2/V1_INVENTORY.md` §"Registered hooks in v1" lists the hooks themselves; does not cross-check each against a supported-OJS-version compatibility matrix.
+- [ ] **FND-006** Baseline v1 widget/API/event regression tests. — partial: `tests/v2/live-plugin.php` covers v1 widget-rendering fallback (v2 bootstrap failure must never block `parent::addChatwootWidget()`) and settings export/redaction; no baseline coverage exists yet for v1's original event-sync/retry-queue behavior itself.
+- [x] **FND-007** Define service/container structure for v2 modules. — `classes/v2/` is organized by module (`Api`, `Audit`, `Captain`, `Chatwoot`, `Compatibility`, `Context`, `Contracts`, `Diagnostics`, `Handoff`, `Http`, `Knowledge`, `Migration`, `Plugin`, `Policy`, `Provider`, `Relationship`, `Runtime`, `Session`, `Settings`, `State`, `Task`, `Verification`), composed through `SupportGatewayKernel`/`RuntimeContextBridge` rather than a DI container — no framework container exists to hook into in a PKP plugin, so a hand-wired composition root is the real service-structure equivalent here.
+- [x] **FND-008** Create OJS compatibility adapter interface(s). — `OjsCompatibilityAdapterInterface` + `Ojs35CompatibilityAdapter`.
+- [x] **FND-009** Build install/upgrade/uninstall migration framework. — `InstallSupportGatewayMigration` (sessions/challenges/knowledge-sync/audit-log tables), edited in place pre-release rather than versioned, per docs/v2 pre-release migration policy.
+- [x] **FND-010** Remove secrets from normal settings export/default diagnostics. — `exportSettings()` strips `chatwootApiAccessToken`/`chatwootIdentityValidationSecret`/`chatwootSupportApiToken` and reports which keys were redacted rather than exporting them.
+- [x] **FND-011** Add coding/static-analysis rules compatible with PKP target. — `.php-cs-fixer.php`, the exact ruleset from a real local `pkp-lib` checkout's own `.php_cs_rules` (minus its repo-internal `PKP/hookfixer` custom fixer, which has no equivalent here). Gated in CI (`.forgejo/workflows/ci.yml`) as `--dry-run` against `classes/v2`/`tests/v2` only — legacy v1 files predate this ruleset and have not been reformatted (a separate, out-of-scope change); a repo-wide gate today would fail on unrelated legacy code. The `.github/workflows/ci.yml` mirror is publication-only per house rules (never a merge gate) and was already stale before this change (it lists a narrower, outdated subset of v2 test files); not touched here.
+- [x] **FND-012** Add CI skeleton for package/tests. — `.forgejo/workflows/ci.yml` (real gate for every PR merged into `v2-dev` this whole build) and a mirrored `.github/workflows/ci.yml`.
 
 ## CTX — OJS Context
 

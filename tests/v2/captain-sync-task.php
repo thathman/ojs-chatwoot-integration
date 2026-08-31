@@ -6,16 +6,27 @@ namespace PKP\plugins {
     class GenericPlugin
     {
         private array $testSettings = [];
-        public function setTestSetting(int $contextId, string $key, mixed $value): void { $this->testSettings[$contextId][$key] = $value; }
-        public function getSetting($contextId, $key) { return $this->testSettings[(int) $contextId][(string) $key] ?? null; }
-        public function getEnabled($contextId = null) { return (bool) ($this->testSettings[(int) $contextId]['enableWidget'] ?? false); }
+        public function setTestSetting(int $contextId, string $key, mixed $value): void
+        {
+            $this->testSettings[$contextId][$key] = $value;
+        }
+        public function getSetting($contextId, $key)
+        {
+            return $this->testSettings[(int) $contextId][(string) $key] ?? null;
+        }
+        public function getEnabled($contextId = null)
+        {
+            return (bool) ($this->testSettings[(int) $contextId]['enableWidget'] ?? false);
+        }
     }
 }
 
 namespace PKP\core {
     class JSONMessage
     {
-        public function __construct(public bool $status, public mixed $content = null) {}
+        public function __construct(public bool $status, public mixed $content = null)
+        {
+        }
     }
 }
 
@@ -25,10 +36,19 @@ namespace PKP\scheduledTask {
         /** @var string[] */
         public array $logEntries = [];
 
-        public function getName(): string { return 'test-task'; }
+        public function getName(): string
+        {
+            return 'test-task';
+        }
         abstract protected function executeActions(): bool;
-        public function execute(): bool { return $this->executeActions(); }
-        public function addExecutionLogEntry(string $message, ?string $type = null): void { $this->logEntries[] = $message; }
+        public function execute(): bool
+        {
+            return $this->executeActions();
+        }
+        public function addExecutionLogEntry(string $message, ?string $type = null): void
+        {
+            $this->logEntries[] = $message;
+        }
     }
 
     final class PKPScheduler
@@ -43,9 +63,18 @@ namespace PKP\scheduledTask {
 
     final class FakeScheduleEvent
     {
-        public function daily(): static { return $this; }
-        public function name(string $name): static { return $this; }
-        public function withoutOverlapping(): static { return $this; }
+        public function daily(): static
+        {
+            return $this;
+        }
+        public function name(string $name): static
+        {
+            return $this;
+        }
+        public function withoutOverlapping(): static
+        {
+            return $this;
+        }
     }
 }
 
@@ -59,15 +88,24 @@ namespace PKP\plugins\interfaces {
 namespace PKP\facades {
     class Locale
     {
-        public static function getLocale(): string { return 'en'; }
+        public static function getLocale(): string
+        {
+            return 'en';
+        }
     }
 }
 
 namespace APP\core {
     class Application
     {
-        public static function get(): self { return new self(); }
-        public function getRequest(): object { return new \stdClass(); }
+        public static function get(): self
+        {
+            return new self();
+        }
+        public function getRequest(): object
+        {
+            return new \stdClass();
+        }
     }
 }
 
@@ -113,9 +151,17 @@ namespace {
 
     final class FakeJournalForCaptainSync
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
-        public function getPath(): string { return 'journal-' . $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
+        public function getPath(): string
+        {
+            return 'journal-' . $this->id;
+        }
     }
 
     final class RecordingCaptainSyncPlugin extends ChatwootIntegrationV2Plugin

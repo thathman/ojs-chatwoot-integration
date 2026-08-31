@@ -18,22 +18,43 @@ function resourceCheck(bool $condition, string $message): void
 
 final class FakeResource
 {
-    public function __construct(private int $id, private int $contextId) {}
-    public function getId(): int { return $this->id; }
-    public function getData(string $key): mixed { return $key === 'contextId' ? $this->contextId : null; }
+    public function __construct(private int $id, private int $contextId)
+    {
+    }
+    public function getId(): int
+    {
+        return $this->id;
+    }
+    public function getData(string $key): mixed
+    {
+        return $key === 'contextId' ? $this->contextId : null;
+    }
 }
 
 final class FakeTemplateManager
 {
-    public function __construct(private array $vars) {}
-    public function getTemplateVars(string $key): mixed { return $this->vars[$key] ?? null; }
+    public function __construct(private array $vars)
+    {
+    }
+    public function getTemplateVars(string $key): mixed
+    {
+        return $this->vars[$key] ?? null;
+    }
 }
 
 final class FakeResourceRequest
 {
-    public function __construct(private mixed $submissionId = null, private array $args = []) {}
-    public function getUserVar(string $key): mixed { return $key === 'submissionId' ? $this->submissionId : null; }
-    public function getRequestedArgs(): array { return $this->args; }
+    public function __construct(private mixed $submissionId = null, private array $args = [])
+    {
+    }
+    public function getUserVar(string $key): mixed
+    {
+        return $key === 'submissionId' ? $this->submissionId : null;
+    }
+    public function getRequestedArgs(): array
+    {
+        return $this->args;
+    }
 }
 
 $resolver = new ResourceContextResolver();

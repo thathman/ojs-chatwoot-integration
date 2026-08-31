@@ -7,11 +7,14 @@ namespace PKP\db {
     {
         public static function getDAO(string $name): object
         {
-            return new class {
+            return new class () {
                 public function getCurrentVersion(): object
                 {
-                    return new class {
-                        public function getVersionString(): string { return '3.5.0.0'; }
+                    return new class () {
+                        public function getVersionString(): string
+                        {
+                            return '3.5.0.0';
+                        }
                     };
                 }
             };
@@ -25,7 +28,10 @@ namespace PKP\user {
         /** @var array<int,object> */
         public static array $usersById = [];
 
-        public static function user(): self { return new self(); }
+        public static function user(): self
+        {
+            return new self();
+        }
 
         public function get(int $id): ?object
         {
@@ -56,14 +62,24 @@ namespace {
 
     final class FakeRole
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     final class FakeUser
     {
-        public function __construct(private int $id, private array $roleIds) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id, private array $roleIds)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getRoles(int $contextId): array
         {
             return array_map(static fn (int $id) => new FakeRole($id), $this->roleIds);
@@ -72,16 +88,34 @@ namespace {
 
     final class FakeContext
     {
-        public function getId(): int { return 7; }
-        public function getPath(): string { return 'journal-a'; }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
     }
 
     final class FakeRequest
     {
-        public function getContext(): object { return new FakeContext(); }
-        public function getUser(): ?object { return null; }
-        public function getRequestedPage(): string { return 'ojsSupportGateway'; }
-        public function getRequestedOp(): string { return 'status'; }
+        public function getContext(): object
+        {
+            return new FakeContext();
+        }
+        public function getUser(): ?object
+        {
+            return null;
+        }
+        public function getRequestedPage(): string
+        {
+            return 'ojsSupportGateway';
+        }
+        public function getRequestedOp(): string
+        {
+            return 'status';
+        }
     }
 
     // Author role ID 65538 (Author) per PKP\security\Role::ROLE_ID_AUTHOR.
@@ -92,9 +126,18 @@ namespace {
         /** @var array<string,SupportSession> */
         public array $sessions = [];
 
-        public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+        public function create(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function save(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function findByPublicId(string $publicId): ?SupportSession
+        {
+            return $this->sessions[$publicId] ?? null;
+        }
 
         public function claimBindingToken(
             string $bindingTokenHash,
@@ -158,9 +201,16 @@ namespace {
             return $matches[0] ?? null;
         }
 
-        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
-        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
-        public function purgeExpired(int $now): int { return 0; }
+        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
+        {
+        }
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void
+        {
+        }
+        public function purgeExpired(int $now): int
+        {
+            return 0;
+        }
     }
 
     $bridge = new RuntimeContextBridge();
@@ -299,7 +349,7 @@ namespace {
         substr_count($handlerSource, '$this->requirePost();') === 14,
         'status/identity/actions/accountDiagnostics/submissionDiagnostics/escalate/verificationRequest/verificationConfirm/submissionVerify/submissions/submissionSupport/requiredActions/publicationStatus/paymentStatus must all be POST-only (verify, the browser-facing GET link handler, is deliberately excluded)'
     );
-    statusCheck(str_contains($handlerSource, "function bind(\$args, \$request): JSONMessage"), '/bind must keep the PKP JSONMessage transport for the browser handshake');
+    statusCheck(str_contains($handlerSource, 'function bind($args, $request): JSONMessage'), '/bind must keep the PKP JSONMessage transport for the browser handshake');
 
     fwrite(STDOUT, "Support status API tests passed\n");
 }

@@ -10,9 +10,9 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncState;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\ChatwootCaptainClientInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportKnowledgeSyncRepositoryInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeClassification;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeFact;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeClassification;
 
 function captainProvisioningCheck(bool $condition, string $message): void
 {
@@ -198,7 +198,7 @@ captainProvisioningCheck(str_contains($migrationSource, "'cw_knowledge_sync_iden
 
 $pluginSource = (string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
 captainProvisioningCheck(str_contains($pluginSource, 'function provisionCaptainKnowledgeDocument'), 'plugin must implement the Captain document provisioning entry point');
-captainProvisioningCheck(str_contains($pluginSource, "chatwootCaptainAssistantId"), 'plugin must read a configurable Captain assistant id, never a hard-coded one');
+captainProvisioningCheck(str_contains($pluginSource, 'chatwootCaptainAssistantId'), 'plugin must read a configurable Captain assistant id, never a hard-coded one');
 
 $repositorySource = (string) file_get_contents($root . '/classes/v2/Captain/DatabaseSupportKnowledgeSyncRepository.php');
 captainProvisioningCheck(str_contains($repositorySource, 'DB::table(self::table())'), 'the database repository must go through the shared table() accessor, matching the rest of this codebase\'s repositories');

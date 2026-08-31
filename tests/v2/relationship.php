@@ -19,15 +19,28 @@ function relationshipCheck(bool $condition, string $message): void
 
 final class FakeSubmission
 {
-    public function __construct(private int $id, private int $contextId) {}
-    public function getId(): int { return $this->id; }
-    public function getData(string $key): mixed { return $key === 'contextId' ? $this->contextId : null; }
+    public function __construct(private int $id, private int $contextId)
+    {
+    }
+    public function getId(): int
+    {
+        return $this->id;
+    }
+    public function getData(string $key): mixed
+    {
+        return $key === 'contextId' ? $this->contextId : null;
+    }
 }
 
 final class FakeEvidenceProvider implements SubmissionRelationshipEvidenceProviderInterface
 {
-    public function __construct(private array $evidence) {}
-    public function evidence(SupportContext $context, $submission): array { return $this->evidence; }
+    public function __construct(private array $evidence)
+    {
+    }
+    public function evidence(SupportContext $context, $submission): array
+    {
+        return $this->evidence;
+    }
 }
 
 $multiRoleContext = new SupportContext(7, 'journal-a', 42, [16, 4096], 'workflow', 'index', 'en');

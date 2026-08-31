@@ -14,7 +14,7 @@ namespace PKP\db {
         public static function getDAO(string $name): object
         {
             if ($name === 'OJSCompletedPaymentDAO') {
-                return new class {
+                return new class () {
                     public function hasPaidPublication($userId, $articleId): bool
                     {
                         return \PKP\db\DAORegistry::$completedPublicationPayments["{$userId}:{$articleId}"] ?? false;
@@ -22,11 +22,14 @@ namespace PKP\db {
                 };
             }
 
-            return new class {
+            return new class () {
                 public function getCurrentVersion(): object
                 {
-                    return new class {
-                        public function getVersionString(): string { return '3.5.0.0'; }
+                    return new class () {
+                        public function getVersionString(): string
+                        {
+                            return '3.5.0.0';
+                        }
                     };
                 }
                 public function getLastReviewRoundBySubmissionId(int $submissionId, ?int $stageId = null): ?object
@@ -35,9 +38,14 @@ namespace PKP\db {
                     if ($status === null) {
                         return null;
                     }
-                    return new class($status) {
-                        public function __construct(private int $status) {}
-                        public function getStatus(): int { return $this->status; }
+                    return new class ($status) {
+                        public function __construct(private int $status)
+                        {
+                        }
+                        public function getStatus(): int
+                        {
+                            return $this->status;
+                        }
                     };
                 }
             };
@@ -48,8 +56,13 @@ namespace PKP\db {
 namespace APP\payment\ojs {
     final class OJSPaymentManager
     {
-        public function __construct(private $context) {}
-        public function isConfigured(): bool { return (bool) $this->context->getData('paymentsEnabled'); }
+        public function __construct(private $context)
+        {
+        }
+        public function isConfigured(): bool
+        {
+            return (bool) $this->context->getData('paymentsEnabled');
+        }
         public function publicationEnabled(): bool
         {
             $fee = $this->context->getData('publicationFee');
@@ -64,7 +77,10 @@ namespace PKP\user {
         /** @var array<int,object> */
         public static array $usersById = [];
 
-        public static function user(): self { return new self(); }
+        public static function user(): self
+        {
+            return new self();
+        }
 
         public function get(int $id): ?object
         {
@@ -97,7 +113,7 @@ namespace APP\facades {
 
         public static function submission(): object
         {
-            return new class {
+            return new class () {
                 public function get(int $id): ?object
                 {
                     return \APP\facades\Repo::$submissionsById[$id] ?? null;
@@ -107,7 +123,7 @@ namespace APP\facades {
 
         public static function user(): object
         {
-            return new class {
+            return new class () {
                 public function getAccessibleWorkflowStages(int $userId, int $contextId, $submission, array $roleIds): array
                 {
                     $submissionId = is_object($submission) && method_exists($submission, 'getId') ? $submission->getId() : 0;
@@ -118,10 +134,10 @@ namespace APP\facades {
 
         public static function reviewAssignment(): object
         {
-            return new class {
+            return new class () {
                 public function getCollector(): object
                 {
-                    return new class {
+                    return new class () {
                         private array $submissionIds = [];
                         private array $reviewerIds = [];
 
@@ -162,7 +178,6 @@ namespace {
 
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\DiagnosticResultSerializer;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
@@ -188,8 +203,13 @@ namespace {
 
     final class FakeReviewAssignment
     {
-        public function __construct(private int $status) {}
-        public function getStatus(): int { return $this->status; }
+        public function __construct(private int $status)
+        {
+        }
+        public function getStatus(): int
+        {
+            return $this->status;
+        }
     }
 
     final class FakeSubmission
@@ -202,7 +222,10 @@ namespace {
             private string $submissionProgress = ''
         ) {
         }
-        public function getId(): int { return $this->id; }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getData(string $key): mixed
         {
             return match ($key) {
@@ -215,22 +238,35 @@ namespace {
         }
         public function getCurrentPublication(): object
         {
-            return new class {
-                public function getLocalizedTitle(): string { return 'Untitled'; }
+            return new class () {
+                public function getLocalizedTitle(): string
+                {
+                    return 'Untitled';
+                }
             };
         }
     }
 
     final class FakeRole
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     final class FakeOjsUser
     {
-        public function __construct(private int $id, private array $roleIds) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id, private array $roleIds)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getRoles(int $contextId): array
         {
             return array_map(static fn (int $id) => new FakeRole($id), $this->roleIds);
@@ -239,9 +275,17 @@ namespace {
 
     final class FakeContext
     {
-        public function __construct(private bool $paymentsEnabled = false, private float $publicationFee = 0.0, private string $currency = 'USD') {}
-        public function getId(): int { return 7; }
-        public function getPath(): string { return 'journal-a'; }
+        public function __construct(private bool $paymentsEnabled = false, private float $publicationFee = 0.0, private string $currency = 'USD')
+        {
+        }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
         public function getData(string $key): mixed
         {
             return match ($key) {
@@ -255,11 +299,25 @@ namespace {
 
     final class FakeRequest
     {
-        public function __construct(private FakeContext $context) {}
-        public function getContext(): object { return $this->context; }
-        public function getUser(): ?object { return null; }
-        public function getRequestedPage(): string { return 'ojsSupportGateway'; }
-        public function getRequestedOp(): string { return 'submissionDiagnostics'; }
+        public function __construct(private FakeContext $context)
+        {
+        }
+        public function getContext(): object
+        {
+            return $this->context;
+        }
+        public function getUser(): ?object
+        {
+            return null;
+        }
+        public function getRequestedPage(): string
+        {
+            return 'ojsSupportGateway';
+        }
+        public function getRequestedOp(): string
+        {
+            return 'submissionDiagnostics';
+        }
     }
 
     // ================================================================
@@ -388,9 +446,18 @@ namespace {
         /** @var array<string,SupportSession> */
         public array $sessions = [];
 
-        public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+        public function create(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function save(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function findByPublicId(string $publicId): ?SupportSession
+        {
+            return $this->sessions[$publicId] ?? null;
+        }
 
         public function claimBindingToken(
             string $bindingTokenHash,
@@ -441,9 +508,16 @@ namespace {
             return null;
         }
 
-        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
-        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
-        public function purgeExpired(int $now): int { return 0; }
+        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
+        {
+        }
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void
+        {
+        }
+        public function purgeExpired(int $now): int
+        {
+            return 0;
+        }
     }
 
     $now = time();

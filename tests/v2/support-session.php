@@ -23,9 +23,18 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
     /** @var array<string,SupportSession> */
     public array $sessions = [];
 
-    public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-    public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-    public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+    public function create(SupportSession $session): void
+    {
+        $this->sessions[$session->publicId()] = $session;
+    }
+    public function save(SupportSession $session): void
+    {
+        $this->sessions[$session->publicId()] = $session;
+    }
+    public function findByPublicId(string $publicId): ?SupportSession
+    {
+        return $this->sessions[$publicId] ?? null;
+    }
 
     public function claimBindingToken(
         string $bindingTokenHash,
@@ -129,7 +138,9 @@ final class InMemorySupportSessionRepository implements SupportSessionRepository
 
 $now = 1_800_000_000;
 $repo = new InMemorySupportSessionRepository();
-$service = new SupportSessionService($repo, static function () use (&$now): int { return $now; });
+$service = new SupportSessionService($repo, static function () use (&$now): int {
+    return $now;
+});
 $authenticated = new SupportContext(7, 'journal-a', 42, [16, 4096], 'workflow', 'index', 'en');
 $guest = new SupportContext(7, 'journal-a', null, [], 'index', 'index', 'en');
 
@@ -184,7 +195,9 @@ sessionCheck($service->revoke($replacementBootstrap->sessionRef()) === false, 'r
 
 $shortNow = 2_000_000_000;
 $shortRepo = new InMemorySupportSessionRepository();
-$shortService = new SupportSessionService($shortRepo, static function () use (&$shortNow): int { return $shortNow; }, 10, 20, 5);
+$shortService = new SupportSessionService($shortRepo, static function () use (&$shortNow): int {
+    return $shortNow;
+}, 10, 20, 5);
 $shortBootstrap = $shortService->bootstrapAuthenticated($authenticated);
 $shortNow += 6;
 sessionCheck(
@@ -204,7 +217,7 @@ $shortNow = $absolute;
 sessionCheck($shortService->resolveConversation(7, '1', '100', '701') === null, 'absolute expiry must terminate support session');
 
 $migrationSource = (string) file_get_contents($root . '/classes/v2/Migration/InstallSupportGatewayMigration.php');
-sessionCheck(str_contains($migrationSource, "binding_token_hash"), 'migration must store hashed binding token');
+sessionCheck(str_contains($migrationSource, 'binding_token_hash'), 'migration must store hashed binding token');
 sessionCheck(!str_contains($migrationSource, "->string('binding_token',"), 'migration must never create plaintext binding token column');
 
 $repositorySource = (string) file_get_contents($root . '/classes/v2/Session/DatabaseSupportSessionRepository.php');

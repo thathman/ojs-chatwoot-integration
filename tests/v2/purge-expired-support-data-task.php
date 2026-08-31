@@ -9,10 +9,19 @@ namespace PKP\scheduledTask {
         /** @var string[] */
         public array $logEntries = [];
 
-        public function getName(): string { return 'test-task'; }
+        public function getName(): string
+        {
+            return 'test-task';
+        }
         abstract protected function executeActions(): bool;
-        public function execute(): bool { return $this->executeActions(); }
-        public function addExecutionLogEntry(string $message, ?string $type = null): void { $this->logEntries[] = $message; }
+        public function execute(): bool
+        {
+            return $this->executeActions();
+        }
+        public function addExecutionLogEntry(string $message, ?string $type = null): void
+        {
+            $this->logEntries[] = $message;
+        }
     }
 }
 
@@ -58,12 +67,20 @@ namespace {
     final class FakePurgeSessionRepository
     {
         public int $now = 0;
-        public function purgeExpired(int $now): int { $this->now = $now; return 3; }
+        public function purgeExpired(int $now): int
+        {
+            $this->now = $now;
+            return 3;
+        }
     }
     final class FakePurgeChallengeRepository
     {
         public int $now = 0;
-        public function purgeExpired(int $now): int { $this->now = $now; return 5; }
+        public function purgeExpired(int $now): int
+        {
+            $this->now = $now;
+            return 5;
+        }
     }
     final class FakePurgeAuditLogger
     {
@@ -84,7 +101,8 @@ namespace {
             private FakePurgeSessionRepository $sessions,
             private FakePurgeChallengeRepository $challenges,
             private FakePurgeAuditLogger $auditLog
-        ) {}
+        ) {
+        }
         protected function executeActions(): bool
         {
             try {

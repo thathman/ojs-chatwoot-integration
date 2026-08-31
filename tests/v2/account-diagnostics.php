@@ -7,11 +7,14 @@ namespace PKP\db {
     {
         public static function getDAO(string $name): object
         {
-            return new class {
+            return new class () {
                 public function getCurrentVersion(): object
                 {
-                    return new class {
-                        public function getVersionString(): string { return '3.5.0.0'; }
+                    return new class () {
+                        public function getVersionString(): string
+                        {
+                            return '3.5.0.0';
+                        }
                     };
                 }
             };
@@ -25,7 +28,10 @@ namespace PKP\user {
         /** @var array<int,object> */
         public static array $usersById = [];
 
-        public static function user(): self { return new self(); }
+        public static function user(): self
+        {
+            return new self();
+        }
 
         public function get(int $id): ?object
         {
@@ -72,34 +78,68 @@ namespace {
 
     final class FakeUser
     {
-        public function __construct(private int $id, private array $roleIds, private ?bool $disabled = false, private ?string $dateValidated = '2026-01-01 00:00:00') {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id, private array $roleIds, private ?bool $disabled = false, private ?string $dateValidated = '2026-01-01 00:00:00')
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
         public function getRoles(int $contextId): array
         {
             return array_map(static fn (int $id) => new FakeRole($id), $this->roleIds);
         }
-        public function getDisabled(): ?bool { return $this->disabled; }
-        public function getDateValidated(): ?string { return $this->dateValidated; }
+        public function getDisabled(): ?bool
+        {
+            return $this->disabled;
+        }
+        public function getDateValidated(): ?string
+        {
+            return $this->dateValidated;
+        }
     }
 
     final class FakeRole
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     final class FakeContext
     {
-        public function getId(): int { return 7; }
-        public function getPath(): string { return 'journal-a'; }
+        public function getId(): int
+        {
+            return 7;
+        }
+        public function getPath(): string
+        {
+            return 'journal-a';
+        }
     }
 
     final class FakeRequest
     {
-        public function getContext(): object { return new FakeContext(); }
-        public function getUser(): ?object { return null; }
-        public function getRequestedPage(): string { return 'ojsSupportGateway'; }
-        public function getRequestedOp(): string { return 'accountDiagnostics'; }
+        public function getContext(): object
+        {
+            return new FakeContext();
+        }
+        public function getUser(): ?object
+        {
+            return null;
+        }
+        public function getRequestedPage(): string
+        {
+            return 'ojsSupportGateway';
+        }
+        public function getRequestedOp(): string
+        {
+            return 'accountDiagnostics';
+        }
     }
 
     // ================================================================
@@ -208,9 +248,18 @@ namespace {
         /** @var array<string,SupportSession> */
         public array $sessions = [];
 
-        public function create(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function save(SupportSession $session): void { $this->sessions[$session->publicId()] = $session; }
-        public function findByPublicId(string $publicId): ?SupportSession { return $this->sessions[$publicId] ?? null; }
+        public function create(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function save(SupportSession $session): void
+        {
+            $this->sessions[$session->publicId()] = $session;
+        }
+        public function findByPublicId(string $publicId): ?SupportSession
+        {
+            return $this->sessions[$publicId] ?? null;
+        }
 
         public function claimBindingToken(
             string $bindingTokenHash,
@@ -261,9 +310,16 @@ namespace {
             return null;
         }
 
-        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void {}
-        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void {}
-        public function purgeExpired(int $now): int { return 0; }
+        public function revokeActiveUnboundForUser(int $contextId, int $userId, int $now): void
+        {
+        }
+        public function revokeOthersForConversation(int $contextId, string $chatwootAccountId, string $chatwootContactId, string $chatwootConversationId, string $exceptPublicId, int $now): void
+        {
+        }
+        public function purgeExpired(int $now): int
+        {
+            return 0;
+        }
     }
 
     $now = time();

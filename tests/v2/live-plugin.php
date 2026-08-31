@@ -27,17 +27,27 @@ namespace PKP\plugins {
 namespace PKP\core {
     class JSONMessage
     {
-        public function __construct(public bool $status, public mixed $content = null) {}
+        public function __construct(public bool $status, public mixed $content = null)
+        {
+        }
     }
 }
 
 namespace PKP\scheduledTask {
     abstract class ScheduledTask
     {
-        public function getName(): string { return 'test-task'; }
+        public function getName(): string
+        {
+            return 'test-task';
+        }
         abstract protected function executeActions(): bool;
-        public function execute(): bool { return $this->executeActions(); }
-        public function addExecutionLogEntry(string $message, ?string $type = null): void {}
+        public function execute(): bool
+        {
+            return $this->executeActions();
+        }
+        public function addExecutionLogEntry(string $message, ?string $type = null): void
+        {
+        }
     }
 
     /** Mirrors only the fluent surface ChatwootIntegrationV2Plugin::registerSchedules() actually calls. */
@@ -55,9 +65,20 @@ namespace PKP\scheduledTask {
     {
         public ?string $name = null;
         public bool $withoutOverlapping = false;
-        public function daily(): static { return $this; }
-        public function name(string $name): static { $this->name = $name; return $this; }
-        public function withoutOverlapping(): static { $this->withoutOverlapping = true; return $this; }
+        public function daily(): static
+        {
+            return $this;
+        }
+        public function name(string $name): static
+        {
+            $this->name = $name;
+            return $this;
+        }
+        public function withoutOverlapping(): static
+        {
+            $this->withoutOverlapping = true;
+            return $this;
+        }
     }
 }
 
@@ -71,15 +92,24 @@ namespace PKP\plugins\interfaces {
 namespace PKP\facades {
     class Locale
     {
-        public static function getLocale(): string { return 'en'; }
+        public static function getLocale(): string
+        {
+            return 'en';
+        }
     }
 }
 
 namespace APP\core {
     class Application
     {
-        public static function get(): self { return new self(); }
-        public function getRequest(): object { return new \stdClass(); }
+        public static function get(): self
+        {
+            return new self();
+        }
+        public function getRequest(): object
+        {
+            return new \stdClass();
+        }
     }
 }
 
@@ -104,12 +134,18 @@ namespace {
 
     final class FakeExportContext
     {
-        public function getId(): int { return 7; }
+        public function getId(): int
+        {
+            return 7;
+        }
     }
 
     final class FakeExportRequest
     {
-        public function getContext(): object { return new FakeExportContext(); }
+        public function getContext(): object
+        {
+            return new FakeExportContext();
+        }
     }
 
     $plugin = new ChatwootIntegrationV2Plugin();
