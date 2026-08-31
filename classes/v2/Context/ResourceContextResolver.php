@@ -80,9 +80,31 @@ final class ResourceContextResolver
         return $id ? new ResourceContext('submission', $id, 'request_parameter') : null;
     }
 
+    /**
+     * CTX-007: the reviewer-role review page (`pages/reviewer/ReviewerHandler`,
+     * operations submission/step/saveStep/showDeclineReview/saveDeclineReview/
+     * downloadFile — verified against a real local pkp-lib checkout) is
+     * authorized via `SubmissionAccessPolicy` -> `SubmissionRequiredPolicy` ->
+     * `DataObjectRequiredPolicy::getDataObjectId()`, which reads `args[0]` as
+     * the submission id exactly like the workflow page does. OJS never
+     * exposes a distinct reviewId/reviewRoundId in route args at this layer
+     * (review-round detail is fetched client-side via grids/API calls), so
+     * there is no separate "review" resource type to detect here — only
+     * confirmation that a submission is in view via the reviewer route.
+     */
+    private const KNOWN_ROUTES = [
+        'workflow' => null,
+        'reviewer' => ['submission', 'step', 'savestep', 'showdeclinereview', 'savedeclinereview', 'downloadfile'],
+    ];
+
     private function fromKnownRoute(SupportContext $supportContext, $request): ?ResourceContext
     {
-        if (strtolower($supportContext->page()) !== 'workflow') {
+        $page = strtolower($supportContext->page());
+        if (!array_key_exists($page, self::KNOWN_ROUTES)) {
+            return null;
+        }
+        $allowedOperations = self::KNOWN_ROUTES[$page];
+        if ($allowedOperations !== null && !in_array(strtolower($supportContext->operation()), $allowedOperations, true)) {
             return null;
         }
         if (!is_object($request) || !method_exists($request, 'getRequestedArgs')) {
@@ -100,7 +122,7 @@ final class ResourceContextResolver
         }
 
         $id = $this->positiveInt(reset($args));
-        return $id ? new ResourceContext('submission', $id, 'known_route') : null;
+        return $id ? new ResourceContext('submission', $id, 'known_route:' . $page) : null;
     }
 
     private function matchesContext(object $resource, int $contextId): bool
