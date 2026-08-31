@@ -17,12 +17,14 @@ final class InstallSupportGatewayMigration extends Migration
     public const SESSION_TABLE = 'chatwoot_support_sessions';
     public const CHALLENGE_TABLE = 'chatwoot_support_verification_challenges';
     public const KNOWLEDGE_SYNC_TABLE = 'chatwoot_support_knowledge_sync';
+    public const AUDIT_LOG_TABLE = 'chatwoot_support_audit_log';
 
     public function up(): void
     {
         $this->upSessions();
         $this->upChallenges();
         $this->upKnowledgeSync();
+        $this->upAuditLog();
     }
 
     private function upSessions(): void
@@ -147,8 +149,39 @@ final class InstallSupportGatewayMigration extends Migration
         });
     }
 
+    /**
+     * Persisted Support API allow/deny audit trail (docs/v2/TASKLIST.md
+     * AUD-001), replacing the `error_log()` placeholder sink
+     * (`ErrorLogSupportApiAuditLogger`). Deliberately only the fields
+     * `SupportApiRequestResolver` already safely records today
+     * (`correlation_id`/`endpoint`/`context_id`/`decision`/`reason`/
+     * `assurance`) — never a PIN, token, or other secret, since none of
+     * those are ever passed to `SupportApiAuditLoggerInterface::record()`
+     * in the first place (see `DatabaseSupportApiAuditLogger`'s own
+     * allowlist, which drops any unrecognized key defensively).
+     */
+    private function upAuditLog(): void
+    {
+        if (Schema::hasTable(self::AUDIT_LOG_TABLE)) {
+            return;
+        }
+
+        Schema::create(self::AUDIT_LOG_TABLE, function (Blueprint $table): void {
+            $table->comment('Persisted Support API allow/deny audit trail.');
+            $table->bigIncrements('id');
+            $table->string('correlation_id', 64)->index();
+            $table->bigInteger('context_id')->index();
+            $table->string('endpoint', 64);
+            $table->string('decision', 8);
+            $table->string('reason', 64);
+            $table->string('assurance', 8)->nullable();
+            $table->dateTime('created_at')->index();
+        });
+    }
+
     public function down(): void
     {
+        Schema::dropIfExists(self::AUDIT_LOG_TABLE);
         Schema::dropIfExists(self::KNOWLEDGE_SYNC_TABLE);
         Schema::dropIfExists(self::CHALLENGE_TABLE);
         Schema::dropIfExists(self::SESSION_TABLE);
