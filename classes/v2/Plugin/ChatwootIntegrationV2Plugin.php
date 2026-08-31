@@ -74,6 +74,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusToo
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionDiagnosticsTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionListTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
@@ -1591,6 +1592,66 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 }
 
                 return ['escalated' => true, 'noteCreated' => $noteCreated, 'duplicate' => $duplicate, 'summary' => $summary];
+            }
+        );
+        $registry->register(
+            SubmissionListTool::NAME,
+            SubmissionListTool::DESCRIPTION,
+            SubmissionListTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.submission.list_mine');
+
+                $pagination = PaginationParams::parse($arguments['limit'] ?? null, $arguments['offset'] ?? null);
+                if ($pagination === null) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'limit/offset are invalid.');
+                }
+
+                if (!$result->verified()) {
+                    return SubmissionListTool::handle($result);
+                }
+
+                $bridge = $this->runtimeContextBridge();
+                $listDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                    CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
+                    $result->assurance(),
+                    $result->identity()
+                ));
+                if (!$listDecision || !$listDecision->allows('submission.list_own')) {
+                    return SubmissionListTool::handle($result);
+                }
+
+                $candidateCap = 200;
+                $candidates = $bridge->listCandidateSubmissions($result->identity()->contextId(), $result->identity()->userId() ?? 0, $candidateCap);
+
+                $entries = [];
+                $seenSubmissionIds = [];
+                foreach ($candidates as $submission) {
+                    $relationship = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                    if (!$relationship || $relationship->isEmpty()) {
+                        continue;
+                    }
+                    if (!$relationship->has('author') && !$relationship->has('reviewer')) {
+                        continue;
+                    }
+                    if (isset($seenSubmissionIds[$relationship->resourceId()])) {
+                        continue;
+                    }
+                    $seenSubmissionIds[$relationship->resourceId()] = true;
+
+                    $stateFields = $bridge->getSubmissionStateFields($submission);
+                    $entries[] = [
+                        'relationship' => $relationship,
+                        'title' => $bridge->getSubmissionTitle($submission),
+                        'supportState' => SupportStateMapper::map($stateFields['status'], $stateFields['stageId'], $stateFields['reviewRoundStatus'], $stateFields['submissionProgress']),
+                        'actionRequired' => null,
+                    ];
+                }
+
+                $total = count($entries);
+                $page = array_slice($entries, $pagination->offset, $pagination->limit);
+                $hasMore = ($pagination->offset + count($page)) < $total;
+
+                return SubmissionListTool::handleVerified($result, $page, $pagination, $hasMore);
             }
         );
 
