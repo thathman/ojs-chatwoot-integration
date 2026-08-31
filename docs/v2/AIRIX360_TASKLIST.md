@@ -60,14 +60,22 @@ Target repo: `Airix360/submissionFee-OJS`.
 
 Target repo: `Airix360/ojs-request-waiver`.
 
-- [ ] **AWA-001** Detect plugin installed/enabled/version.
-- [ ] **AWA-002** Call documented `getWaiverDiscount(submissionId)` integration method when present.
+Note: AWA-008 (public waiver *policy* knowledge) is implemented — see below.
+AWA-001..007/009 concern the *obligation*-side integration (a specific
+submission's waiver decision, feeding into the Payment Portfolio) and
+remain unbuilt; that is a different trust contract from the knowledge
+slice below (see the `PaymentSupportProviderInterface` vs
+`KnowledgeProviderInterface` freeze note in `TASKLIST.md`'s KNO section)
+and has no real second producer/use case forcing it yet.
+
+- [ ] **AWA-001** Detect plugin installed/enabled/version. — partial: `Ojs35CompatibilityAdapter::getAirixRequestWaiverPolicy()` detects installed/enabled (via `PluginRegistry`), but does not check a version constraint the way `getAirixSubmissionFeeProvider()` does for `submissionFee-OJS`.
+- [ ] **AWA-002** Call documented `getWaiverDiscount(submissionId)` integration method when present. — Not built; this is obligation-side (AWA-002..007/009), not the policy-only knowledge slice.
 - [ ] **AWA-003** Normalize none/pending/approved/denied waiver states.
 - [ ] **AWA-004** Normalize full vs partial approval and percentage.
 - [ ] **AWA-005** Calculate/display remaining payable amount only through fee producer + waiver contract.
 - [ ] **AWA-006** Expose safe `request_waiver` action/link when allowed.
 - [ ] **AWA-007** Exclude waiver reason/history/decision notes from default public serializer.
-- [ ] **AWA-008** Add public knowledge provider for waiver policy/instructions where configured public.
+- [x] **AWA-008** Add public knowledge provider for waiver policy/instructions where configured public. — `CorePaymentKnowledgeProvider::addAirixWaiverPolicy()` reads the plugin's own configured `boxTitle`/`boxBody` settings (verified against a real local checkout of `Airix360/ojs-request-waiver`'s `SettingsForm.php`) and publishes `fee.waiverPolicy` only when a fee is actually active (`RequestWaiverPlugin::activeFeeType()` non-null) and the body text is non-empty. Never reads `waiverStatus`/`waiverPercent`/`getWaiverDiscount()` — those remain submission-specific and out of scope for this fact.
 - [ ] **AWA-009** Add waiver requested/approved/denied/partial event adapters where stable.
 - [ ] **AWA-010** Define staff-plane waiver-decision capabilities but do not implement in public Captain.
 - [ ] **AWA-011** Contract-test exact supported Request Waiver releases.

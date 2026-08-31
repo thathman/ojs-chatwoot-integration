@@ -58,6 +58,18 @@ namespace APP\plugins\generic\submissionFee {
     }
 }
 
+namespace APP\plugins\generic\requestWaiver {
+    /** Mirrors only the surface CorePaymentKnowledgeProvider/adapter actually call — see a real local checkout of Airix360/ojs-request-waiver. */
+    final class RequestWaiverPlugin
+    {
+        public array $settings = [];
+        public function __construct(private bool $enabled, private ?string $activeFeeType) {}
+        public function getEnabled(int $contextId): bool { return $this->enabled; }
+        public function activeFeeType($context): ?string { return $this->activeFeeType; }
+        public function getSetting(int $contextId, string $name): mixed { return $this->settings[$name] ?? null; }
+    }
+}
+
 namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
@@ -123,6 +135,40 @@ namespace {
     knowledgePaymentCheck($airixEnabledCompilation->fact('fee.submissionCurrency')?->value() === 'NGN', 'Airix submission fee currency must surface');
     knowledgePaymentCheck($airixEnabledCompilation->fact('fee.publicationEnabled')?->value() === 'false', 'native and Airix fee facts must coexist under distinct keys, never overwrite each other');
 
+    // ================================================================
+    // Airix Request Waiver policy text: only journal-configured boxTitle/boxBody
+    // ever surface — never a submission's waiver decision/history/percent.
+    // ================================================================
+    $noWaiverPluginCompilation = $compiler->compile($feeContext, new \stdClass(), 7, 'en');
+    knowledgePaymentCheck($noWaiverPluginCompilation->fact('fee.waiverPolicy') === null, 'no waiver fact when the Request Waiver plugin is absent');
+
+    $disabledWaiverPlugin = new \APP\plugins\generic\requestWaiver\RequestWaiverPlugin(false, 'publication');
+    \PKP\plugins\PluginRegistry::$plugins['generic']['requestwaiverplugin'] = $disabledWaiverPlugin;
+    $disabledWaiverCompilation = $compiler->compile($feeContext, new \stdClass(), 7, 'en');
+    knowledgePaymentCheck($disabledWaiverCompilation->fact('fee.waiverPolicy') === null, 'no waiver fact when the Request Waiver plugin is disabled');
+
+    $noActiveFeeWaiverPlugin = new \APP\plugins\generic\requestWaiver\RequestWaiverPlugin(true, null);
+    $noActiveFeeWaiverPlugin->settings = ['boxTitle' => 'Request a Fee Waiver', 'boxBody' => 'Tell us why you need a waiver.'];
+    \PKP\plugins\PluginRegistry::$plugins['generic']['requestwaiverplugin'] = $noActiveFeeWaiverPlugin;
+    $noActiveFeeCompilation = $compiler->compile($feeContext, new \stdClass(), 7, 'en');
+    knowledgePaymentCheck($noActiveFeeCompilation->fact('fee.waiverPolicy') === null, 'no waiver fact when no fee is currently active (activeFeeType() null), even if boxBody is configured');
+
+    $activeWaiverPlugin = new \APP\plugins\generic\requestWaiver\RequestWaiverPlugin(true, 'publication');
+    $activeWaiverPlugin->settings = ['boxTitle' => 'Request a Fee Waiver', 'boxBody' => '<p>Tell us why you need a waiver.</p><script>alert(1)</script>'];
+    \PKP\plugins\PluginRegistry::$plugins['generic']['requestwaiverplugin'] = $activeWaiverPlugin;
+    $activeWaiverCompilation = $compiler->compile($feeContext, new \stdClass(), 7, 'en');
+    $waiverFact = $activeWaiverCompilation->fact('fee.waiverPolicy');
+    knowledgePaymentCheck($waiverFact !== null, 'an active fee with configured waiver text must surface fee.waiverPolicy');
+    knowledgePaymentCheck(str_contains($waiverFact->value(), 'Request a Fee Waiver'), 'waiver policy fact must include the configured title');
+    knowledgePaymentCheck(str_contains($waiverFact->value(), 'Tell us why you need a waiver'), 'waiver policy fact must include the configured body');
+    knowledgePaymentCheck(!str_contains($waiverFact->value(), '<script'), 'waiver policy text must be sanitized');
+
+    $emptyBodyWaiverPlugin = new \APP\plugins\generic\requestWaiver\RequestWaiverPlugin(true, 'submission');
+    $emptyBodyWaiverPlugin->settings = ['boxTitle' => 'Waivers', 'boxBody' => ''];
+    \PKP\plugins\PluginRegistry::$plugins['generic']['requestwaiverplugin'] = $emptyBodyWaiverPlugin;
+    $emptyBodyCompilation = $compiler->compile($feeContext, new \stdClass(), 7, 'en');
+    knowledgePaymentCheck($emptyBodyCompilation->fact('fee.waiverPolicy') === null, 'an empty configured body must omit the fact rather than publishing a title-only stub');
+
     $policySource = '';
     foreach (token_get_all((string) file_get_contents($root . '/classes/v2/Knowledge/CorePaymentKnowledgeProvider.php')) as $token) {
         if (is_array($token) && in_array($token[0], [T_COMMENT, T_DOC_COMMENT], true)) {
@@ -130,7 +176,7 @@ namespace {
         }
         $policySource .= is_array($token) ? $token[1] : $token;
     }
-    foreach (['$submission', 'hasPaid', 'waiverDiscount', 'needsRefundReview', 'resolveObligation', "'paid'", "'unpaid'", "'refund_review'", "'refunded'"] as $forbidden) {
+    foreach (['$submission', 'hasPaid', 'waiverDiscount', 'needsRefundReview', 'resolveObligation', "'paid'", "'unpaid'", "'refund_review'", "'refunded'", 'waiverStatus', 'waiverPercent', 'waiverHistory'] as $forbidden) {
         knowledgePaymentCheck(!str_contains($policySource, $forbidden), "CorePaymentKnowledgeProvider must never reference \"{$forbidden}\" — it reads policy only, never obligation state");
     }
 
@@ -147,6 +193,13 @@ namespace {
     $policyMethodBody = substr($adapterMethodSource, $policyStart, $policyEnd - $policyStart);
     foreach (['hasPaid', 'waiverDiscount', 'needsRefundReview', 'AirixSubmissionFeeProvider('] as $forbidden) {
         knowledgePaymentCheck(!str_contains($policyMethodBody, $forbidden), "getAirixSubmissionFeePolicy() must never touch \"{$forbidden}\" — that is the private obligation path (getAirixSubmissionFeeProvider), a different trust contract");
+    }
+
+    $waiverPolicyStart = strpos($adapterMethodSource, 'function getAirixRequestWaiverPolicy');
+    knowledgePaymentCheck($waiverPolicyStart !== false, 'getAirixRequestWaiverPolicy() must exist as its own method');
+    $waiverPolicyBody = substr($adapterMethodSource, $waiverPolicyStart, 1200);
+    foreach (['getWaiverDiscount', 'waiverStatus', 'waiverPercent', '$submissionId'] as $forbidden) {
+        knowledgePaymentCheck(!str_contains($waiverPolicyBody, $forbidden), "getAirixRequestWaiverPolicy() must never touch \"{$forbidden}\" — that is a submission-specific waiver decision, not journal-level policy text");
     }
 
     fwrite(STDOUT, "Knowledge payment tests passed\n");
