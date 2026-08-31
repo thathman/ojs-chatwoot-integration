@@ -49,6 +49,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventMessage
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ResponseTimingNormalizer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
@@ -84,6 +85,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 {
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const SUPPORT_KNOWLEDGE_PAGE = 'support-knowledge';
+    /** IDN-015: response-timing floor for ojs_request_verification, masking the found-vs-not-found timing gap. */
+    private const VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS = 0.3;
     private const LEGACY_EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
         'chatwootSupportApiToken',
@@ -838,6 +841,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
 
         $auditReason = 'malformed_request';
+        // IDN-015: normalized below to a fixed floor regardless of which
+        // branch runs, closing the timing side-channel between "user not
+        // found" (near-instant) and "user found, mail sent" (real hashing
+        // + mail work).
+        $timingStartedAt = microtime(true);
 
         try {
             if ($chatwootAccountId !== '' && $chatwootContactId !== '' && $chatwootConversationId !== '') {
@@ -893,6 +901,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
 
         $this->v2AuditVerificationEvent('verificationRequest', $contextId, $auditReason === 'challenge_created' ? 'allow' : 'deny', $auditReason, $result->correlationId());
+
+        ResponseTimingNormalizer::normalize($timingStartedAt, self::VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS);
 
         SupportApiResponse::success(['verificationRequested' => true], $result->correlationId());
     }
