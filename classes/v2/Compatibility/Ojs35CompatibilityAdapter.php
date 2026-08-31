@@ -723,4 +723,60 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
 
         return ['enabled' => true, 'requestUrl' => $requestUrl];
     }
+
+    /**
+     * Configured required submission-file genre *names* only
+     * (docs/v2/AIRIX360_INTEGRATIONS.md §7.3 ARF-002/003) — journal-level
+     * submission guidance, never a specific submission's missing-file
+     * diagnosis (that is a separate, unbuilt authorized diagnostic,
+     * ARF-004/005). Verified against a real local checkout of
+     * `Airix360/ojs-required-submission-files-airix`
+     * (`RequiredSubmissionFilesPlugin::getRequiredGenreIds()`,
+     * `checkRequiredGenres()`'s own `GenreDAO::getById()` +
+     * `getLocalizedName()` resolution — a genre ID configured on a prior
+     * context, since disabled/removed, is silently skipped exactly as
+     * that plugin's own hook does, never surfaced as a broken reference).
+     *
+     * @return string[]
+     */
+    public function getAirixRequiredSubmissionFileGenres($context): array
+    {
+        if (!is_object($context) || !method_exists($context, 'getId') || !class_exists('\PKP\plugins\PluginRegistry')) {
+            return [];
+        }
+
+        try {
+            \PKP\plugins\PluginRegistry::loadCategory('generic');
+            $plugin = \PKP\plugins\PluginRegistry::getPlugin('generic', 'requiredsubmissionfilesplugin');
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        if (!is_object($plugin) || !method_exists($plugin, 'getEnabled') || !$plugin->getEnabled((int) $context->getId())) {
+            return [];
+        }
+
+        try {
+            $contextId = (int) $context->getId();
+            $genreIds = method_exists($plugin, 'getRequiredGenreIds') ? $plugin->getRequiredGenreIds($contextId) : [];
+            if (!is_array($genreIds) || $genreIds === [] || !class_exists('\PKP\db\DAORegistry')) {
+                return [];
+            }
+
+            $genreDao = \PKP\db\DAORegistry::getDAO('GenreDAO');
+            $names = [];
+            foreach ($genreIds as $genreId) {
+                $genre = $genreDao->getById((int) $genreId, $contextId);
+                if ($genre && method_exists($genre, 'getLocalizedName')) {
+                    $name = trim((string) $genre->getLocalizedName());
+                    if ($name !== '') {
+                        $names[] = $name;
+                    }
+                }
+            }
+            return $names;
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
 }

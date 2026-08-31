@@ -55,7 +55,7 @@ final class SupportGatewayKernel
         if (!$adapter) return null;
 
         $knowledgeCompiler = new KnowledgeCompiler();
-        $knowledgeCompiler->registerProvider(new CoreJournalKnowledgeProvider());
+        $knowledgeCompiler->registerProvider(new CoreJournalKnowledgeProvider($adapter));
         $knowledgeCompiler->registerProvider(new CorePaymentKnowledgeProvider($adapter));
         $knowledgeCompiler->registerProvider(new CorePublicationKnowledgeProvider());
         $knowledgeCompiler->registerProvider(new OfficialPageKnowledgeProvider($adapter));
