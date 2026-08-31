@@ -225,9 +225,9 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSession;

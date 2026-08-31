@@ -132,12 +132,12 @@ namespace {
     require_once $root . '/classes/v2/bootstrap.php';
 
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSerializer;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
