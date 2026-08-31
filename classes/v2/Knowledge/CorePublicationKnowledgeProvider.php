@@ -12,11 +12,13 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProvid
  * Support API endpoint, never here.
  *
  * Every accessor verified against a real local checkout of `ojs`
- * `stable-3_5_0`: `Journal::PUBLISHING_MODE_{OPEN,SUBSCRIPTION,NONE}`
- * (classes/journal/Journal.php), `enableDois`/`delayedOpenAccessDuration`
- * (schemas/context.json), and the `issue/current`+`issue/archive` page
- * routes already used by OJS core itself (NotificationManager,
- * OJSPaymentManager, SitemapHandler).
+ * `stable-3_5_0`/`pkp-lib`: `Journal::PUBLISHING_MODE_{OPEN,SUBSCRIPTION,NONE}`
+ * (classes/journal/Journal.php), `enableDois`/`doiPrefix`/`delayedOpenAccessDuration`
+ * (schemas/context.json; `doiPrefix` also verified against
+ * `Context::SETTING_DOI_PREFIX` and `classes/doi/Repository.php`, which
+ * reads it the same way to build a complete DOI), and the
+ * `issue/current`+`issue/archive` page routes already used by OJS core
+ * itself (NotificationManager, OJSPaymentManager, SitemapHandler).
  */
 final class CorePublicationKnowledgeProvider implements KnowledgeProviderInterface
 {
@@ -141,6 +143,41 @@ final class CorePublicationKnowledgeProvider implements KnowledgeProviderInterfa
             $locale,
             $this->providerId(),
             'enableDois'
+        );
+
+        $this->addDoiPrefix($facts, $context, $locale);
+    }
+
+    /**
+     * KNO-009: the journal's own DOI prefix (verified against a real local
+     * `pkp-lib` checkout — `Context::SETTING_DOI_PREFIX = 'doiPrefix'`,
+     * `classes/doi/Repository.php` reads it the same way to build a
+     * complete DOI). Public by nature — a DOI prefix is registered
+     * publicly with the DOI agency (Crossref/DataCite), never a secret —
+     * so this is safe to surface as-is, with no sanitization needed
+     * beyond the same defensive non-empty-string check every other fact
+     * here uses.
+     */
+    private function addDoiPrefix(array &$facts, $context, string $locale): void
+    {
+        try {
+            $prefix = $context->getData('doiPrefix');
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (!is_string($prefix) || trim($prefix) === '') {
+            return;
+        }
+
+        $facts[] = new KnowledgeFact(
+            'publication.doiPrefix',
+            trim($prefix),
+            KnowledgeClassification::PUBLIC,
+            'ojs.context',
+            $locale,
+            $this->providerId(),
+            'doiPrefix'
         );
     }
 
