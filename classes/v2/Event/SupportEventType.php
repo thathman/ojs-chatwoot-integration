@@ -1,0 +1,43 @@
+<?php
+
+namespace APP\plugins\generic\chatwootIntegration\classes\v2\Event;
+
+/**
+ * Normalized Event Bridge event types (docs/v2/TASKLIST.md EVT-001).
+ *
+ * One constant per real v1 event kind (`ChatwootIntegrationPlugin`'s
+ * `eventSubmissionCreated`/`eventRevisionRequested`/`eventAccepted`/
+ * `eventRejected`/`eventPublicationScheduled`/`eventPublicationPublished`/
+ * `eventDecisionRecorded` settings and their hook handlers
+ * `handleSubmissionCreated()`/`handleEditorDecision()`/status-change
+ * handlers) — dot-notation naming to match this codebase's existing
+ * capability namespace (`CapabilityCatalog`), not a new convention.
+ *
+ * Defining the type catalog is EVT-001's job. Which hook actually fires
+ * which type, and what happens after, is EVT-003 onward (event
+ * adapters/delivery) — deliberately not built here.
+ */
+final class SupportEventType
+{
+    public const SUBMISSION_CREATED = 'submission.created';
+    public const SUBMISSION_DECISION_RECORDED = 'submission.decision_recorded';
+    public const SUBMISSION_REVISION_REQUESTED = 'submission.revision_requested';
+    public const SUBMISSION_ACCEPTED = 'submission.accepted';
+    public const SUBMISSION_REJECTED = 'submission.rejected';
+    public const PUBLICATION_SCHEDULED = 'publication.scheduled';
+    public const PUBLICATION_PUBLISHED = 'publication.published';
+
+    /** @return string[] */
+    public static function all(): array
+    {
+        return [
+            self::SUBMISSION_CREATED,
+            self::SUBMISSION_DECISION_RECORDED,
+            self::SUBMISSION_REVISION_REQUESTED,
+            self::SUBMISSION_ACCEPTED,
+            self::SUBMISSION_REJECTED,
+            self::PUBLICATION_SCHEDULED,
+            self::PUBLICATION_PUBLISHED,
+        ];
+    }
+}
