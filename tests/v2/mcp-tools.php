@@ -128,9 +128,13 @@ mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_support_status'
 mcpToolsCheck(str_contains($mcpMethodBody, 'PublicationStatusTool'), 'mcpRequest() must register the real PublicationStatusTool');
 mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_publication_status'"), 'the publication-status tool must gate on the real submission.read_own_publication_status capability, same as REST');
 mcpToolsCheck(
-    substr_count($mcpMethodBody, 'v2ResolveMcpSubmissionContext') >= 3,
-    'all three submission-scoped tools built so far must resolve through the same shared helper, never each inventing its own copy'
+    substr_count($mcpMethodBody, 'v2ResolveMcpSubmissionContext') >= 4,
+    'all four submission-scoped tools built so far must resolve through the same shared helper, never each inventing its own copy'
 );
+mcpToolsCheck(str_contains($mcpMethodBody, 'PaymentStatusTool'), 'mcpRequest() must register the real PaymentStatusTool');
+mcpToolsCheck(str_contains($mcpMethodBody, "'submission.read_own_payment_status'"), 'the payment-status tool must gate on the real submission.read_own_payment_status capability, same as REST');
+mcpToolsCheck(str_contains($mcpMethodBody, 'v2ResolvePaymentObligations'), 'the payment-status tool must resolve provider obligations through the same shared helper REST uses, never a bespoke copy');
+mcpToolsCheck(str_contains($mcpMethodBody, "['payment_status' => \$feeInfo['enabled']]"), 'the payment-status tool must pass the real payment_status feature flag into capability evaluation, same as REST');
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
