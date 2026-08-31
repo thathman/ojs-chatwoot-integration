@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
 
 /**
  * Public account-*help* knowledge — never account state
@@ -24,6 +25,10 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProvid
  */
 final class AccountsKnowledgeProvider implements KnowledgeProviderInterface
 {
+    public function __construct(private OjsCompatibilityAdapterInterface $adapter)
+    {
+    }
+
     public function providerId(): string
     {
         return 'core.accounts';
@@ -39,6 +44,7 @@ final class AccountsKnowledgeProvider implements KnowledgeProviderInterface
         $this->addRegistration($facts, $context, $request, $locale);
         $this->addLoginAndPasswordReset($facts, $context, $request, $locale);
         $this->addOrcid($facts, $context, $locale);
+        $this->addMagicLogin($facts, $context, $request, $locale);
         return $facts;
     }
 
@@ -104,6 +110,49 @@ final class AccountsKnowledgeProvider implements KnowledgeProviderInterface
             $this->providerId(),
             'OrcidManager::isEnabled()'
         );
+    }
+
+    /**
+     * Airix Magic Login availability (docs/v2/AIRIX360_INTEGRATIONS.md
+     * §7.2 AML-002) — only whether passwordless sign-in is offered by this
+     * journal and, if so, its public request URL. Never touches whether
+     * any specific email has an account (AML-004's anti-enumeration
+     * rule) — this fact has no email parameter anywhere in its call chain.
+     */
+    private function addMagicLogin(array &$facts, $context, $request, string $locale): void
+    {
+        try {
+            $availability = $this->adapter->getAirixMagicLoginAvailability($context, $request);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (!is_array($availability) || !($availability['enabled'] ?? false)) {
+            return;
+        }
+
+        $facts[] = new KnowledgeFact(
+            'accounts.magicLoginEnabled',
+            'true',
+            KnowledgeClassification::PUBLIC,
+            'airix.magic_login',
+            $locale,
+            $this->providerId(),
+            "MagicLoginPlugin::getSetting('enabled')"
+        );
+
+        $requestUrl = $availability['requestUrl'] ?? null;
+        if (is_string($requestUrl) && $requestUrl !== '') {
+            $facts[] = new KnowledgeFact(
+                'accounts.magicLoginUrl',
+                $requestUrl,
+                KnowledgeClassification::PUBLIC,
+                'airix.magic_login',
+                $locale,
+                $this->providerId(),
+                'magicLogin/request'
+            );
+        }
     }
 
     private function buildUrl($request, $context, string $page, ?string $op): ?string

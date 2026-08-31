@@ -65,6 +65,9 @@ interface OjsCompatibilityAdapterInterface
     /** Public waiver *policy* text only (never a submission's waiver decision). Null when absent/disabled. @return array{enabled:bool,title:?string,body:?string}|null */
     public function getAirixRequestWaiverPolicy($context): ?array;
 
+    /** Public passwordless sign-in availability/request URL only (never an email-existence check). Null when absent. @return array{enabled:bool,requestUrl:?string}|null */
+    public function getAirixMagicLoginAvailability($context, $request): ?array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

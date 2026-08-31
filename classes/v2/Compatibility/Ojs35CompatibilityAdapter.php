@@ -669,4 +669,58 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             return null;
         }
     }
+
+    /**
+     * Public passwordless sign-in *availability* only (docs/v2/AIRIX360_INTEGRATIONS.md
+     * §7.2) — never whether a specific email has an account, never a
+     * token/verifier value. Verified against a real local checkout of
+     * `Airix360/ojs-magic-login` (`MagicLoginPlugin::getSetting($contextId,
+     * 'enabled')`, `pages/MagicLoginHandler::request()` — the real public
+     * GET `magicLogin`/`request` route that renders the "email me a
+     * link" form).
+     *
+     * @return array{enabled:bool,requestUrl:?string}|null
+     */
+    public function getAirixMagicLoginAvailability($context, $request): ?array
+    {
+        if (!is_object($context) || !method_exists($context, 'getId') || !class_exists('\PKP\plugins\PluginRegistry')) {
+            return null;
+        }
+
+        try {
+            \PKP\plugins\PluginRegistry::loadCategory('generic');
+            $plugin = \PKP\plugins\PluginRegistry::getPlugin('generic', 'magicloginplugin');
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!is_object($plugin) || !method_exists($plugin, 'getEnabled') || !$plugin->getEnabled((int) $context->getId())) {
+            return null;
+        }
+
+        try {
+            $enabled = method_exists($plugin, 'getSetting') && (bool) $plugin->getSetting($context->getId(), 'enabled');
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!$enabled) {
+            return ['enabled' => false, 'requestUrl' => null];
+        }
+
+        $requestUrl = null;
+        if (is_object($request) && method_exists($context, 'getPath')) {
+            try {
+                $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
+                if (is_object($dispatcher) && method_exists($dispatcher, 'url')) {
+                    $url = $dispatcher->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), 'magicLogin', 'request');
+                    $requestUrl = is_string($url) && $url !== '' ? $url : null;
+                }
+            } catch (\Throwable $e) {
+                $requestUrl = null;
+            }
+        }
+
+        return ['enabled' => true, 'requestUrl' => $requestUrl];
+    }
 }
