@@ -122,6 +122,10 @@ final class SupportGatewayKernel
     {
         return $this->adapter->getMissingRequiredSubmissionFileGenreNames($context, $submission);
     }
+    public function getUploadLimits(): array
+    {
+        return $this->adapter->getUploadLimits();
+    }
     public function getPublicationFields($submission): array
     {
         return $this->adapter->getPublicationFields($submission);

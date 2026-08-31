@@ -1584,6 +1584,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 $bridge->getMissingRequiredSubmissionFileGenreNames($request->getContext(), $submission)
             ),
 
+            SubmissionDiagnosticEngine::SCOPE_UPLOAD_LIMIT => (static function () use ($bridge): DiagnosticResult {
+                $limits = $bridge->getUploadLimits();
+                return SubmissionDiagnosticEngine::diagnoseUploadLimit($limits['uploadMaxFilesizeBytes'], $limits['postMaxSizeBytes']);
+            })(),
+
             default => DiagnosticResult::unknown('UNKNOWN_SCOPE', 'This diagnostic scope is not recognized.'),
         };
 

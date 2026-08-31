@@ -255,6 +255,20 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array{uploadMaxFilesizeBytes:int,postMaxSizeBytes:int} */
+    public function getUploadLimits(): array
+    {
+        $fallback = ['uploadMaxFilesizeBytes' => 0, 'postMaxSizeBytes' => 0];
+        if (!$this->kernel) {
+            return $fallback;
+        }
+        try {
+            return $this->kernel->getUploadLimits();
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
     /** @return array{doi:?string,issueId:?int} */
     public function getPublicationFields($submission): array
     {

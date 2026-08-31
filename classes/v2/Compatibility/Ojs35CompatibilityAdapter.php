@@ -853,4 +853,41 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             return [];
         }
     }
+
+    /**
+     * DIA-007: the same two php.ini values pkp-lib itself derives its
+     * `UPLOAD_MAX_FILESIZE` constant from
+     * (`classes/core/PKPApplication.php`: `define('UPLOAD_MAX_FILESIZE',
+     * trim(ini_get('upload_max_filesize')))`) — there is no separate
+     * OJS-level upload-limit setting to read; PHP's own ini values are the
+     * real, only source of truth.
+     *
+     * @return array{uploadMaxFilesizeBytes:int,postMaxSizeBytes:int}
+     */
+    public function getUploadLimits(): array
+    {
+        return [
+            'uploadMaxFilesizeBytes' => self::parseIniBytes((string) ini_get('upload_max_filesize')),
+            'postMaxSizeBytes' => self::parseIniBytes((string) ini_get('post_max_size')),
+        ];
+    }
+
+    /** Parses PHP's ini shorthand byte notation (e.g. "8M", "512K", "1G", "0" = unlimited). */
+    private static function parseIniBytes(string $value): int
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return 0;
+        }
+
+        $unit = strtoupper(substr($value, -1));
+        $number = (int) $value;
+
+        return match ($unit) {
+            'G' => $number * 1024 * 1024 * 1024,
+            'M' => $number * 1024 * 1024,
+            'K' => $number * 1024,
+            default => (int) $value,
+        };
+    }
 }

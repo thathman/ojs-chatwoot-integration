@@ -19,6 +19,7 @@ final class SubmissionDiagnosticEngine
     public const SCOPE_PUBLICATION = 'publication';
     public const SCOPE_PAYMENT = 'payment';
     public const SCOPE_REQUIRED_FILES = 'required_files';
+    public const SCOPE_UPLOAD_LIMIT = 'upload_limit';
 
     public const SCOPES = [
         self::SCOPE_SUBMISSION_ACCESS,
@@ -28,6 +29,7 @@ final class SubmissionDiagnosticEngine
         self::SCOPE_PUBLICATION,
         self::SCOPE_PAYMENT,
         self::SCOPE_REQUIRED_FILES,
+        self::SCOPE_UPLOAD_LIMIT,
     ];
 
     /**
@@ -120,6 +122,37 @@ final class SubmissionDiagnosticEngine
             'At least one required submission file is still missing: ' . implode(', ', $missingGenreNames) . '.',
             ['REQUIRED_FILE_GENRES_MISSING'],
             ['upload_required_files']
+        );
+    }
+
+    /**
+     * DIA-007: system-wide, not submission-specific — this only checks
+     * whether the server's own PHP configuration could be silently
+     * rejecting/truncating uploads for anyone. The one universally
+     * well-known, deterministic PHP misconfiguration
+     * (https://www.php.net/manual/en/ini.core.php#ini.post-max-size):
+     * `post_max_size` set lower than `upload_max_filesize` means an upload
+     * at the "allowed" size actually fails, because the whole POST body is
+     * rejected first. This never guesses a "too small" threshold — there
+     * is no universally correct minimum to compare against.
+     */
+    public static function diagnoseUploadLimit(int $uploadMaxFilesizeBytes, int $postMaxSizeBytes): DiagnosticResult
+    {
+        if ($postMaxSizeBytes > 0 && $postMaxSizeBytes < $uploadMaxFilesizeBytes) {
+            return new DiagnosticResult(
+                DiagnosticResult::STATUS_CONFIRMED,
+                'UPLOAD_LIMIT_MISCONFIGURED',
+                'This server\'s upload configuration may reject file uploads even at the size it otherwise allows.',
+                ['POST_MAX_SIZE_BELOW_UPLOAD_MAX_FILESIZE'],
+                ['contact_editorial_office']
+            );
+        }
+
+        return new DiagnosticResult(
+            DiagnosticResult::STATUS_CONFIRMED,
+            'UPLOAD_LIMIT_NORMAL',
+            'This server\'s upload size configuration appears consistent.',
+            ['UPLOAD_LIMITS_CONSISTENT']
         );
     }
 

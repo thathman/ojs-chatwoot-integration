@@ -74,6 +74,9 @@ interface OjsCompatibilityAdapterInterface
     /** DIA-006: localized names of required genres this specific submission has no uploaded file for yet. @return string[] */
     public function getMissingRequiredSubmissionFileGenreNames($context, $submission): array;
 
+    /** DIA-007: PHP's real upload_max_filesize/post_max_size ini values in bytes — the only source of truth; OJS has no separate upload-limit setting. @return array{uploadMaxFilesizeBytes:int,postMaxSizeBytes:int} */
+    public function getUploadLimits(): array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }
