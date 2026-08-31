@@ -79,6 +79,21 @@ final class FakeCaptainClient implements ChatwootCaptainClientInterface
     {
         return false;
     }
+
+    public function listCaptainScenarios(int $assistantId): array
+    {
+        return [];
+    }
+
+    public function createCaptainScenario(int $assistantId, array $definition): ?array
+    {
+        return null;
+    }
+
+    public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool
+    {
+        return false;
+    }
 }
 
 function makeCompilation(int $contextId, string $locale, string $fingerprint): KnowledgeCompilation
