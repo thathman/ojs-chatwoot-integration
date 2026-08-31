@@ -291,7 +291,7 @@ Note: `ojs_get_payment_status` (API-012) was originally built directly against O
 ## SEC — Security Hardening
 
 - [ ] **SEC-001** Threat-model review before Phase 2 merge.
-- [ ] **SEC-002** Forged Chatwoot header test.
+- [x] **SEC-002** Forged Chatwoot header test. — `tests/v2/forged-chatwoot-header.php`: this plugin has no inbound Chatwoot webhook receiver and no code path anywhere in `classes/v2/` reads an `X-Chatwoot-*` header for identity/authorization (verified by grepping the entire real source tree, with a sanity check the search mechanism itself actually detects a known real header read). Conversation identity is instead re-derived by calling back into Chatwoot's own API with the server-side token and checking Chatwoot's own `meta.hmac_verified` response field — never a client-supplied header — so the vulnerability class this item targets structurally doesn't apply to this architecture.
 - [x] **SEC-003** Cross-journal IDOR test. — `tests/v2/submission-verify.php` (submission in another journal resolves no relationship; earlier chatwoot-binding tests cover the conversation-binding side).
 - [ ] **SEC-004** Cross-conversation session replay test.
 - [ ] **SEC-005** OTP brute-force/rate-limit test.
