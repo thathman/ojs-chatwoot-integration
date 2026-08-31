@@ -59,7 +59,7 @@ final class SupportGatewayKernel
         $knowledgeCompiler->registerProvider(new CorePaymentKnowledgeProvider($adapter));
         $knowledgeCompiler->registerProvider(new CorePublicationKnowledgeProvider());
         $knowledgeCompiler->registerProvider(new OfficialPageKnowledgeProvider($adapter));
-        $knowledgeCompiler->registerProvider(new AccountsKnowledgeProvider());
+        $knowledgeCompiler->registerProvider(new AccountsKnowledgeProvider($adapter));
 
         return new self(
             $ojsVersion,
