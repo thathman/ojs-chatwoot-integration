@@ -71,6 +71,9 @@ interface OjsCompatibilityAdapterInterface
     /** Configured required submission-file genre names only (never a specific submission's missing files). @return string[] */
     public function getAirixRequiredSubmissionFileGenres($context): array;
 
+    /** DIA-006: localized names of required genres this specific submission has no uploaded file for yet. @return string[] */
+    public function getMissingRequiredSubmissionFileGenreNames($context, $submission): array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

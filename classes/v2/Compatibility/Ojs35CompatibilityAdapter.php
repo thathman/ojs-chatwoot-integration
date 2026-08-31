@@ -741,6 +741,67 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
      */
     public function getAirixRequiredSubmissionFileGenres($context): array
     {
+        $contextId = is_object($context) && method_exists($context, 'getId') ? (int) $context->getId() : 0;
+        $genreIds = $this->requiredSubmissionFileGenreIds($context);
+        if ($genreIds === [] || $contextId <= 0) {
+            return [];
+        }
+
+        return $this->localizedGenreNames($genreIds, $contextId);
+    }
+
+    /**
+     * Compares the journal's Airix `RequiredSubmissionFilesPlugin`-configured
+     * required genres (see `getAirixRequiredSubmissionFileGenres()`) against
+     * the real files already uploaded on this submission
+     * (`Repo::submissionFile()`, verified against a real local checkout of
+     * `pkp-lib` — `SubmissionFile::getGenreId()`), returning the localized
+     * names of genres the submission is still missing a file for.
+     *
+     * DIA-006: deterministic by construction — a genre either has a
+     * matching uploaded file or it does not; never a guess.
+     *
+     * @return string[]
+     */
+    public function getMissingRequiredSubmissionFileGenreNames($context, $submission): array
+    {
+        $contextId = is_object($context) && method_exists($context, 'getId') ? (int) $context->getId() : 0;
+        $requiredGenreIds = $this->requiredSubmissionFileGenreIds($context);
+        if ($requiredGenreIds === [] || $contextId <= 0) {
+            return [];
+        }
+
+        $submissionId = is_object($submission) && method_exists($submission, 'getId') ? (int) $submission->getId() : 0;
+        if ($submissionId <= 0 || !class_exists('\APP\facades\Repo')) {
+            return [];
+        }
+
+        try {
+            $uploadedGenreIds = [];
+            $files = \APP\facades\Repo::submissionFile()
+                ->getCollector()
+                ->filterBySubmissionIds([$submissionId])
+                ->getMany();
+            foreach ($files as $file) {
+                if (is_object($file) && method_exists($file, 'getGenreId')) {
+                    $uploadedGenreIds[] = (int) $file->getGenreId();
+                }
+            }
+
+            $missingGenreIds = array_values(array_diff($requiredGenreIds, $uploadedGenreIds));
+            if ($missingGenreIds === []) {
+                return [];
+            }
+
+            return $this->localizedGenreNames($missingGenreIds, $contextId);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /** @return int[] */
+    private function requiredSubmissionFileGenreIds($context): array
+    {
         if (!is_object($context) || !method_exists($context, 'getId') || !class_exists('\PKP\plugins\PluginRegistry')) {
             return [];
         }
@@ -757,12 +818,25 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         }
 
         try {
-            $contextId = (int) $context->getId();
-            $genreIds = method_exists($plugin, 'getRequiredGenreIds') ? $plugin->getRequiredGenreIds($contextId) : [];
-            if (!is_array($genreIds) || $genreIds === [] || !class_exists('\PKP\db\DAORegistry')) {
-                return [];
-            }
+            $genreIds = method_exists($plugin, 'getRequiredGenreIds') ? $plugin->getRequiredGenreIds((int) $context->getId()) : [];
+            return is_array($genreIds) ? array_values(array_map('intval', $genreIds)) : [];
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
 
+    /**
+     * @param int[] $genreIds
+     *
+     * @return string[]
+     */
+    private function localizedGenreNames(array $genreIds, int $contextId): array
+    {
+        if ($genreIds === [] || !class_exists('\PKP\db\DAORegistry')) {
+            return [];
+        }
+
+        try {
             $genreDao = \PKP\db\DAORegistry::getDAO('GenreDAO');
             $names = [];
             foreach ($genreIds as $genreId) {

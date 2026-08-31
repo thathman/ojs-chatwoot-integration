@@ -242,6 +242,19 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return string[] */
+    public function getMissingRequiredSubmissionFileGenreNames($context, $submission): array
+    {
+        if (!$this->kernel) {
+            return [];
+        }
+        try {
+            return $this->kernel->getMissingRequiredSubmissionFileGenreNames($context, $submission);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
     /** @return array{doi:?string,issueId:?int} */
     public function getPublicationFields($submission): array
     {
