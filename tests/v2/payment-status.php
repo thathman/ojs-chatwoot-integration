@@ -258,6 +258,45 @@ namespace {
         );
     }
 
+    // ================================================================
+    // Part 1b: PTF-011 safe `pay` action descriptor — only when a real
+    // provider-returned payUrl exists and the balance is genuinely still owed.
+    // ================================================================
+    $unpaidWithUrl = PaymentStatusSerializer::verified(
+        $authorRelationship,
+        ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'],
+        'unpaid',
+        ['view_payment_status'],
+        [['producer' => 'airix.submission_fee', 'feeKey' => 'submission_fee', 'status' => 'unpaid', 'amount' => 50.0, 'payableAmount' => 50.0, 'currency' => 'USD', 'payUrl' => 'https://example.test/journal-a/submissionFee/pay/456']]
+    );
+    paymentStatusCheck($unpaidWithUrl['payUrl'] === 'https://example.test/journal-a/submissionFee/pay/456', 'an unpaid obligation with a real payUrl must surface it at the top level');
+    paymentStatusCheck(in_array('pay', $unpaidWithUrl['availableActions'], true), 'an unpaid obligation with a real payUrl must add the "pay" action descriptor');
+
+    $partiallyWaivedWithUrl = PaymentStatusSerializer::verified(
+        $authorRelationship,
+        ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'],
+        'partially_waived',
+        ['view_payment_status'],
+        [['producer' => 'airix.submission_fee', 'feeKey' => 'submission_fee', 'status' => 'partially_waived', 'amount' => 50.0, 'payableAmount' => 25.0, 'currency' => 'USD', 'payUrl' => 'https://example.test/journal-a/submissionFee/pay/456']]
+    );
+    paymentStatusCheck(in_array('pay', $partiallyWaivedWithUrl['availableActions'], true), 'a partially-waived obligation with a real payUrl must still add the "pay" action — a discounted balance is still owed');
+
+    foreach (['paid', 'waived', 'refunded', 'refund_review', 'unknown', 'not_applicable'] as $nonPayableStatus) {
+        $nonPayablePayload = PaymentStatusSerializer::verified(
+            $authorRelationship,
+            ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'],
+            $nonPayableStatus,
+            ['view_payment_status'],
+            [['producer' => 'airix.submission_fee', 'feeKey' => 'submission_fee', 'status' => $nonPayableStatus, 'amount' => 50.0, 'payableAmount' => 0.0, 'currency' => 'USD', 'payUrl' => 'https://example.test/journal-a/submissionFee/pay/456']]
+        );
+        paymentStatusCheck($nonPayablePayload['payUrl'] === null, "status \"{$nonPayableStatus}\" must never surface a payUrl even if a provider returned one — paying again would be wrong/meaningless");
+        paymentStatusCheck(!in_array('pay', $nonPayablePayload['availableActions'], true), "status \"{$nonPayableStatus}\" must never add the \"pay\" action descriptor");
+    }
+
+    $unpaidNoUrl = PaymentStatusSerializer::verified($authorRelationship, ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'], 'unpaid', ['view_payment_status']);
+    paymentStatusCheck($unpaidNoUrl['payUrl'] === null, 'an unpaid status with no obligation-provided payUrl must never fabricate one (e.g. the native-only producer path)');
+    paymentStatusCheck(!in_array('pay', $unpaidNoUrl['availableActions'], true), 'no real payUrl must mean no "pay" action descriptor — never a dead link');
+
     $unverifiedIdentity = new SupportContext(7, 'journal-a', 46, [], 'index', 'index', 'en');
     $unverifiedApiContext = SupportApiRequestContext::unverified('corr-x', 7, $unverifiedIdentity);
     $unverifiedPayload = PaymentStatusSerializer::unverified($unverifiedApiContext, ['enabled' => true, 'amount' => 50.0, 'currency' => 'USD'], ['list_my_submissions']);
