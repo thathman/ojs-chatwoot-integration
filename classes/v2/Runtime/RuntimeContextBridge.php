@@ -269,6 +269,20 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array{driver:string,sandboxForced:bool,smtpHostConfigured:bool} */
+    public function getMailTransportConfiguration(): array
+    {
+        $fallback = ['driver' => '', 'sandboxForced' => false, 'smtpHostConfigured' => false];
+        if (!$this->kernel) {
+            return $fallback;
+        }
+        try {
+            return $this->kernel->getMailTransportConfiguration();
+        } catch (\Throwable $e) {
+            return $fallback;
+        }
+    }
+
     /** @return array{email:string,name:string,userId:int}|null */
     public function getPrimarySubmissionAuthor($submission): ?array
     {

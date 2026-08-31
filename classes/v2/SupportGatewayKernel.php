@@ -126,6 +126,10 @@ final class SupportGatewayKernel
     {
         return $this->adapter->getUploadLimits();
     }
+    public function getMailTransportConfiguration(): array
+    {
+        return $this->adapter->getMailTransportConfiguration();
+    }
     public function getPrimarySubmissionAuthor($submission): ?array
     {
         return $this->adapter->getPrimarySubmissionAuthor($submission);

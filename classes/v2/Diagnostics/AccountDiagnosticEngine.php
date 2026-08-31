@@ -17,21 +17,25 @@ final class AccountDiagnosticEngine
     public const SCOPE_LOGIN = 'login';
     public const SCOPE_PASSWORD_RESET = 'password_reset';
     public const SCOPE_PROFILE = 'profile';
+    public const SCOPE_MAIL_CONFIGURATION = 'mail_configuration';
 
     public const SCOPES = [
         self::SCOPE_ACCOUNT_ACCESS,
         self::SCOPE_LOGIN,
         self::SCOPE_PASSWORD_RESET,
         self::SCOPE_PROFILE,
+        self::SCOPE_MAIL_CONFIGURATION,
     ];
 
-    public static function diagnose(string $scope, ?bool $disabled, ?string $dateValidated): DiagnosticResult
+    /** @param array{driver:string,sandboxForced:bool,smtpHostConfigured:bool}|null $mailConfig */
+    public static function diagnose(string $scope, ?bool $disabled, ?string $dateValidated, ?array $mailConfig = null): DiagnosticResult
     {
         return match ($scope) {
             self::SCOPE_ACCOUNT_ACCESS => self::diagnoseAccountAccess($disabled),
             self::SCOPE_LOGIN => self::diagnoseLogin(),
             self::SCOPE_PASSWORD_RESET => self::diagnosePasswordReset(),
             self::SCOPE_PROFILE => self::diagnoseProfile($dateValidated),
+            self::SCOPE_MAIL_CONFIGURATION => self::diagnoseMailConfiguration($mailConfig),
             default => DiagnosticResult::unknown('UNKNOWN_SCOPE', 'This diagnostic scope is not recognized.'),
         };
     }
@@ -109,6 +113,58 @@ final class AccountDiagnosticEngine
             'INSUFFICIENT_EVIDENCE',
             "This account's email validation status could not be confirmed.",
             ['USER_DATE_VALIDATED_EMPTY']
+        );
+    }
+
+    /**
+     * DIA-011: a config-shape check, distinct from diagnosePasswordReset()'s
+     * delivery-evidence gap — this never claims a specific email was sent
+     * or received, only whether the server is configured in a way that
+     * could ever send mail at all. Mirrors the real transport-selection
+     * logic pkp-lib itself uses (see
+     * Ojs35CompatibilityAdapter::getMailTransportConfiguration()).
+     */
+    private static function diagnoseMailConfiguration(?array $mailConfig): DiagnosticResult
+    {
+        if ($mailConfig === null || $mailConfig['driver'] === '') {
+            return DiagnosticResult::unknown('INSUFFICIENT_EVIDENCE', 'This server\'s mail configuration could not be read.');
+        }
+
+        if ($mailConfig['sandboxForced']) {
+            return new DiagnosticResult(
+                DiagnosticResult::STATUS_CONFIRMED,
+                'MAIL_SENDING_DISABLED',
+                'This server is running in sandbox mode: outgoing mail is logged, not actually sent.',
+                ['SANDBOX_MODE_FORCES_LOG_MAILER'],
+                ['contact_editorial_office']
+            );
+        }
+
+        if ($mailConfig['driver'] === 'log') {
+            return new DiagnosticResult(
+                DiagnosticResult::STATUS_CONFIRMED,
+                'MAIL_SENDING_DISABLED',
+                'This server is configured to log outgoing mail instead of sending it.',
+                ['EMAIL_DEFAULT_DRIVER_LOG'],
+                ['contact_editorial_office']
+            );
+        }
+
+        if ($mailConfig['driver'] === 'smtp' && !$mailConfig['smtpHostConfigured']) {
+            return new DiagnosticResult(
+                DiagnosticResult::STATUS_CONFIRMED,
+                'MAIL_MISCONFIGURED',
+                'This server is configured to send mail via SMTP but no SMTP server is set; mail will fail to send.',
+                ['EMAIL_DEFAULT_DRIVER_SMTP', 'SMTP_SERVER_EMPTY'],
+                ['contact_editorial_office']
+            );
+        }
+
+        return new DiagnosticResult(
+            DiagnosticResult::STATUS_CONFIRMED,
+            'MAIL_CONFIGURED',
+            'This server appears configured to send outgoing mail.',
+            ['EMAIL_DEFAULT_DRIVER_' . strtoupper($mailConfig['driver'])]
         );
     }
 }
