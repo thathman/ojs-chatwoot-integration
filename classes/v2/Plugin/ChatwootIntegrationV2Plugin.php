@@ -38,6 +38,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainScenarioPr
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\DatabaseSupportKnowledgeSyncRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
@@ -115,6 +116,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $scheduler->addSchedule(new PurgeExpiredSupportDataTask())
             ->daily()
             ->name(PurgeExpiredSupportDataTask::class)
+            ->withoutOverlapping();
+
+        $scheduler->addSchedule(new CaptainSyncScheduledTask($this))
+            ->daily()
+            ->name(CaptainSyncScheduledTask::class)
             ->withoutOverlapping();
     }
 
@@ -746,7 +752,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
         $navLinks = [];
         foreach (KnowledgeRouteCatalog::categories() as $category) {
-            $navLinks[ucfirst($category)] = $this->v2KnowledgePageUrl($request, $category);
+            $navLinks[ucfirst($category)] = $this->v2KnowledgePageUrl($request, $context, $category);
         }
 
         header('Content-Type: text/html; charset=UTF-8');
@@ -780,7 +786,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
         $navLinks = [];
         foreach (KnowledgeRouteCatalog::categories() as $navCategory) {
-            $navLinks[ucfirst($navCategory)] = $this->v2KnowledgePageUrl($request, $navCategory);
+            $navLinks[ucfirst($navCategory)] = $this->v2KnowledgePageUrl($request, $context, $navCategory);
         }
 
         header('Content-Type: text/html; charset=UTF-8');
@@ -796,9 +802,10 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
      */
     public function supportKnowledgeSitemapRequest($request): void
     {
-        $urls = [$this->v2KnowledgePageUrl($request, null)];
+        $context = $request->getContext();
+        $urls = [$this->v2KnowledgePageUrl($request, $context, null)];
         foreach (KnowledgeRouteCatalog::categories() as $category) {
-            $urls[] = $this->v2KnowledgePageUrl($request, $category);
+            $urls[] = $this->v2KnowledgePageUrl($request, $context, $category);
         }
         $urls = array_values(array_filter($urls, static fn (string $url): bool => $url !== ''));
 
@@ -807,11 +814,18 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         exit;
     }
 
-    private function v2KnowledgePageUrl($request, ?string $category): string
+    /**
+     * $context is accepted explicitly rather than derived from
+     * $request->getContext() so this also works for a $request that has no
+     * real HTTP-routed context — e.g. Application::get()->getRequest()
+     * inside a scheduled task iterating every journal (see
+     * CaptainSyncScheduledTask). Dispatcher::url() only ever uses $request
+     * for base configuration, never for its context, so this is safe.
+     */
+    private function v2KnowledgePageUrl($request, $context, ?string $category): string
     {
         try {
             $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
-            $context = $request->getContext();
             if (!is_object($dispatcher) || !$context || !method_exists($context, 'getPath')) {
                 return '';
             }
@@ -823,12 +837,10 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
     /**
      * Idempotent Captain Document provisioning (docs/v2/KNOWLEDGE_DIAGNOSTICS.md
-     * §6, CaptainDocumentProvisioner). Not yet wired to any route or
-     * scheduled task — there is no admin settings UI (Phase 13) or cron
-     * lifecycle (the same gap `purgeExpired()` has — see TASKLIST.md
-     * IDN-017) to trigger it from yet. Exists so the provisioning logic
-     * itself is real, tested, and callable the moment either exists,
-     * rather than inventing UI/cron infrastructure this PR doesn't need.
+     * §6, CaptainDocumentProvisioner). Driven daily, once per enabled
+     * journal, by CaptainSyncScheduledTask (KNO-019). There is still no
+     * admin settings UI (Phase 13) action to trigger it on demand — that
+     * remains a separate, unbuilt manual-fallback trigger path.
      *
      * Requires `chatwootBaseUrl`/`chatwootApiAccessToken` (already used
      * elsewhere in this plugin) plus a new `chatwootCaptainAssistantId`
@@ -836,10 +848,16 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
      * the Chatwoot API/Captain feature is unreachable — Captain is an
      * Enterprise-Edition-gated feature in self-hosted Chatwoot and must
      * degrade like any other optional integration.
+     *
+     * $context is accepted explicitly (rather than derived from
+     * $request->getContext()) so this is callable both from an HTTP
+     * request bound to one journal and from CaptainSyncScheduledTask,
+     * which drives this once per enabled journal using the plugin's own
+     * $request (Application::get()->getRequest() has no HTTP-routed
+     * context in a scheduled task).
      */
-    public function provisionCaptainKnowledgeDocument($request): ?CaptainSyncResult
+    public function provisionCaptainKnowledgeDocument($request, $context): ?CaptainSyncResult
     {
-        $context = $request->getContext();
         if (!$context || !method_exists($context, 'getId')) {
             return null;
         }
@@ -852,7 +870,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             return null;
         }
 
-        $knowledgeRootUrl = $this->v2KnowledgePageUrl($request, null);
+        $knowledgeRootUrl = $this->v2KnowledgePageUrl($request, $context, null);
         if ($knowledgeRootUrl === '') {
             return null;
         }
@@ -876,17 +894,19 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
     /**
      * Idempotent Captain Custom Tool provisioning (CanonicalToolCatalog,
-     * CaptainCustomToolProvisioner) — same not-yet-wired-to-a-route/cron
-     * caveat as provisionCaptainKnowledgeDocument() above. Requires
-     * `chatwootSupportApiToken` (the same Bearer token
+     * CaptainCustomToolProvisioner) — driven daily by
+     * CaptainSyncScheduledTask, same as provisionCaptainKnowledgeDocument()
+     * above. Requires `chatwootSupportApiToken` (the same Bearer token
      * ServiceTokenAuthenticator already verifies on every Support API
      * call) in addition to the base Chatwoot credentials.
      *
+     * @see provisionCaptainKnowledgeDocument() for why $context is an
+     * explicit param.
+     *
      * @return array<string,CaptainSyncResult>|null
      */
-    public function provisionCaptainCustomTools($request): ?array
+    public function provisionCaptainCustomTools($request, $context): ?array
     {
-        $context = $request->getContext();
         if (!$context || !method_exists($context, 'getId')) {
             return null;
         }
@@ -901,7 +921,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
         $operationUrls = [];
         foreach (CanonicalToolCatalog::all() as $tool) {
-            $url = $this->v2SupportGatewayUrl($request, $tool->operation());
+            $url = $this->v2SupportGatewayUrl($request, $context, $tool->operation());
             if ($url !== '') {
                 $operationUrls[$tool->operation()] = $url;
             }
@@ -923,17 +943,21 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
     /**
      * Idempotent Captain Scenario provisioning (CanonicalScenarioCatalog,
-     * CaptainScenarioProvisioner) — same not-yet-wired-to-a-route/cron
-     * caveat as the Document/Custom Tool provisioning entry points above.
-     * Depends on Custom Tool provisioning having already run for this
-     * journal, since a scenario's instruction can only reference a tool
-     * by its real assigned slug.
+     * CaptainScenarioProvisioner) — driven daily by
+     * CaptainSyncScheduledTask, same as the Document/Custom Tool
+     * provisioning entry points above. Depends on Custom Tool provisioning
+     * having already run for this journal, since a scenario's instruction
+     * can only reference a tool by its real assigned slug —
+     * CaptainSyncScheduledTask runs tools before scenarios per journal for
+     * exactly this reason.
+     *
+     * @see provisionCaptainKnowledgeDocument() for why $context is an
+     * explicit param.
      *
      * @return array<string,CaptainSyncResult>|null
      */
-    public function provisionCaptainScenarios($request): ?array
+    public function provisionCaptainScenarios($request, $context): ?array
     {
-        $context = $request->getContext();
         if (!$context || !method_exists($context, 'getId')) {
             return null;
         }
@@ -980,11 +1004,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
     }
 
-    private function v2SupportGatewayUrl($request, string $operation): string
+    /** @see v2KnowledgePageUrl() for why $context is an explicit param. */
+    private function v2SupportGatewayUrl($request, $context, string $operation): string
     {
         try {
             $dispatcher = method_exists($request, 'getDispatcher') ? $request->getDispatcher() : null;
-            $context = $request->getContext();
             if (!is_object($dispatcher) || !$context || !method_exists($context, 'getPath')) {
                 return '';
             }
