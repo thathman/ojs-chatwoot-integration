@@ -890,4 +890,64 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
             default => (int) $value,
         };
     }
+
+    /**
+     * EVT-011: resolves the delivery-target contact for a queued
+     * SupportEvent at delivery time — deliberately never baked into the
+     * event itself at enqueue time (see SubmissionCreatedEventAdapter's
+     * own docblock on why author identity is a delivery-target concern,
+     * not an event fact). Mirrors v1's `safeGetPrimaryAuthor()` fallback
+     * chain exactly (getCurrentPublication()->getPrimaryAuthor(), falling
+     * back to getPublication()->getData('authors')'s first entry), so
+     * delivery targeting behaves identically to v1's real behavior.
+     *
+     * @return array{email:string,name:string,userId:int}|null
+     */
+    public function getPrimarySubmissionAuthor($submission): ?array
+    {
+        if (!is_object($submission)) {
+            return null;
+        }
+
+        $publication = null;
+        if (method_exists($submission, 'getCurrentPublication')) {
+            $publication = $submission->getCurrentPublication();
+        } elseif (method_exists($submission, 'getPublication')) {
+            $publication = $submission->getPublication();
+        }
+        if (!is_object($publication)) {
+            return null;
+        }
+
+        $author = null;
+        if (method_exists($publication, 'getPrimaryAuthor')) {
+            $candidate = $publication->getPrimaryAuthor();
+            if (is_object($candidate) && method_exists($candidate, 'getEmail')) {
+                $author = $candidate;
+            }
+        }
+        if ($author === null && method_exists($publication, 'getData')) {
+            $authors = $publication->getData('authors');
+            if (is_array($authors) && $authors !== []) {
+                $candidate = reset($authors);
+                if (is_object($candidate) && method_exists($candidate, 'getEmail')) {
+                    $author = $candidate;
+                }
+            }
+        }
+        if ($author === null) {
+            return null;
+        }
+
+        $email = trim((string) $author->getEmail());
+        if ($email === '') {
+            return null;
+        }
+
+        return [
+            'email' => $email,
+            'name' => method_exists($author, 'getFullName') ? (string) $author->getFullName() : '',
+            'userId' => method_exists($author, 'getId') ? (int) $author->getId() : 0,
+        ];
+    }
 }

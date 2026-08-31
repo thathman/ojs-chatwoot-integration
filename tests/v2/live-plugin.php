@@ -69,6 +69,10 @@ namespace PKP\scheduledTask {
         {
             return $this;
         }
+        public function everyFiveMinutes(): static
+        {
+            return $this;
+        }
         public function name(string $name): static
         {
             $this->name = $name;
@@ -231,7 +235,7 @@ namespace {
 
     $scheduler = new \PKP\scheduledTask\PKPScheduler();
     $plugin->registerSchedules($scheduler);
-    pluginCheck(count($scheduler->addedTasks) === 2, 'registerSchedules() must register exactly two tasks');
+    pluginCheck(count($scheduler->addedTasks) === 3, 'registerSchedules() must register exactly three tasks');
     pluginCheck(
         $scheduler->addedTasks[0] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask,
         'the first registered task must be the real PurgeExpiredSupportDataTask, not a stand-in'
@@ -239,6 +243,10 @@ namespace {
     pluginCheck(
         $scheduler->addedTasks[1] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask,
         'the second registered task must be the real CaptainSyncScheduledTask, not a stand-in'
+    );
+    pluginCheck(
+        $scheduler->addedTasks[2] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask,
+        'the third registered task must be the real DeliverQueuedSupportEventsTask, not a stand-in'
     );
 
     fwrite(STDOUT, "Live plugin tests passed\n");

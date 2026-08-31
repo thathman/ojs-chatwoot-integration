@@ -38,11 +38,13 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticRes
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DatabaseSupportEventQueueRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DecisionRecordedEventAdapter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\PublicationStatusEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionCreatedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionStatusChangedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEvent;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventMessageBuilder;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
@@ -60,6 +62,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationChallenge;
@@ -128,6 +131,14 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $scheduler->addSchedule(new CaptainSyncScheduledTask($this))
             ->daily()
             ->name(CaptainSyncScheduledTask::class)
+            ->withoutOverlapping();
+
+        // Deliberately more frequent than purge/Captain sync: a queued
+        // support event sitting unsent for up to a day would defeat the
+        // point of near-real-time editorial notifications.
+        $scheduler->addSchedule(new DeliverQueuedSupportEventsTask($this))
+            ->everyFiveMinutes()
+            ->name(DeliverQueuedSupportEventsTask::class)
             ->withoutOverlapping();
     }
 
@@ -299,6 +310,104 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $globalMode = (string) $this->v2EffectiveSetting($event->contextId(), 'eventSyncMode', 'note');
         $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode);
         (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode);
+    }
+
+    /**
+     * EVT-011/EVT-012: the Event Bridge v2 delivery consumer — the first
+     * point this whole build calls the live Chatwoot API from a queued
+     * event rather than a live HTTP request. Mirrors v1's real
+     * `sendChatwootEvent()` exactly (find/create contact by the resolved
+     * author's email, post a note to an existing conversation, or open
+     * one when the resolved delivery mode allows it and an inbox is
+     * configured) — deliberately reusing that same real logic shape
+     * rather than inventing a new delivery algorithm.
+     *
+     * Called by `DeliverQueuedSupportEventsTask` on the same daily
+     * schedule as purge/Captain sync. A single row's failure never stops
+     * the batch; `attempts`/`run_after` bookkeeping (EVT-014) is the
+     * existing repository's job, not this method's.
+     *
+     * @return array{delivered:int,failed:int}
+     */
+    public function deliverQueuedSupportEvents(int $limit = 20): array
+    {
+        $bridge = $this->runtimeContextBridge();
+        $repo = new DatabaseSupportEventQueueRepository();
+        $delivered = 0;
+        $failed = 0;
+        $now = time();
+
+        foreach ($repo->fetchPendingBatch($limit, $now) as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            $attempts = (int) ($row['attempts'] ?? 0) + 1;
+
+            try {
+                $ok = $this->v2DeliverQueuedEventRow($bridge, $row);
+                if ($ok) {
+                    $repo->markDelivered($id, time());
+                    $delivered++;
+                } else {
+                    $repo->markFailed($id, 'delivery_failed', $attempts, 5, time());
+                    $failed++;
+                }
+            } catch (\Throwable $e) {
+                $repo->markFailed($id, 'internal_error', $attempts, 5, time());
+                $failed++;
+            }
+        }
+
+        return ['delivered' => $delivered, 'failed' => $failed];
+    }
+
+    /** @param array<string,mixed> $row */
+    private function v2DeliverQueuedEventRow($bridge, array $row): bool
+    {
+        $contextId = (int) ($row['context_id'] ?? 0);
+        $submissionId = (int) ($row['resource_id'] ?? 0);
+        if ($contextId <= 0 || $submissionId <= 0) {
+            return false;
+        }
+
+        $submission = $bridge->loadSubmission($submissionId);
+        if (!is_object($submission)) {
+            return false;
+        }
+
+        $author = $bridge->getPrimarySubmissionAuthor($submission);
+        if ($author === null) {
+            return false;
+        }
+
+        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+        $inboxId = (int) $this->v2EffectiveSetting($contextId, 'chatwootInboxId', 0);
+        if ($baseUrl === '' || $apiToken === '') {
+            return false;
+        }
+
+        $attributes = json_decode((string) ($row['attributes'] ?? '{}'), true);
+        $attributes = is_array($attributes) ? $attributes : [];
+        $message = SupportEventMessageBuilder::buildFromFields((string) ($row['event_type'] ?? ''), $submissionId, $attributes);
+        $mode = (string) ($row['delivery_mode'] ?? EventDeliveryMode::PRIVATE_NOTE);
+
+        $api = new ChatwootApiService($baseUrl, $apiToken);
+        $contact = $api->findContactByEmail($author['email']);
+        if (!$contact && $mode === EventDeliveryMode::OPEN_UPDATE_CONVERSATION) {
+            $contact = $api->createContact($author['email'], $author['name'], (string) $author['userId']);
+        }
+        if (!$contact || empty($contact['id'])) {
+            return false;
+        }
+
+        $conversations = $api->getContactConversations((int) $contact['id']);
+        if (!empty($conversations) && !empty($conversations[0]['id'])) {
+            return (bool) $api->createConversationNote((int) $conversations[0]['id'], $message);
+        }
+        if ($mode === EventDeliveryMode::OPEN_UPDATE_CONVERSATION && $inboxId > 0) {
+            return (bool) $api->createConversation((int) $contact['id'], $inboxId, $message);
+        }
+
+        return false;
     }
 
     /**

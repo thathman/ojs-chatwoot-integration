@@ -126,6 +126,10 @@ final class SupportGatewayKernel
     {
         return $this->adapter->getUploadLimits();
     }
+    public function getPrimarySubmissionAuthor($submission): ?array
+    {
+        return $this->adapter->getPrimarySubmissionAuthor($submission);
+    }
     public function getPublicationFields($submission): array
     {
         return $this->adapter->getPublicationFields($submission);

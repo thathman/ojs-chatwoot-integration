@@ -269,6 +269,19 @@ final class RuntimeContextBridge
         }
     }
 
+    /** @return array{email:string,name:string,userId:int}|null */
+    public function getPrimarySubmissionAuthor($submission): ?array
+    {
+        if (!$this->kernel) {
+            return null;
+        }
+        try {
+            return $this->kernel->getPrimarySubmissionAuthor($submission);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /** @return array{doi:?string,issueId:?int} */
     public function getPublicationFields($submission): array
     {
