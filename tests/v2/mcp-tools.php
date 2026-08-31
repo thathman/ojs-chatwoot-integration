@@ -142,6 +142,17 @@ mcpToolsCheck(
     !preg_match('/getUserVar\([\'"](email|username|userId|user_id)[\'"]\)/', $mcpMethodBody),
     'no MCP tool built so far may accept a caller-supplied email/username/userId via getUserVar — arguments are read from the parsed tool call, and account diagnostics must only ever diagnose the verified caller\'s own account, same as REST'
 );
+mcpToolsCheck(str_contains($mcpMethodBody, 'SubmissionDiagnosticsTool'), 'mcpRequest() must register the real SubmissionDiagnosticsTool');
+mcpToolsCheck(str_contains($mcpMethodBody, 'SubmissionDiagnosticEngine::SCOPES'), 'the submission-diagnostics tool must validate scope against the real registered scope list, never a hardcoded copy');
+mcpToolsCheck(str_contains($mcpMethodBody, "'submission.diagnose_own'"), 'the submission-diagnostics tool must gate on the real submission.diagnose_own capability, same as REST');
+mcpToolsCheck(
+    str_contains($mcpMethodBody, 'diagnosePaymentForSubmission($bridge, $request, $result, $relationship, $submissionId, $userId, CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT)'),
+    'the submission-diagnostics payment scope must reuse the same shared helper REST uses, passing the real MCP consumer plane rather than silently defaulting to the Chatwoot Captain one'
+);
+mcpToolsCheck(
+    substr_count($mcpMethodBody, 'v2ResolveMcpSubmissionContext') >= 5,
+    'all five submission-scoped tools built so far must resolve through the same shared helper, never each inventing its own copy'
+);
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');

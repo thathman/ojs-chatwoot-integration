@@ -72,6 +72,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTo
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionDiagnosticsTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
@@ -1414,6 +1415,73 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 return AccountDiagnosticsTool::handleVerified($diagnosis, $actions);
             }
         );
+        $registry->register(
+            SubmissionDiagnosticsTool::NAME,
+            SubmissionDiagnosticsTool::DESCRIPTION,
+            SubmissionDiagnosticsTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.diagnostics.submission');
+
+                $scope = trim((string) ($arguments['scope'] ?? ''));
+                if (!in_array($scope, SubmissionDiagnosticEngine::SCOPES, true)) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'scope must be one of: ' . implode(', ', SubmissionDiagnosticEngine::SCOPES));
+                }
+
+                $bridge = $this->runtimeContextBridge();
+                $submissionId = $this->v2PositiveInt($arguments['submissionId'] ?? null);
+                if ($submissionId === null) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'submissionId is required.');
+                }
+
+                $ctx = $this->v2ResolveMcpSubmissionContext($bridge, $result, $submissionId);
+                $relationship = $ctx['relationship'];
+                $decision = $ctx['decision'];
+                $actions = $ctx['actions'];
+                $submission = $ctx['submission'];
+
+                if (!$relationship || !$decision || !$decision->allows('submission.diagnose_own')) {
+                    return DiagnosticResultSerializer::unverified($result, $actions);
+                }
+
+                $userId = $result->identity()->userId() ?? 0;
+                $diagnosis = match ($scope) {
+                    SubmissionDiagnosticEngine::SCOPE_SUBMISSION_ACCESS => SubmissionDiagnosticEngine::diagnoseSubmissionAccess($relationship->types()),
+
+                    SubmissionDiagnosticEngine::SCOPE_SUBMISSION_PROGRESS => SubmissionDiagnosticEngine::diagnoseSubmissionProgress(
+                        $this->supportStateForDiagnostics($bridge, $submission)
+                    ),
+
+                    SubmissionDiagnosticEngine::SCOPE_PUBLICATION => SubmissionDiagnosticEngine::diagnosePublication(
+                        $this->supportStateForDiagnostics($bridge, $submission)
+                    ),
+
+                    SubmissionDiagnosticEngine::SCOPE_REQUIRED_ACTION => SubmissionDiagnosticEngine::diagnoseRequiredAction(array_values(array_unique(array_merge(
+                        $relationship->has('author') ? RequiredActionMapper::forAuthor($this->supportStateForDiagnostics($bridge, $submission)) : [],
+                        $relationship->has('reviewer') ? RequiredActionMapper::forReviewer($bridge->getReviewAssignmentStatuses($submissionId, $userId)) : []
+                    )))),
+
+                    SubmissionDiagnosticEngine::SCOPE_REVIEW_ACCESS => SubmissionDiagnosticEngine::diagnoseReviewAccess(
+                        $relationship->has('reviewer'),
+                        $relationship->has('reviewer') ? $bridge->getReviewAssignmentStatuses($submissionId, $userId) : []
+                    ),
+
+                    SubmissionDiagnosticEngine::SCOPE_PAYMENT => $this->diagnosePaymentForSubmission($bridge, $request, $result, $relationship, $submissionId, $userId, CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT),
+
+                    SubmissionDiagnosticEngine::SCOPE_REQUIRED_FILES => SubmissionDiagnosticEngine::diagnoseRequiredFiles(
+                        $bridge->getMissingRequiredSubmissionFileGenreNames($request->getContext(), $submission)
+                    ),
+
+                    SubmissionDiagnosticEngine::SCOPE_UPLOAD_LIMIT => (static function () use ($bridge): DiagnosticResult {
+                        $limits = $bridge->getUploadLimits();
+                        return SubmissionDiagnosticEngine::diagnoseUploadLimit($limits['uploadMaxFilesizeBytes'], $limits['postMaxSizeBytes']);
+                    })(),
+
+                    default => DiagnosticResult::unknown('UNKNOWN_SCOPE', 'This diagnostic scope is not recognized.'),
+                };
+
+                return SubmissionDiagnosticsTool::handleVerified($diagnosis, $actions);
+            }
+        );
 
         $dispatcher = new McpDispatcher();
         $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_LIST, fn (McpRequest $r): array => ['tools' => $registry->list()]);
@@ -2316,11 +2384,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
      * like supportPaymentStatusRequest() does — this must never grant more
      * than the dedicated endpoint would for the same identity/submission.
      */
-    private function diagnosePaymentForSubmission($bridge, $request, $result, $relationship, int $submissionId, int $userId): DiagnosticResult
+    private function diagnosePaymentForSubmission($bridge, $request, $result, $relationship, int $submissionId, int $userId, string $consumerPlane = CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC): DiagnosticResult
     {
         $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
         $paymentDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
-            CapabilityRequest::CONSUMER_CHATWOOT_CAPTAIN_PUBLIC,
+            $consumerPlane,
             'v3',
             $result->identity(),
             $relationship,

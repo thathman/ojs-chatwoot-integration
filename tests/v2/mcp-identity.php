@@ -24,12 +24,15 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionDiagnosticsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
@@ -130,6 +133,15 @@ namespace {
     $diagnosticsResult = AccountDiagnosticsTool::handleVerified($diagnosis, ['view_status']);
     mcpIdentityCheck($diagnosticsResult['verified'] === true && $diagnosticsResult['diagnosed'] === true, 'the MCP account-diagnostics tool must report verified/diagnosed=true, same as REST');
     mcpIdentityCheck($diagnosticsResult['code'] === 'ACCOUNT_ACTIVE', 'the MCP account-diagnostics tool must expose the real diagnostic code');
+
+    // ================================================================
+    // SubmissionDiagnosticsTool — must reuse DiagnosticResultSerializer::verified()
+    // and the real SubmissionDiagnosticEngine verbatim.
+    // ================================================================
+    $submissionDiagnosis = SubmissionDiagnosticEngine::diagnoseSubmissionAccess(['author']);
+    $submissionDiagnosticsResult = SubmissionDiagnosticsTool::handleVerified($submissionDiagnosis, ['view_status']);
+    mcpIdentityCheck($submissionDiagnosticsResult['verified'] === true && $submissionDiagnosticsResult['diagnosed'] === true, 'the MCP submission-diagnostics tool must report verified/diagnosed=true, same as REST');
+    mcpIdentityCheck($submissionDiagnosticsResult['status'] === DiagnosticResult::STATUS_CONFIRMED, 'the MCP submission-diagnostics tool must expose the real diagnostic status');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
