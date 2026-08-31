@@ -37,6 +37,10 @@ final class McpDispatcher
 
         try {
             $result = $handler($request);
+        } catch (McpHandlerError $e) {
+            // A handler's own deterministic, specific error (e.g. an
+            // unknown tool name) — preserved exactly, never collapsed.
+            return McpResponse::error($request->id(), $e->mcpErrorCode(), $e->getMessage());
         } catch (\Throwable $e) {
             // Never leak an internal exception message to an MCP client —
             // same principle as every REST endpoint's generic 500 shape.

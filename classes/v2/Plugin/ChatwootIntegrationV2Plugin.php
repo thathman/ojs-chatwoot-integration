@@ -49,12 +49,23 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventMessage
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\McpGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ResponseTimingNormalizer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpAuthenticator;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpDispatcher;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpHandlerError;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpProtocol;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequest;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequestParser;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -85,6 +96,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 {
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const SUPPORT_KNOWLEDGE_PAGE = 'support-knowledge';
+    private const MCP_GATEWAY_PAGE = 'ojsMcpGateway';
     /** IDN-015: response-timing floor for ojs_request_verification, masking the found-vs-not-found timing gap. */
     private const VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS = 0.3;
     private const LEGACY_EXPORT_KEYS = [
@@ -158,6 +170,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
         if ($page === self::SUPPORT_KNOWLEDGE_PAGE) {
             $handler = new SupportKnowledgePageHandler($this);
+            return true;
+        }
+
+        if ($page === self::MCP_GATEWAY_PAGE) {
+            $handler = new McpGatewayPageHandler($this);
             return true;
         }
 
@@ -1102,6 +1119,81 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
         header('Content-Type: application/xml; charset=UTF-8');
         echo KnowledgeSitemapRenderer::render($urls);
+        exit;
+    }
+
+    /**
+     * MCP-003: the stateless Streamable HTTP MCP endpoint (ADR-023).
+     * Authenticates via McpAuthenticator against the journal's own
+     * `mcpServiceToken` setting — a distinct credential namespace, never
+     * `chatwootSupportApiToken`/`chatwootApiAccessToken`. Only after that
+     * succeeds does the raw body even get parsed, so an unauthenticated
+     * caller can never use parse errors, protocol-revision negotiation, or
+     * tool names as a probing oracle.
+     *
+     * Currently registers only `tools/list`/`tools/call` with the one
+     * `journal.get_profile` tool (MCP-003's "first safe tools" slice);
+     * `server/discover`/`resources/*` remain unregistered-but-supported —
+     * McpDispatcher already reports those as METHOD_NOT_FOUND rather than
+     * a fatal, exactly like an unrecognized method would.
+     */
+    public function mcpRequest($request): void
+    {
+        $context = $request->getContext();
+        $contextId = $context && method_exists($context, 'getId') ? (int) $context->getId() : 0;
+        if ($contextId <= 0) {
+            $this->v2McpRespond(McpResponse::error(null, McpErrorCode::INVALID_REQUEST, 'Journal context could not be resolved.'));
+        }
+
+        $configuredMcpToken = (string) $this->v2EffectiveSetting($contextId, 'mcpServiceToken', '');
+        $authorizationHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+        if (!McpAuthenticator::verify($configuredMcpToken, $authorizationHeader)) {
+            $this->v2McpRespond(McpResponse::error(null, McpErrorCode::UNAUTHORIZED, 'Request could not be authenticated.'));
+        }
+
+        $rawBody = (string) file_get_contents('php://input');
+        $headers = [];
+        if (isset($_SERVER['HTTP_MCP_PROTOCOL_VERSION'])) {
+            $headers['Mcp-Protocol-Version'] = (string) $_SERVER['HTTP_MCP_PROTOCOL_VERSION'];
+        }
+
+        $parsed = McpRequestParser::parse($rawBody, $headers);
+        if ($parsed instanceof McpResponse) {
+            $this->v2McpRespond($parsed);
+        }
+
+        $locale = (string) Locale::getLocale();
+        $compilation = $this->runtimeContextBridge()->compileKnowledge($context, $request, $contextId, $locale);
+
+        $registry = new McpToolRegistry();
+        $registry->register(
+            JournalProfileTool::NAME,
+            JournalProfileTool::DESCRIPTION,
+            JournalProfileTool::inputSchema(),
+            fn (array $arguments): array => JournalProfileTool::handle($compilation)
+        );
+
+        $dispatcher = new McpDispatcher();
+        $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_LIST, fn (McpRequest $r): array => ['tools' => $registry->list()]);
+        $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_CALL, function (McpRequest $r) use ($registry): array {
+            $name = $r->params()['name'] ?? null;
+            if (!is_string($name) || $name === '') {
+                throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'params.name must be a non-empty string.');
+            }
+            $arguments = $r->params()['arguments'] ?? [];
+            if (!is_array($arguments)) {
+                throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'params.arguments must be an object when present.');
+            }
+            return ['content' => $registry->call($name, $arguments)];
+        });
+
+        $this->v2McpRespond($dispatcher->dispatch($parsed));
+    }
+
+    private function v2McpRespond(McpResponse $response): void
+    {
+        header('Content-Type: application/json');
+        echo json_encode($response->toArray());
         exit;
     }
 
