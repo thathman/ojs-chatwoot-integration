@@ -67,6 +67,10 @@ namespace PKP\scheduledTask {
         {
             return $this;
         }
+        public function everyFiveMinutes(): static
+        {
+            return $this;
+        }
         public function name(string $name): static
         {
             return $this;
