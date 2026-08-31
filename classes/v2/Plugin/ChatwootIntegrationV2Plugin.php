@@ -37,8 +37,12 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagno
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DatabaseSupportEventQueueRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DecisionRecordedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\PublicationStatusEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionCreatedEventAdapter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionStatusChangedEventAdapter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEvent;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
@@ -190,14 +194,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             if (is_object($submission) && method_exists($submission, 'getData')) {
                 $contextId = (int) $submission->getData('contextId');
                 if ($contextId > 0) {
-                    $bridge = $this->runtimeContextBridge();
-                    $title = $bridge->getSubmissionTitle($submission);
-                    $event = SubmissionCreatedEventAdapter::fromSubmission($submission, $contextId, $title);
-                    if ($event !== null) {
-                        $globalMode = (string) $this->v2EffectiveSetting($contextId, 'eventSyncMode', 'note');
-                        $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode);
-                        (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode);
-                    }
+                    $title = $this->runtimeContextBridge()->getSubmissionTitle($submission);
+                    $this->v2EnqueueEvent(SubmissionCreatedEventAdapter::fromSubmission($submission, $contextId, $title));
                 }
             }
         } catch (\Throwable $e) {
@@ -206,6 +204,101 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
 
         return $result;
+    }
+
+    /**
+     * EVT-004/EVT-011: same pattern as `handleSubmissionCreated()` above —
+     * v1's real `Decision::add` handling runs first and unconditionally,
+     * then the decision is converted and enqueued, isolated in its own
+     * try/catch.
+     */
+    public function handleEditorDecision($hookName, $args)
+    {
+        $result = parent::handleEditorDecision($hookName, $args);
+
+        try {
+            $decision = $args[0] ?? null;
+            if (is_object($decision) && method_exists($decision, 'getData')) {
+                $submissionId = (int) $decision->getData('submissionId');
+                $submission = $submissionId > 0 ? $this->runtimeContextBridge()->loadSubmission($submissionId) : null;
+                if (is_object($submission) && method_exists($submission, 'getData')) {
+                    $contextId = (int) $submission->getData('contextId');
+                    if ($contextId > 0) {
+                        $title = $this->runtimeContextBridge()->getSubmissionTitle($submission);
+                        $this->v2EnqueueEvent(DecisionRecordedEventAdapter::fromDecision($decision, $submission, $contextId, $title));
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Event Bridge v2 enqueue failure must never break a real
+            // editorial decision.
+        }
+
+        return $result;
+    }
+
+    /**
+     * EVT-005/EVT-011: same pattern — v1's real `Submission::updateStatus`
+     * handling runs first and unconditionally.
+     */
+    public function handleSubmissionStatusUpdated($hookName, $args)
+    {
+        $result = parent::handleSubmissionStatusUpdated($hookName, $args);
+
+        try {
+            $newStatus = (int) ($args[0] ?? 0);
+            $oldStatus = (int) ($args[1] ?? 0);
+            $submission = $args[2] ?? null;
+            if (is_object($submission) && method_exists($submission, 'getData')) {
+                $contextId = (int) $submission->getData('contextId');
+                if ($contextId > 0) {
+                    $title = $this->runtimeContextBridge()->getSubmissionTitle($submission);
+                    $this->v2EnqueueEvent(SubmissionStatusChangedEventAdapter::fromStatusChange($submission, $oldStatus, $newStatus, $contextId, $title));
+                }
+            }
+        } catch (\Throwable $e) {
+            // Event Bridge v2 enqueue failure must never break a real
+            // submission status update.
+        }
+
+        return $result;
+    }
+
+    /**
+     * EVT-005/EVT-011: same pattern — v1's real `Publication::publish`
+     * handling runs first and unconditionally.
+     */
+    public function handlePublicationPublished($hookName, $args)
+    {
+        $result = parent::handlePublicationPublished($hookName, $args);
+
+        try {
+            $publication = $args[0] ?? null;
+            $submission = $args[2] ?? null;
+            if (is_object($submission) && method_exists($submission, 'getData')) {
+                $contextId = (int) $submission->getData('contextId');
+                if ($contextId > 0) {
+                    $title = $this->runtimeContextBridge()->getSubmissionTitle($submission);
+                    $this->v2EnqueueEvent(PublicationStatusEventAdapter::fromPublication($publication, $submission, $contextId, $title));
+                }
+            }
+        } catch (\Throwable $e) {
+            // Event Bridge v2 enqueue failure must never break a real
+            // publication publish.
+        }
+
+        return $result;
+    }
+
+    /** Shared EVT-010/EVT-011 resolve+enqueue step for every hook wiring above. */
+    private function v2EnqueueEvent(?SupportEvent $event): void
+    {
+        if ($event === null) {
+            return;
+        }
+        $globalMode = (string) $this->v2EffectiveSetting($event->contextId(), 'eventSyncMode', 'note');
+        $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode);
+        (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode);
     }
 
     /**
