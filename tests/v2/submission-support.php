@@ -137,6 +137,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
@@ -292,6 +293,20 @@ namespace {
     submissionSupportCheck($verifiedPayload['supportState'] === 'review_in_progress', 'verified payload must expose the normalized support state');
     submissionSupportCheck($verifiedPayload['workflowExplanation'] !== '', 'verified payload must expose a non-empty workflow explanation');
     submissionSupportCheck(!array_key_exists('evidence', $verifiedPayload), 'verified payload must never expose the internal evidence array');
+    submissionSupportCheck(!array_key_exists('stateConfidence', $verifiedPayload), 'stateConfidence must be omitted entirely, not null, when the caller does not pass one');
+
+    // STA-008: stateConfidence is additive — passing it must surface it,
+    // and it must match what SupportStateMapper::confidence() itself
+    // computes for the same state.
+    $confidencePayload = SubmissionSupportSerializer::verified(
+        $authorRelationship,
+        'A Safe Manuscript Title',
+        'review_in_progress',
+        SupportStateMapper::explain('review_in_progress'),
+        ['view_status', 'view_required_actions'],
+        SupportStateMapper::confidence(1, 3)
+    );
+    submissionSupportCheck($confidencePayload['stateConfidence'] === DiagnosticResult::STATUS_CONFIRMED, 'stateConfidence must be surfaced when provided');
 
     $verifiedJson = json_encode($verifiedPayload);
     foreach (['email', 'reviewer_id', 'reviewerName', 'abstract', 'orcid', 'doi', 'file'] as $forbidden) {
@@ -499,6 +514,11 @@ namespace {
     submissionSupportCheck(
         !str_contains($pluginSource, 'session->save') || !str_contains($pluginSource, "'v3'"),
         'v3 must never be written back onto the persisted support session by this endpoint either'
+    );
+
+    submissionSupportCheck(
+        str_contains($pluginSource, 'SupportStateMapper::confidence('),
+        'STA-008: the endpoint must compute stateConfidence via the real mapper, never fabricate one'
     );
 
     $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/SupportGatewayPageHandler.php');

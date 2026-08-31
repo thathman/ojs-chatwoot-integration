@@ -2,6 +2,8 @@
 
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\State;
 
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
+
 /**
  * First, deliberately narrow slice of the future Support State Engine
  * (docs/v2/PRODUCT_BIBLE.md §11). Maps only what is provable from a
@@ -57,33 +59,64 @@ final class SupportStateMapper
 
     public static function map(?int $status, ?int $stageId, ?int $reviewRoundStatus = null, ?string $submissionProgress = null): string
     {
+        return self::resolve($status, $stageId, $reviewRoundStatus, $submissionProgress)[0];
+    }
+
+    /**
+     * STA-008: the machine-readable evidence code naming which authoritative
+     * OJS field(s) proved this state — never a guess, one code per real
+     * check, mirroring DiagnosticResult's evidence-code contract.
+     */
+    public static function evidenceCode(?int $status, ?int $stageId, ?int $reviewRoundStatus = null, ?string $submissionProgress = null): string
+    {
+        return self::resolve($status, $stageId, $reviewRoundStatus, $submissionProgress)[1];
+    }
+
+    /**
+     * STA-008: one of DiagnosticResult::STATUS_CONFIRMED/STATUS_UNKNOWN —
+     * this mapper only ever reads directly authoritative OJS fields
+     * (status/stageId/review round status/submissionProgress), never
+     * infers a state from circumstantial evidence, so there is no LIKELY
+     * tier here: every non-"unknown" state is fully confirmed by the field
+     * that produced it.
+     */
+    public static function confidence(?int $status, ?int $stageId, ?int $reviewRoundStatus = null, ?string $submissionProgress = null): string
+    {
+        return self::resolve($status, $stageId, $reviewRoundStatus, $submissionProgress)[0] === 'unknown'
+            ? DiagnosticResult::STATUS_UNKNOWN
+            : DiagnosticResult::STATUS_CONFIRMED;
+    }
+
+    /** @return array{0:string,1:string} [state, evidenceCode] */
+    private static function resolve(?int $status, ?int $stageId, ?int $reviewRoundStatus, ?string $submissionProgress): array
+    {
         if ($submissionProgress !== null && $submissionProgress !== '') {
-            return 'draft';
+            return ['draft', 'SUBMISSION_PROGRESS_NON_EMPTY'];
         }
 
         if ($status === self::STATUS_DECLINED) {
-            return 'declined';
+            return ['declined', 'STATUS_DECLINED'];
         }
         if ($status === self::STATUS_PUBLISHED) {
-            return 'published';
+            return ['published', 'STATUS_PUBLISHED'];
         }
         if ($status === self::STATUS_SCHEDULED) {
-            return 'scheduled_for_publication';
+            return ['scheduled_for_publication', 'STATUS_SCHEDULED'];
         }
 
         if ($status === self::STATUS_QUEUED) {
             return match ($stageId) {
-                self::WORKFLOW_STAGE_ID_SUBMISSION => 'submitted',
+                self::WORKFLOW_STAGE_ID_SUBMISSION => ['submitted', 'STATUS_QUEUED_STAGE_SUBMISSION'],
                 self::WORKFLOW_STAGE_ID_INTERNAL_REVIEW, self::WORKFLOW_STAGE_ID_EXTERNAL_REVIEW => $reviewRoundStatus === self::REVIEW_ROUND_STATUS_REVISIONS_REQUESTED
-                    ? 'revision_requested'
-                    : 'review_in_progress',
-                self::WORKFLOW_STAGE_ID_EDITING => 'copyediting_in_progress',
-                self::WORKFLOW_STAGE_ID_PRODUCTION => 'production_in_progress',
-                default => 'unknown',
+                    ? ['revision_requested', 'REVIEW_ROUND_STATUS_REVISIONS_REQUESTED']
+                    : ['review_in_progress', 'STATUS_QUEUED_STAGE_REVIEW'],
+                self::WORKFLOW_STAGE_ID_EDITING => ['copyediting_in_progress', 'STATUS_QUEUED_STAGE_EDITING'],
+                self::WORKFLOW_STAGE_ID_PRODUCTION => ['production_in_progress', 'STATUS_QUEUED_STAGE_PRODUCTION'],
+                default => ['unknown', 'INSUFFICIENT_EVIDENCE'],
             };
         }
 
-        return 'unknown';
+        return ['unknown', 'INSUFFICIENT_EVIDENCE'];
     }
 
     /**

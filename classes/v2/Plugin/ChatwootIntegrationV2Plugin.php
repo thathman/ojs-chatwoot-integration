@@ -1449,13 +1449,22 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             $stateFields['reviewRoundStatus'],
             $stateFields['submissionProgress']
         );
+        // STA-008: re-derived from the exact same fields the state itself
+        // came from — never a separate, potentially-drifting judgment call.
+        $stateConfidence = SupportStateMapper::confidence(
+            $stateFields['status'],
+            $stateFields['stageId'],
+            $stateFields['reviewRoundStatus'],
+            $stateFields['submissionProgress']
+        );
 
         SupportApiResponse::success(SubmissionSupportSerializer::verified(
             $relationship,
             $bridge->getSubmissionTitle($submission),
             $supportState,
             SupportStateMapper::explain($supportState),
-            $actions
+            $actions,
+            $stateConfidence
         ), $result->correlationId());
     }
 
