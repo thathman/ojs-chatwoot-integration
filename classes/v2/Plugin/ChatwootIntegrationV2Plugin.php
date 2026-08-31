@@ -16,6 +16,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionSupportSeri
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SubmissionVerificationSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiErrorCode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFailure;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiFieldAllowlist;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
@@ -2032,7 +2033,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
             $resolver = new SupportApiRequestResolver($this->runtimeContextBridge());
 
-            return $resolver->resolve(
+            $result = $resolver->resolve(
                 $request,
                 $correlationId,
                 $contextId,
@@ -2043,6 +2044,18 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 $endpoint,
                 (string) Locale::getLocale()
             );
+
+            // API-006: only checked once the request is authenticated, so an
+            // unauthenticated caller can never use field names as a probing
+            // oracle.
+            if ($result instanceof SupportApiRequestContext) {
+                $unknownField = SupportApiFieldAllowlist::firstUnknownField($request, $endpoint);
+                if ($unknownField !== null) {
+                    return new SupportApiFailure(SupportApiErrorCode::VALIDATION_ERROR, "Unexpected field: {$unknownField}.", 400, $result->correlationId());
+                }
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             return new SupportApiFailure(SupportApiErrorCode::INTERNAL_ERROR, 'The request could not be completed.', 500, $correlationId);
         }
