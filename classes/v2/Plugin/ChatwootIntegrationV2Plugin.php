@@ -36,6 +36,9 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\AccountDiagnosticEngine;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\DiagnosticResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DatabaseSupportEventQueueRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionCreatedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
@@ -165,6 +168,44 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
 
         return parent::addChatwootWidget($hookName, $args);
+    }
+
+    /**
+     * EVT-003/EVT-011: alongside v1's existing synchronous `Submission::add`
+     * handling (untouched, always runs first, its return value is what
+     * this method returns), also converts the real submission into a
+     * normalized `SupportEvent` and enqueues it in the Event Bridge v2
+     * queue. Nothing yet reads that queue and delivers to Chatwoot — this
+     * is deliberately enqueue-only, so a bug here can never reach the
+     * live Chatwoot API. Any failure is swallowed: an Event Bridge v2
+     * problem must never break real submission creation, exactly like
+     * `addChatwootWidget()`'s own try/catch around v2 work.
+     */
+    public function handleSubmissionCreated($hookName, $args)
+    {
+        $result = parent::handleSubmissionCreated($hookName, $args);
+
+        try {
+            $submission = $args[0] ?? null;
+            if (is_object($submission) && method_exists($submission, 'getData')) {
+                $contextId = (int) $submission->getData('contextId');
+                if ($contextId > 0) {
+                    $bridge = $this->runtimeContextBridge();
+                    $title = $bridge->getSubmissionTitle($submission);
+                    $event = SubmissionCreatedEventAdapter::fromSubmission($submission, $contextId, $title);
+                    if ($event !== null) {
+                        $globalMode = (string) $this->v2EffectiveSetting($contextId, 'eventSyncMode', 'note');
+                        $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode);
+                        (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Event Bridge v2 enqueue failure must never break real
+            // submission creation.
+        }
+
+        return $result;
     }
 
     /**
