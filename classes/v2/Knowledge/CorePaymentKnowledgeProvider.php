@@ -39,6 +39,7 @@ final class CorePaymentKnowledgeProvider implements KnowledgeProviderInterface
         $facts = [];
         $this->addNativePublicationFee($facts, $context, $locale);
         $this->addAirixSubmissionFee($facts, $context, $locale);
+        $this->addAirixWaiverPolicy($facts, $context, $locale);
         return $facts;
     }
 
@@ -132,5 +133,46 @@ final class CorePaymentKnowledgeProvider implements KnowledgeProviderInterface
                 );
             }
         }
+    }
+
+    /**
+     * The journal's own configured waiver-request instructions
+     * (`Airix360/ojs-request-waiver`'s `boxTitle`/`boxBody` settings) —
+     * genuine public policy prose the journal wrote itself, never this
+     * codebase inventing wording, and never a specific submission's
+     * waiver decision/history/percent.
+     */
+    private function addAirixWaiverPolicy(array &$facts, $context, string $locale): void
+    {
+        try {
+            $policy = $this->adapter->getAirixRequestWaiverPolicy($context);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        if (!is_array($policy) || !($policy['enabled'] ?? false)) {
+            return;
+        }
+
+        $body = trim((string) ($policy['body'] ?? ''));
+        if ($body === '') {
+            return;
+        }
+
+        $title = trim((string) ($policy['title'] ?? ''));
+        $value = KnowledgeSanitizer::sanitize($title !== '' ? "<h3>{$title}</h3>{$body}" : $body);
+        if ($value === '') {
+            return;
+        }
+
+        $facts[] = new KnowledgeFact(
+            'fee.waiverPolicy',
+            $value,
+            KnowledgeClassification::PUBLIC,
+            'airix.request_waiver_policy',
+            $locale,
+            $this->providerId(),
+            'boxTitle/boxBody'
+        );
     }
 }
