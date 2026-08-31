@@ -77,6 +77,21 @@ foreach (['attempts', 'run_after', 'last_error_code', 'delivered_at', 'status'] 
 $repoSource = (string) file_get_contents($root . '/classes/v2/Event/DatabaseSupportEventQueueRepository.php');
 supportEventQueueCheck(str_contains($repoSource, 'idempotency_key'), 'enqueue() must check the real idempotency key column before inserting');
 supportEventQueueCheck(str_contains($repoSource, '$event->attributes()'), 'enqueue() must persist only the event\'s own already-safe attributes, never a wider payload');
+
+// EVT-015 (replay/duplicate, the half provable without a live DB — see
+// EVT-002 in tests/v2/support-event.php for the deterministic idempotency
+// key derivation this enforcement actually depends on):
+// fetchPendingBatch() must only ever select rows still in 'pending' status,
+// so a row markDelivered() already transitioned away from 'pending' can
+// never be fetched and delivered a second time.
+$fetchMethodStart = strpos($repoSource, 'function fetchPendingBatch');
+supportEventQueueCheck($fetchMethodStart !== false, 'fetchPendingBatch() must exist');
+$fetchMethodEnd = strpos($repoSource, 'function ', $fetchMethodStart + 1);
+$fetchMethodBody = $fetchMethodEnd !== false ? substr($repoSource, $fetchMethodStart, $fetchMethodEnd - $fetchMethodStart) : substr($repoSource, $fetchMethodStart);
+supportEventQueueCheck(
+    (bool) preg_match('/where\(\s*[\'"]status[\'"]\s*,\s*[\'"]pending[\'"]\s*\)/', $fetchMethodBody),
+    'fetchPendingBatch() must filter on status=pending — a delivered row must structurally never be fetched again, preventing replay/double-delivery'
+);
 foreach (['email', 'orcid', 'affiliation', 'getUserVar'] as $forbidden) {
     supportEventQueueCheck(!str_contains($repoSource, $forbidden), "the queue repository must never reference '{$forbidden}' — it only ever persists what SupportEvent already carries");
 }
