@@ -55,4 +55,23 @@ interface ChatwootCaptainClientInterface
 
     /** @param array<string,mixed> $definition Same shape as createCaptainCustomTool(). */
     public function updateCaptainCustomTool(string $toolId, array $definition): bool;
+
+    /**
+     * Verified against `chatwoot/chatwoot` `develop`
+     * `enterprise/app/controllers/api/v1/accounts/captain/scenarios_controller.rb`
+     * (nested under `assistants`, per `config/routes.rb`'s
+     * `resources :assistants do ... resources :scenarios end end`).
+     *
+     * @return array<int,array{id:int|string,title:string}>
+     */
+    public function listCaptainScenarios(int $assistantId): array;
+
+    /**
+     * @param array{title:string,description:string,instruction:string,enabled:bool} $definition
+     * @return array{id:int|string}|null
+     */
+    public function createCaptainScenario(int $assistantId, array $definition): ?array;
+
+    /** @param array<string,mixed> $definition Same shape as createCaptainScenario(). */
+    public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool;
 }
