@@ -70,7 +70,7 @@ widgetCustomAttributeSchemaCheck(
 // carry a type — never an empty/placeholder entry.
 foreach (WidgetCustomAttributeSchema::knownKeys() as $key) {
     $classification = WidgetCustomAttributeSchema::classification($key);
-    widgetCustomAttributeSchemaCheck(is_array($classification), "classification($key) must return an array for every known key");
+    widgetCustomAttributeSchemaCheck(is_array($classification), "classification({$key}) must return an array for every known key");
     widgetCustomAttributeSchemaCheck(
         in_array($classification['sensitivity'] ?? null, ['public', 'user_derived'], true),
         "key '{$key}' must have a real sensitivity classification (public|user_derived)"
