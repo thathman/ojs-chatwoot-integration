@@ -62,6 +62,9 @@ interface OjsCompatibilityAdapterInterface
     /** Journal-manager-authored public pages from OJS core's Static Pages plugin. Empty when absent/disabled. @return array<int,array{path:string,title:string,content:string}> */
     public function getOfficialPublicPages($context, string $locale): array;
 
+    /** Public waiver *policy* text only (never a submission's waiver decision). Null when absent/disabled. @return array{enabled:bool,title:?string,body:?string}|null */
+    public function getAirixRequestWaiverPolicy($context): ?array;
+
     public function getRequestedPage($request): string;
     public function getRequestedOperation($request): string;
 }

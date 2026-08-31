@@ -617,4 +617,56 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
 
         return $officialPages;
     }
+
+    /**
+     * Public *policy* text only (docs/v2/AIRIX360_INTEGRATIONS.md §5.3) —
+     * the journal's own configured waiver-request box title/body, never a
+     * specific submission's waiver decision/history. Verified against a
+     * real local checkout of `Airix360/ojs-request-waiver`
+     * (`RequestWaiverPlugin::activeFeeType()`, `SettingsForm`'s
+     * `boxTitle`/`boxBody` settings — plain, non-localized strings: its
+     * own `readInputData()` calls `readUserVars()`, not
+     * `readLocalizedUserVars()`, so there is no per-locale value to
+     * request here). Deliberately not the same method a future
+     * obligation-reading accessor would use — this only ever reads the
+     * plugin's own journal-level configured text, never a submission's
+     * `waiverStatus`/`waiverPercent`.
+     *
+     * @return array{enabled:bool,title:?string,body:?string}|null
+     */
+    public function getAirixRequestWaiverPolicy($context): ?array
+    {
+        if (!is_object($context) || !method_exists($context, 'getId') || !class_exists('\PKP\plugins\PluginRegistry')) {
+            return null;
+        }
+
+        try {
+            \PKP\plugins\PluginRegistry::loadCategory('generic');
+            $plugin = \PKP\plugins\PluginRegistry::getPlugin('generic', 'requestwaiverplugin');
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        if (!is_object($plugin) || !method_exists($plugin, 'getEnabled') || !$plugin->getEnabled((int) $context->getId())) {
+            return null;
+        }
+
+        try {
+            $activeFeeType = method_exists($plugin, 'activeFeeType') ? $plugin->activeFeeType($context) : null;
+            if ($activeFeeType === null) {
+                return ['enabled' => false, 'title' => null, 'body' => null];
+            }
+
+            $title = method_exists($plugin, 'getSetting') ? trim((string) $plugin->getSetting($context->getId(), 'boxTitle')) : '';
+            $body = method_exists($plugin, 'getSetting') ? trim((string) $plugin->getSetting($context->getId(), 'boxBody')) : '';
+
+            return [
+                'enabled' => true,
+                'title' => $title !== '' ? $title : null,
+                'body' => $body !== '' ? $body : null,
+            ];
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
 }

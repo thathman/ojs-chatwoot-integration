@@ -75,11 +75,18 @@ policy-only adapter accessor, `getAirixSubmissionFeePolicy()`, that calls
 only `PaymentHelper::feeEnabled()/amount()/currency()` — never
 `hasPaid()`/`waiverDiscount()`/`needsRefundReview()`, and is a separate
 method from `getAirixSubmissionFeeProvider()`, which remains the private
-obligation path). Public waiver policy content and public payment
-instructions are not implemented — no verified public-facing accessor for
-either was found in `Airix360/ojs-request-waiver`'s public integration
-surface; adding them later requires the same standard, not an inference
-from obligation data.
+obligation path). Public payment instructions are still not implemented.
+Public waiver policy content (`fee.waiverPolicy`) **is now implemented**
+(AIRIX360_TASKLIST.md AWA-008): `getAirixRequestWaiverPolicy()` reads
+`Airix360/ojs-request-waiver`'s own configured `boxTitle`/`boxBody`
+settings — real journal-authored text (verified against a local checkout
+of its `SettingsForm.php`, which stores them as plain non-localized
+strings, not per-locale), sanitized, published only when a fee is
+currently active (`RequestWaiverPlugin::activeFeeType()` non-null) and
+the body is non-empty. This is deliberately the *policy* text only — it
+never reads `waiverStatus`/`waiverPercent`/`getWaiverDiscount()`, which
+remain a specific submission's decision and stay out of Knowledge
+entirely.
 
 ### Publication
 
