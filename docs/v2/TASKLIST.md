@@ -19,26 +19,26 @@ This is the implementation backlog. Checkboxes are not release claims; they beco
 
 ## CTX — OJS Context
 
-- [ ] **CTX-001** Implement journal/context resolver.
-- [ ] **CTX-002** Implement authenticated user resolver.
-- [ ] **CTX-003** Implement current journal role resolver.
-- [ ] **CTX-004** Implement page/operation context DTO.
-- [ ] **CTX-005** Implement article context adapter.
-- [ ] **CTX-006** Implement submission/workflow context adapter.
-- [ ] **CTX-007** Implement review context adapter.
-- [ ] **CTX-008** Implement payment/support intent context.
-- [ ] **CTX-009** Add multi-journal isolation tests.
-- [ ] **CTX-010** Add locale normalization/fallback tests.
+- [x] **CTX-001** Implement journal/context resolver. — `ContextResolver::resolve()` → `SupportContext::contextId()`.
+- [x] **CTX-002** Implement authenticated user resolver. — `SupportContext::userId()`/`isAuthenticated()`.
+- [x] **CTX-003** Implement current journal role resolver. — `SupportContext::roleIds()`.
+- [x] **CTX-004** Implement page/operation context DTO. — `SupportContext::page()`/`operation()`.
+- [x] **CTX-005** Implement article context adapter. — `ResourceContextResolver` resolves an `article` template key to a `submission`-typed `ResourceContext` (an OJS published article is the same underlying submission, not a distinct resource kind).
+- [x] **CTX-006** Implement submission/workflow context adapter. — `ResourceContextResolver::resolve()` (template/request-parameter/known-route detection, all re-authorized downstream — detection is never authorization).
+- [ ] **CTX-007** Implement review context adapter. — not done: `ResourceContextResolver` only ever produces a `submission`-typed `ResourceContext`; there is no distinct review-resource detection. Review *relationship* resolution exists (REL-003, `Repo::reviewAssignment()`), but that answers "is this user a reviewer of this submission," not "what review is currently in view."
+- [x] **CTX-008** Implement payment/support intent context. — `SupportIntentResolver::resolve()`'s `payment_help` branch, wired live via `ChatwootContextProjector`.
+- [ ] **CTX-009** Add multi-journal isolation tests. — partial: cross-journal isolation is extensively tested for downstream features built on `SupportContext` (Captain provisioning, knowledge, health reports — see their own "multi-journal isolation" test sections), but there is no test targeting `ContextResolver`/`SupportContext` itself.
+- [ ] **CTX-010** Add locale normalization/fallback tests. — not done: no dedicated test exercises locale normalization/fallback in `ContextResolver`, `ResourceContextResolver`, or `SupportIntentResolver`.
 
 ## CWO — Chatwoot Connector
 
-- [ ] **CWO-001** Refactor Chatwoot API client behind interface.
-- [ ] **CWO-002** Preserve/verify HMAC `setUser` integration.
-- [ ] **CWO-003** Define safe custom-attribute schema.
-- [ ] **CWO-004** Remove any authorization dependency on custom attributes.
-- [ ] **CWO-005** Implement contextual launcher intents.
-- [ ] **CWO-006** Add idempotent contact/conversation lookup strategy.
-- [ ] **CWO-007** Add queued retry/dead-letter structure.
+- [x] **CWO-001** Refactor Chatwoot API client behind interface. — `ChatwootApiService implements ChatwootConversationClientInterface, ChatwootCaptainClientInterface`.
+- [x] **CWO-002** Preserve/verify HMAC `setUser` integration. — the v1 `setUser`/`identifier_hash` HMAC (`ChatwootIntegrationPlugin::addChatwootWidget()`) is untouched by v2 and verified to always still run: `tests/v2/live-plugin.php` asserts `parent::addChatwootWidget()` executes unconditionally even if v2's own support-session bootstrap throws.
+- [ ] **CWO-003** Define safe custom-attribute schema. — not done: the v1 widget custom-attribute payload (`journal_id`, `roles`, `active_submissions`, `orcid`, `affiliation`, `article_*`, etc. in `ChatwootIntegrationPlugin::addChatwootWidget()`) remains ad hoc/legacy; no v2 schema formalizes which fields are safe to send.
+- [ ] **CWO-004** Remove any authorization dependency on custom attributes. — not done as a verified guarantee: v2's Identity→Relationship→Capability→Serializer chain never reads these client-side attributes back for authorization (architecturally they can't — nothing in `classes/v2/` consumes them), but this has not been asserted by a dedicated test the way the tool-slug/metadata-header equivalent was analyzed for Custom Tools.
+- [x] **CWO-005** Implement contextual launcher intents. — `SupportIntentResolver` + `ChatwootContextProjector::project()`, wired live via `ChatwootIntegrationV2Plugin`'s template-header injection (not just built-but-unused: confirmed called from the plugin, not only from tests).
+- [ ] **CWO-006** Add idempotent contact/conversation lookup strategy. — not started; belongs with Event Bridge v2 (still on the roadmap), not the Support Gateway API surface built so far.
+- [ ] **CWO-007** Add queued retry/dead-letter structure. — not started for v2; v1's own retry/event-bridge queue (`docs/v2/V1_INVENTORY.md` §"Retry/event bridge") is untouched and still the only one that exists. Also belongs with Event Bridge v2.
 - [ ] **CWO-008** Detect/report Captain API feature availability where possible. — partial: `ChatwootCaptainClientInterface`'s docblock records that Captain (incl. Documents) is Enterprise-Edition-gated in self-hosted Chatwoot (verified against `chatwoot/chatwoot` `develop` `enterprise/app/controllers/api/v1/accounts/captain/documents_controller.rb`), and every call degrades to `null`/unavailable rather than a fatal — but there is no explicit "Captain unavailable" health signal surfaced anywhere yet (that belongs with KNO-020's admin UI, still open).
 - [x] **CWO-009** Implement optional Captain Document provisioning. — `CaptainDocumentProvisioner`: idempotent create-or-sync keyed on the Knowledge Compiler's own fingerprint, verified against real `chatwoot/chatwoot` `develop` routes (`config/routes.rb`: `namespace :captain do resources :documents, only: [:index,:show,:create,:destroy] do post :sync ... end end`) and the enterprise controller's actual permitted params (`name`, `external_link`, `assistant_id`). No update/PATCH exists in the real API for web-sourced documents — content changes go through `sync` (re-crawl), never a field edit, which is exactly what this provisioner does.
 - [x] **CWO-010** Implement optional Captain Custom Tool provisioning. — `CaptainCustomToolProvisioner` + `CanonicalToolCatalog` (12 fixed tools, one per Support API endpoint that makes sense as an LLM-callable tool — never one per provider/journal-fact). Verified against real `chatwoot/chatwoot` `develop` source: `config/routes.rb`'s `resources :custom_tools do post :test, on: :collection end`, `enterprise/app/controllers/api/v1/accounts/captain/custom_tools_controller.rb`'s actual permitted params, `enterprise/app/models/captain/custom_tool.rb`'s `auth_type` enum (`none`/`bearer`/`basic`/`api_key`) and 15-tool account cap, and `enterprise/app/models/concerns/toolable.rb`'s Liquid template rendering (`strict_variables: true`) — which is why every canonical tool param is `required: true` rather than truly optional. Unlike Documents, Custom Tools have a real update endpoint, so a service-token rotation genuinely pushes an update rather than a no-op. **Also fixed a real integration bug found during this work**: Chatwoot's Custom Tool HTTP client always sends `Content-Type: application/json`, but this plugin's Support API only ever read `$request->getUserVar()` (PHP never populates `$_POST` for a raw JSON body) — every provisioned tool call would have seen every field as missing. Fixed with `JsonRequestBodyParser`, wired into `resolveSupportApiRequest()`.
@@ -83,19 +83,19 @@ Reconciled 2026-08-30: several boxes below were stale (unchecked despite being s
 
 ## POL — Capability & Privacy Policy
 
-- [ ] **POL-001** Define capability namespace.
-- [ ] **POL-002** Implement deny-by-default Policy Engine.
-- [ ] **POL-003** Define public-support consumer plane.
-- [ ] **POL-004** Define staff consumer plane.
-- [ ] **POL-005** Implement author support policy.
-- [ ] **POL-006** Implement reviewer support policy.
-- [ ] **POL-007** Implement staff read policy.
-- [ ] **POL-008** Implement field allowlist serializers.
-- [ ] **POL-009** Implement blind-review author serializer tests.
-- [ ] **POL-010** Implement reviewer anonymity serializer tests.
-- [ ] **POL-011** Replace v1 global reviewer masking behavior.
-- [ ] **POL-012** Implement `get_available_actions`.
-- [ ] **POL-013** Audit allow/deny reason codes.
+- [x] **POL-001** Define capability namespace. — dot-notation names in `CapabilityCatalog::DEFINITIONS` (`journal.read_public_info`, `submission.read_own_payment_status`, etc.).
+- [x] **POL-002** Implement deny-by-default Policy Engine. — `CapabilityPolicyEngine::evaluate()`: providers only nominate, every nomination is re-checked against the catalog, an unknown capability fails closed.
+- [x] **POL-003** Define public-support consumer plane. — the `public_support`/`support_escalation`/`account_support`/`submission_support`/`publication_support`/`payment_support`/`file_support` policy groups in `CapabilityCatalog`.
+- [ ] **POL-004** Define staff consumer plane. — not started, deliberately: this build has stayed public-support-only throughout (the "no public staff mutations" guardrail); `CapabilityCatalog`'s docblock records staff/editorial capabilities as "intentionally absent from this first implementation."
+- [ ] **POL-005** Implement author support policy. — partial: author-scoped capabilities exist and gate on the real submitter relationship (`submission.read_own_*` capabilities, `REL-002`'s workflow-stage-access evidence), but there is no single named "author support policy" object distinct from the capability catalog entries themselves — the catalog *is* the policy here, not a separate layer.
+- [x] **POL-006** Implement reviewer support policy. — the `reviewer_support` policy group (`review.read_own_assignment`), gated on `REL-003`'s real `Repo::reviewAssignment()` lookup, never the journal-level Reviewer role.
+- [ ] **POL-007** Implement staff read policy. — not started; same deliberate scope boundary as POL-004.
+- [x] **POL-008** Implement field allowlist serializers. — every `classes/v2/Api/*Serializer.php` (`SubmissionListSerializer`, `PaymentStatusSerializer`, `PublicationStatusSerializer`, `RequiredActionsSerializer`, etc.) is an explicit field allowlist, never a raw-object passthrough.
+- [ ] **POL-009** Implement blind-review author serializer tests. — not done: no serializer or test addresses whether a blind-review author-facing payload could leak reviewer identity.
+- [ ] **POL-010** Implement reviewer anonymity serializer tests. — not done: no test exercises reviewer-anonymity preservation in any v2 serializer output. A real, currently-open gap — flagging rather than deferring silently, since this touches a genuine OJS privacy guarantee (blind review).
+- [ ] **POL-011** Replace v1 global reviewer masking behavior. — not started; v1's `enablePrivacyMode`/reviewer-masking logic in `ChatwootIntegrationPlugin::addChatwootWidget()` (see CWO-003's `is_masked` attribute) is untouched, and v2 has not built an equivalent or replacement.
+- [x] **POL-012** Implement `get_available_actions`. — `AvailableActionMapper::map()`, converting a `CapabilityDecision` into stable support-facing action names (`RequiredActionsSerializer` consumes it).
+- [x] **POL-013** Audit allow/deny reason codes. — `CapabilityDecision`'s denial reasons, filtered through `AvailableActionMapper::SAFE_DENIAL_REASONS` before ever reaching a support-facing response (internal plumbing states excluded).
 
 ## API — REST Support API
 
