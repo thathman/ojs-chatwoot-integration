@@ -25,6 +25,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
@@ -97,6 +98,17 @@ namespace {
     mcpIdentityCheck($supportResult['supportState'] === $supportState, 'the MCP submission-support-status tool must expose the real normalized support state');
     mcpIdentityCheck($supportResult['stateConfidence'] === $stateConfidence, 'the MCP submission-support-status tool must expose the real state confidence (STA-008)');
     mcpIdentityCheck($supportResult['title'] === 'A Safe Manuscript Title', 'the MCP submission-support-status tool must expose the real title');
+
+    // ================================================================
+    // PublicationStatusTool — must reuse PublicationStatusSerializer::verified()
+    // verbatim (REST/MCP equivalence by construction).
+    // ================================================================
+    $notYetPublished = PublicationStatusTool::handleVerified($authorRelationship, 'not_yet_published', null, null, null, ['view_publication_status']);
+    mcpIdentityCheck($notYetPublished['status'] === 'not_yet_published' && $notYetPublished['doi'] === null && $notYetPublished['publicUrl'] === null && $notYetPublished['issue'] === null, 'the MCP publication-status tool must report not_yet_published with doi/publicUrl/issue all null, same as REST');
+
+    $published = PublicationStatusTool::handleVerified($authorRelationship, 'published', '10.1234/example', 'https://journal-a.example.com/article/view/456', ['volume' => 12, 'number' => 3, 'year' => 2026], ['view_publication_status']);
+    mcpIdentityCheck($published['status'] === 'published' && $published['doi'] === '10.1234/example', 'the MCP publication-status tool must expose the real doi once published');
+    mcpIdentityCheck($published['issue'] === ['volume' => 12, 'number' => 3, 'year' => 2026], 'the MCP publication-status tool must expose the real issue metadata once published');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
