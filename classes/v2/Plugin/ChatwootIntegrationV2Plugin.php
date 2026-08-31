@@ -1580,6 +1580,10 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
             SubmissionDiagnosticEngine::SCOPE_PAYMENT => $this->diagnosePaymentForSubmission($bridge, $request, $result, $relationship, $submissionId, $userId),
 
+            SubmissionDiagnosticEngine::SCOPE_REQUIRED_FILES => SubmissionDiagnosticEngine::diagnoseRequiredFiles(
+                $bridge->getMissingRequiredSubmissionFileGenreNames($request->getContext(), $submission)
+            ),
+
             default => DiagnosticResult::unknown('UNKNOWN_SCOPE', 'This diagnostic scope is not recognized.'),
         };
 

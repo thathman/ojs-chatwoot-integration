@@ -155,7 +155,13 @@ namespace {
     knowledgeRequiredFilesCheck($compilationB->fact('submission.requiredFileGenres') === null, 'context B must never see context A\'s configured genre plugin state by accident');
 
     // ================================================================
-    // No submission-specific "missing genres" logic anywhere in this fact's source.
+    // getAirixRequiredSubmissionFileGenres() itself (the journal-level
+    // policy fact this Knowledge provider reads) must stay
+    // submission-agnostic. The submission-specific "which genres are
+    // still missing a file" diagnosis is a deliberately separate method
+    // (getMissingRequiredSubmissionFileGenreNames(), DIA-006) — this test
+    // only asserts the two stay separate, not that the submission-level
+    // check doesn't exist.
     // ================================================================
     $adapterSource = '';
     foreach (token_get_all((string) file_get_contents($root . '/classes/v2/Compatibility/Ojs35CompatibilityAdapter.php')) as $token) {
@@ -166,9 +172,11 @@ namespace {
     }
     $methodStart = strpos($adapterSource, 'function getAirixRequiredSubmissionFileGenres');
     knowledgeRequiredFilesCheck($methodStart !== false, 'getAirixRequiredSubmissionFileGenres() must exist as its own method');
-    $methodBody = substr($adapterSource, $methodStart, 1200);
+    $nextMethodStart = strpos($adapterSource, 'function ', $methodStart + 1);
+    knowledgeRequiredFilesCheck($nextMethodStart !== false, 'a following method must exist to bound this method body');
+    $methodBody = substr($adapterSource, $methodStart, $nextMethodStart - $methodStart);
     foreach (['filterBySubmissionIds', 'submissionFile', '$submissionId', 'checkRequiredGenres'] as $forbidden) {
-        knowledgeRequiredFilesCheck(!str_contains($methodBody, $forbidden), "getAirixRequiredSubmissionFileGenres() must never touch \"{$forbidden}\" — that is the submission-specific missing-files diagnosis, a separate unbuilt feature");
+        knowledgeRequiredFilesCheck(!str_contains($methodBody, $forbidden), "getAirixRequiredSubmissionFileGenres() itself must never touch \"{$forbidden}\" — that belongs only to the separate submission-specific missing-files diagnosis");
     }
 
     fwrite(STDOUT, "Knowledge required-files tests passed\n");

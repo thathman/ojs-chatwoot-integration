@@ -18,6 +18,7 @@ final class SubmissionDiagnosticEngine
     public const SCOPE_REVIEW_ACCESS = 'review_access';
     public const SCOPE_PUBLICATION = 'publication';
     public const SCOPE_PAYMENT = 'payment';
+    public const SCOPE_REQUIRED_FILES = 'required_files';
 
     public const SCOPES = [
         self::SCOPE_SUBMISSION_ACCESS,
@@ -26,6 +27,7 @@ final class SubmissionDiagnosticEngine
         self::SCOPE_REVIEW_ACCESS,
         self::SCOPE_PUBLICATION,
         self::SCOPE_PAYMENT,
+        self::SCOPE_REQUIRED_FILES,
     ];
 
     /**
@@ -86,6 +88,38 @@ final class SubmissionDiagnosticEngine
             'At least one action is currently required from you for this submission.',
             ['REQUIRED_ACTIONS_NON_EMPTY'],
             $requiredActions
+        );
+    }
+
+    /**
+     * DIA-006: distinct from `diagnoseRequiredAction()` — this checks
+     * specifically for missing required-genre uploads (Airix
+     * `RequiredSubmissionFilesPlugin`), not the generic pending-actions
+     * list. `$missingGenreNames` comes from
+     * `Ojs35CompatibilityAdapter::getMissingRequiredSubmissionFileGenreNames()`,
+     * which is empty both when the feature is disabled/absent AND when
+     * every required file is present — deterministic by construction, so
+     * this never needs to guess which case applies.
+     *
+     * @param string[] $missingGenreNames
+     */
+    public static function diagnoseRequiredFiles(array $missingGenreNames): DiagnosticResult
+    {
+        if ($missingGenreNames === []) {
+            return new DiagnosticResult(
+                DiagnosticResult::STATUS_CONFIRMED,
+                'REQUIRED_FILES_COMPLETE',
+                'All required submission files have been uploaded (or none are configured for this journal).',
+                ['REQUIRED_FILE_GENRES_SATISFIED']
+            );
+        }
+
+        return new DiagnosticResult(
+            DiagnosticResult::STATUS_CONFIRMED,
+            'REQUIRED_FILES_MISSING',
+            'At least one required submission file is still missing: ' . implode(', ', $missingGenreNames) . '.',
+            ['REQUIRED_FILE_GENRES_MISSING'],
+            ['upload_required_files']
         );
     }
 

@@ -118,6 +118,10 @@ final class SupportGatewayKernel
     {
         return $this->adapter->getReviewAssignmentStatuses($submissionId, $userId);
     }
+    public function getMissingRequiredSubmissionFileGenreNames($context, $submission): array
+    {
+        return $this->adapter->getMissingRequiredSubmissionFileGenreNames($context, $submission);
+    }
     public function getPublicationFields($submission): array
     {
         return $this->adapter->getPublicationFields($submission);
