@@ -20,6 +20,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestCont
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiRequestResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportIdentitySerializer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\DatabaseSupportApiAuditLogger;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainCustomToolProvisioner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainDocumentProvisioner;
@@ -569,12 +570,16 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $chatwootContactId = trim((string) $request->getUserVar('chatwootContactId'));
         $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
 
+        $auditReason = 'malformed_request';
+
         try {
             if ($chatwootAccountId !== '' && $chatwootContactId !== '' && $chatwootConversationId !== '') {
+                $auditReason = 'user_not_found';
                 $bridge = $this->runtimeContextBridge();
                 $user = $bridge->getUserByEmail($email);
 
                 if ($user) {
+                    $auditReason = 'throttled';
                     $pepper = $this->v2VerificationPepper($contextId);
                     $prepared = $bridge->requestVerificationChallenge(
                         $contextId,
@@ -588,6 +593,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                     );
 
                     if ($prepared !== null) {
+                        $auditReason = 'mail_not_configured';
                         $context = $bridge->getContext($request);
                         if (is_object($context)) {
                             $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : '';
@@ -606,6 +612,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
                             if ($body !== null) {
                                 Mail::send(new SupportVerificationMailable($context, $user, $subject, $body));
+                                $auditReason = 'challenge_created';
                             }
                         }
                     }
@@ -615,7 +622,10 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             // A mail-send (or any other) failure here must never change
             // the public response — it would otherwise leak that an
             // account genuinely exists.
+            $auditReason = 'internal_error';
         }
+
+        $this->v2AuditVerificationEvent('verificationRequest', $contextId, $auditReason === 'challenge_created' ? 'allow' : 'deny', $auditReason, $result->correlationId());
 
         SupportApiResponse::success(['verificationRequested' => true], $result->correlationId());
     }
@@ -669,6 +679,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         );
 
         if (!$outcome->isConsumed() || !$outcome->challenge()) {
+            $this->v2AuditVerificationEvent('verificationConfirm', $contextId, 'deny', $outcome->status(), $result->correlationId());
             SupportApiResponse::success(['verified' => false], $result->correlationId());
         }
 
@@ -681,6 +692,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             $chatwootContactId,
             $chatwootConversationId
         );
+
+        $this->v2AuditVerificationEvent('verificationConfirm', $contextId, 'allow', $outcome->status(), $result->correlationId());
 
         SupportApiResponse::success([
             'verified' => true,
@@ -730,6 +743,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 );
                 $verified = true;
             }
+
+            $this->v2AuditVerificationEvent('verify', $contextId, $verified ? 'allow' : 'deny', $outcome->status(), CorrelationId::generate());
         }
 
         header('Content-Type: text/html; charset=UTF-8');
@@ -2004,6 +2019,27 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
         $nonce = trim((string) ($templateMgr->getTemplateVars('cspNonce') ?? ''));
         return $nonce === '' ? null : $nonce;
+    }
+
+    /**
+     * IDN-019: audits the external verification lifecycle (request/confirm
+     * outcomes) through the same persisted sink the Support API allow/deny
+     * decisions already use (AUD-001, `DatabaseSupportApiAuditLogger`).
+     * Never logs a PIN, link token, or claimed email — only the same
+     * privacy-safe reason codes `ChallengeAttemptOutcome::status()` already
+     * exposes for exactly this purpose. Server-side only: this never
+     * changes what the caller-facing response looks like, preserving
+     * anti-enumeration (IDN-015).
+     */
+    private function v2AuditVerificationEvent(string $endpoint, int $contextId, string $decision, string $reason, string $correlationId): void
+    {
+        (new DatabaseSupportApiAuditLogger())->record([
+            'correlationId' => $correlationId,
+            'endpoint' => $endpoint,
+            'contextId' => $contextId,
+            'decision' => $decision,
+            'reason' => $reason,
+        ]);
     }
 
     private function v2EffectiveSetting(int $contextId, string $key, mixed $default = null): mixed
