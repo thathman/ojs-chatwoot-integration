@@ -106,7 +106,15 @@ $nextMethodStart = strpos($pluginSource, "\n    public function", $methodStart +
 $mcpMethodBody = $nextMethodStart !== false ? substr($pluginSource, $methodStart, $nextMethodStart - $methodStart) : substr($pluginSource, $methodStart);
 
 mcpToolsCheck(str_contains($mcpMethodBody, "'mcpServiceToken'"), 'mcpRequest() must read a distinct mcpServiceToken setting');
-mcpToolsCheck(!str_contains($mcpMethodBody, "'chatwootSupportApiToken'") && !str_contains($mcpMethodBody, "'chatwootApiAccessToken'"), 'mcpRequest() must never authenticate against a Chatwoot/Support-API token setting');
+
+// The authenticate-before-parse slice is everything up to the first body-parse
+// call; a downstream tool (support.escalate) legitimately reads the real
+// chatwootApiAccessToken later to post the actual Chatwoot note, exactly as
+// REST does, so the no-token-reuse guarantee is scoped to authentication only.
+$parseCallPos = strpos($mcpMethodBody, 'McpRequestParser::parse(');
+mcpToolsCheck($parseCallPos !== false, 'mcpRequest() must parse the request body via McpRequestParser');
+$authenticationSlice = substr($mcpMethodBody, 0, $parseCallPos);
+mcpToolsCheck(!str_contains($authenticationSlice, "'chatwootSupportApiToken'") && !str_contains($authenticationSlice, "'chatwootApiAccessToken'"), 'mcpRequest() must never authenticate against a Chatwoot/Support-API token setting');
 mcpToolsCheck(str_contains($mcpMethodBody, 'McpAuthenticator::verify('), 'mcpRequest() must authenticate via McpAuthenticator');
 mcpToolsCheck(
     strpos($mcpMethodBody, 'McpAuthenticator::verify(') < strpos($mcpMethodBody, 'McpRequestParser::parse('),
@@ -152,6 +160,16 @@ mcpToolsCheck(
 mcpToolsCheck(
     substr_count($mcpMethodBody, 'v2ResolveMcpSubmissionContext') >= 5,
     'all five submission-scoped tools built so far must resolve through the same shared helper, never each inventing its own copy'
+);
+
+mcpToolsCheck(str_contains($mcpMethodBody, 'EscalateSupportTool::NAME'), 'mcpRequest() must register the real EscalateSupportTool');
+mcpToolsCheck(str_contains($mcpMethodBody, "->allows('support.escalate')"), 'the escalate tool must gate on the real support.escalate capability, same as REST');
+mcpToolsCheck(str_contains($mcpMethodBody, 'HandoffSummaryFormatter::build('), 'the escalate tool must build its handoff summary through the real shared HandoffSummaryFormatter, never a bespoke copy');
+mcpToolsCheck(str_contains($mcpMethodBody, 'new EscalationIdempotencyGuard()'), 'the escalate tool must reuse the real idempotency guard, never a bespoke copy');
+mcpToolsCheck(str_contains($mcpMethodBody, 'new ChatwootApiService('), 'the escalate tool must post the handoff through the real ChatwootApiService, never a bespoke copy');
+mcpToolsCheck(
+    !preg_match('/EscalateSupportTool.*?CONSUMER_CHATWOOT_CAPTAIN_PUBLIC/s', $mcpMethodBody),
+    'the escalate tool must evaluate capabilities under the real MCP consumer plane, never silently falling back to the Chatwoot Captain one'
 );
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');

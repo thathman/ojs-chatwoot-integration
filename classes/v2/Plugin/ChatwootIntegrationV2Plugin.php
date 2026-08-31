@@ -67,6 +67,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\EscalateSupportTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
@@ -1480,6 +1481,116 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 };
 
                 return SubmissionDiagnosticsTool::handleVerified($diagnosis, $actions);
+            }
+        );
+        $registry->register(
+            EscalateSupportTool::NAME,
+            EscalateSupportTool::DESCRIPTION,
+            EscalateSupportTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.support.escalate');
+
+                $reason = trim((string) ($arguments['reason'] ?? ''));
+                if ($reason === '') {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'reason is required.');
+                }
+
+                $bridge = $this->runtimeContextBridge();
+                $decision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                    CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
+                    $result->assurance(),
+                    $result->identity()
+                ));
+                if (!$decision || !$decision->allows('support.escalate')) {
+                    throw new McpHandlerError(McpErrorCode::UNAUTHORIZED, 'Escalation is not available.');
+                }
+
+                $submissionId = $this->v2PositiveInt($arguments['submissionId'] ?? null);
+                $relationship = null;
+                $supportState = null;
+                $requiredActions = [];
+                $publicationFacts = null;
+                $paymentFacts = null;
+                $diagnostic = null;
+
+                if ($submissionId !== null && $result->verified()) {
+                    $submission = $bridge->loadSubmission($submissionId);
+                    if ($submission) {
+                        $candidate = $bridge->resolveSubmissionRelationship($result->identity(), $submission);
+                        if ($candidate && !$candidate->isEmpty()) {
+                            $relationship = $candidate;
+                            $resourceDecision = $bridge->evaluateCapabilities(new CapabilityRequest(
+                                CapabilityRequest::CONSUMER_MCP_PUBLIC_SUPPORT,
+                                'v3',
+                                $result->identity(),
+                                $relationship
+                            ));
+
+                            if ($resourceDecision && $resourceDecision->allows('submission.read_own_support_status')) {
+                                $supportState = $this->supportStateForDiagnostics($bridge, $submission);
+                            }
+                            if ($resourceDecision && $resourceDecision->allows('submission.read_own_required_actions') && $supportState !== null) {
+                                $requiredActions = array_values(array_unique(array_merge(
+                                    $relationship->has('author') ? RequiredActionMapper::forAuthor($supportState) : [],
+                                    $relationship->has('reviewer') ? RequiredActionMapper::forReviewer($bridge->getReviewAssignmentStatuses($submissionId, $result->identity()->userId() ?? 0)) : []
+                                )));
+                                $diagnostic = SubmissionDiagnosticEngine::diagnoseRequiredAction($requiredActions);
+                            }
+                            if ($resourceDecision && $resourceDecision->allows('submission.read_own_publication_status') && $supportState !== null) {
+                                $publicationFacts = ['status' => $supportState === 'published' || $supportState === 'scheduled_for_publication' ? $supportState : 'not_yet_published', 'doi' => null];
+                                $publicationDoi = $bridge->getPublicationFields($submission)['doi'];
+                                $publicationFacts['doi'] = ($supportState === 'published' || $supportState === 'scheduled_for_publication') ? $publicationDoi : null;
+                            }
+                            if ($resourceDecision && $resourceDecision->allows('submission.read_own_payment_status')) {
+                                $feeInfo = $bridge->getPaymentFeeInfo($bridge->getContext($request));
+                                $paymentStatus = 'not_applicable';
+                                if ($feeInfo['enabled']) {
+                                    $paid = $bridge->hasPaidPublicationFee($result->identity()->userId() ?? 0, $submissionId);
+                                    $paymentStatus = $paid ? 'paid' : 'unpaid';
+                                }
+                                $paymentFacts = ['feeEnabled' => $feeInfo['enabled'], 'status' => $paymentStatus];
+                            }
+                        }
+                    }
+                }
+
+                $summary = HandoffSummaryFormatter::build(
+                    SupportIdentitySerializer::serialize($result),
+                    $relationship,
+                    $supportState,
+                    $requiredActions,
+                    $publicationFacts,
+                    $paymentFacts,
+                    $reason,
+                    $diagnostic
+                );
+
+                $chatwootAccountId = trim((string) ($arguments['chatwootAccountId'] ?? ''));
+                $chatwootConversationId = trim((string) ($arguments['chatwootConversationId'] ?? ''));
+                $idempotencyKey = trim((string) ($arguments['idempotencyKey'] ?? ''));
+                if ($idempotencyKey === '') {
+                    $idempotencyKey = hash('sha256', $chatwootAccountId . ':' . $chatwootConversationId . ':' . $reason . ':' . ($submissionId ?? 0));
+                }
+
+                $noteCreated = false;
+                $duplicate = false;
+                $guard = new EscalationIdempotencyGuard();
+                if (!$guard->claim($chatwootAccountId . ':' . $chatwootConversationId . ':' . $idempotencyKey)) {
+                    $duplicate = true;
+                } elseif ($chatwootAccountId !== '' && $chatwootConversationId !== '') {
+                    try {
+                        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+                        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+                        if ($baseUrl !== '' && $apiToken !== '') {
+                            $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+                            $noteCreated = (bool) $chatwoot->createConversationNote($chatwootConversationId, HandoffSummaryFormatter::renderNoteText($summary));
+                        }
+                    } catch (\Throwable $e) {
+                        $noteCreated = false;
+                    }
+                }
+
+                return ['escalated' => true, 'noteCreated' => $noteCreated, 'duplicate' => $duplicate, 'summary' => $summary];
             }
         );
 

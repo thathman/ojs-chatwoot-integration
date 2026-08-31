@@ -29,6 +29,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosticsTool;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\EscalateSupportTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
@@ -142,6 +143,20 @@ namespace {
     $submissionDiagnosticsResult = SubmissionDiagnosticsTool::handleVerified($submissionDiagnosis, ['view_status']);
     mcpIdentityCheck($submissionDiagnosticsResult['verified'] === true && $submissionDiagnosticsResult['diagnosed'] === true, 'the MCP submission-diagnostics tool must report verified/diagnosed=true, same as REST');
     mcpIdentityCheck($submissionDiagnosticsResult['status'] === DiagnosticResult::STATUS_CONFIRMED, 'the MCP submission-diagnostics tool must expose the real diagnostic status');
+
+    // ================================================================
+    // EscalateSupportTool — advertises its shape only; the plugin's
+    // registration closure builds the summary via the real
+    // HandoffSummaryFormatter/SupportIdentitySerializer (asserted at the
+    // wiring level in tests/v2/mcp-tools.php).
+    // ================================================================
+    mcpIdentityCheck(EscalateSupportTool::NAME === 'support.escalate', 'the escalate tool must advertise the real support.escalate name, matching the REST ojs_escalate_support equivalent');
+    $escalateSchema = EscalateSupportTool::inputSchema();
+    mcpIdentityCheck(
+        $escalateSchema['required'] === ['chatwootAccountId', 'chatwootContactId', 'chatwootConversationId', 'reason'],
+        'the escalate tool must require exactly the same conversation tuple plus reason that REST requires'
+    );
+    mcpIdentityCheck(($escalateSchema['additionalProperties'] ?? true) === false, 'the escalate tool schema must reject unknown arguments');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
