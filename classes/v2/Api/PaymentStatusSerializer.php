@@ -34,6 +34,15 @@ final class PaymentStatusSerializer
      * @param array<int,array<string,mixed>> $obligations
      * @return array<string,mixed>
      */
+    /**
+     * Statuses where an unpaid balance genuinely remains and a `pay`
+     * action descriptor is safe to surface (docs/v2/AIRIX360_TASKLIST.md
+     * PTF-011) — never for `paid`/`waived`/`refunded`/`refund_review`/
+     * `unknown`/`not_applicable`, where paying again would be wrong or
+     * meaningless.
+     */
+    private const PAYABLE_STATUSES = ['unpaid', 'partially_waived'];
+
     public static function verified(
         ResourceRelationship $relationship,
         array $feeInfo,
@@ -41,6 +50,12 @@ final class PaymentStatusSerializer
         array $availableActions,
         array $obligations = []
     ): array {
+        $payUrl = self::resolvePayUrl($status, $obligations);
+        if ($payUrl !== null && !in_array('pay', $availableActions, true)) {
+            $availableActions[] = 'pay';
+            sort($availableActions);
+        }
+
         return [
             'verified' => true,
             'resourceVerified' => true,
@@ -54,9 +69,30 @@ final class PaymentStatusSerializer
             'amount' => $feeInfo['amount'],
             'currency' => $feeInfo['currency'],
             'status' => $status,
+            'payUrl' => $payUrl,
             'availableActions' => $availableActions,
             'obligations' => $obligations,
         ];
+    }
+
+    /**
+     * A real `payUrl` a provider itself returned — never constructed
+     * here, and only surfaced/actioned when the status genuinely still
+     * owes something. No native-OJS payment-initiation URL has been
+     * verified yet (see API_MCP_SPEC.md §7.7), so this is `null` unless
+     * an obligation provider supplied one.
+     *
+     * @param array<int,array<string,mixed>> $obligations
+     */
+    private static function resolvePayUrl(string $status, array $obligations): ?string
+    {
+        if (!in_array($status, self::PAYABLE_STATUSES, true)) {
+            return null;
+        }
+
+        $obligation = $obligations[0] ?? null;
+        $payUrl = is_array($obligation) ? ($obligation['payUrl'] ?? null) : null;
+        return is_string($payUrl) && $payUrl !== '' ? $payUrl : null;
     }
 
     /**
