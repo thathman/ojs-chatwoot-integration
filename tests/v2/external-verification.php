@@ -599,5 +599,25 @@ namespace {
         verificationCheck(!str_contains(strtolower($auditSource), $forbidden), "the audit sink must never reference '{$forbidden}' — logs/audit must never contain a PIN or secure token");
     }
 
+    // ================================================================
+    // Part 7: IDN-019 — verification lifecycle audit wiring
+    // ================================================================
+    verificationCheck(str_contains($pluginSource, 'function v2AuditVerificationEvent'), 'plugin must implement the verification-audit helper');
+    verificationCheck(substr_count($pluginSource, 'v2AuditVerificationEvent(') >= 4, 'the audit helper must actually be called from all three verification endpoints (request, PIN confirm x2 outcomes, link confirm) — declaration plus at least 3 call sites');
+    verificationCheck(str_contains($pluginSource, "v2AuditVerificationEvent('verificationRequest'"), 'the request endpoint must audit under the verificationRequest endpoint name');
+    verificationCheck(str_contains($pluginSource, "v2AuditVerificationEvent('verificationConfirm'"), 'the PIN confirm endpoint must audit under the verificationConfirm endpoint name');
+    verificationCheck(str_contains($pluginSource, "v2AuditVerificationEvent('verify'"), 'the browser-facing link confirm endpoint must audit under the verify endpoint name');
+
+    $auditHelperStart = strpos($pluginSource, 'function v2AuditVerificationEvent');
+    verificationCheck($auditHelperStart !== false, 'must be able to locate the audit helper body for the source-level check below');
+    $auditHelperNextStart = strpos($pluginSource, 'private function', $auditHelperStart + 1);
+    $auditHelperBody = $auditHelperNextStart !== false
+        ? substr($pluginSource, $auditHelperStart, $auditHelperNextStart - $auditHelperStart)
+        : substr($pluginSource, $auditHelperStart);
+    foreach (['getUserVar(\'pin\')', 'getUserVar(\'email\')', 'plaintextSecret', '$secret'] as $forbidden) {
+        verificationCheck(!str_contains($auditHelperBody, $forbidden), "the verification-audit helper must never reference '{$forbidden}' — only reason codes/decisions ever reach it");
+    }
+    verificationCheck(str_contains($auditHelperBody, 'DatabaseSupportApiAuditLogger'), 'verification lifecycle events must be recorded through the same persisted audit sink (AUD-001) other Support API decisions use');
+
     fwrite(STDOUT, "External verification tests passed\n");
 }
