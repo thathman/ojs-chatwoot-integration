@@ -2,7 +2,7 @@
 
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Api;
 
-use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\ErrorLogSupportApiAuditLogger;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\DatabaseSupportApiAuditLogger;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\SupportApiAuditLoggerInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\RateLimiter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ServiceTokenAuthenticator;
@@ -25,7 +25,7 @@ final class SupportApiRequestResolver
         private ?SupportApiAuditLoggerInterface $audit = null
     ) {
         $this->rateLimiter ??= new RateLimiter();
-        $this->audit ??= new ErrorLogSupportApiAuditLogger();
+        $this->audit ??= new DatabaseSupportApiAuditLogger();
     }
 
     public function resolve(
