@@ -362,6 +362,15 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
     /** @param array<string,mixed> $row */
     private function v2DeliverQueuedEventRow($bridge, array $row): bool
     {
+        $mode = (string) ($row['delivery_mode'] ?? EventDeliveryMode::PRIVATE_NOTE);
+
+        // AUDIT_ONLY never touches Chatwoot at all — the queue row's own
+        // lifecycle (enqueued -> delivered) already is the audit trail for
+        // this mode; there is nothing further to send.
+        if ($mode === EventDeliveryMode::AUDIT_ONLY) {
+            return true;
+        }
+
         $contextId = (int) ($row['context_id'] ?? 0);
         $submissionId = (int) ($row['resource_id'] ?? 0);
         if ($contextId <= 0 || $submissionId <= 0) {
@@ -388,11 +397,15 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         $attributes = json_decode((string) ($row['attributes'] ?? '{}'), true);
         $attributes = is_array($attributes) ? $attributes : [];
         $message = SupportEventMessageBuilder::buildFromFields((string) ($row['event_type'] ?? ''), $submissionId, $attributes);
-        $mode = (string) ($row['delivery_mode'] ?? EventDeliveryMode::PRIVATE_NOTE);
+
+        // Both open/update and opt-in customer message may need to create
+        // a brand-new contact/conversation; private note never does (a
+        // note only ever attaches to a conversation that already exists).
+        $mayCreateContactOrConversation = in_array($mode, [EventDeliveryMode::OPEN_UPDATE_CONVERSATION, EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE], true);
 
         $api = new ChatwootApiService($baseUrl, $apiToken);
         $contact = $api->findContactByEmail($author['email']);
-        if (!$contact && $mode === EventDeliveryMode::OPEN_UPDATE_CONVERSATION) {
+        if (!$contact && $mayCreateContactOrConversation) {
             $contact = $api->createContact($author['email'], $author['name'], (string) $author['userId']);
         }
         if (!$contact || empty($contact['id'])) {
@@ -401,9 +414,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
 
         $conversations = $api->getContactConversations((int) $contact['id']);
         if (!empty($conversations) && !empty($conversations[0]['id'])) {
-            return (bool) $api->createConversationNote((int) $conversations[0]['id'], $message);
+            return $mode === EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE
+                ? (bool) $api->createConversationMessage((int) $conversations[0]['id'], $message, false)
+                : (bool) $api->createConversationNote((int) $conversations[0]['id'], $message);
         }
-        if ($mode === EventDeliveryMode::OPEN_UPDATE_CONVERSATION && $inboxId > 0) {
+        if ($mayCreateContactOrConversation && $inboxId > 0) {
             return (bool) $api->createConversation((int) $contact['id'], $inboxId, $message);
         }
 
