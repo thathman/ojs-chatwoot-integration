@@ -218,10 +218,10 @@ inspecting `AirixSubmissionFeeProvider`'s obligations.
 - [ ] **EVT-008** Add payment event adapters where stable. — verified against a real local `pkp-lib` checkout: there is no `Hook::call`/`Hook::run` anywhere in `classes/payment/`. No stable hook exists to adapt; this item has nothing to build until pkp-lib adds one. Consistent with `PaymentSupportProviderInterface`'s existing on-demand-poll design rather than a payment event.
 - [ ] **EVT-009** Add DOI event adapters where stable. — same finding as EVT-008: no `Hook::call`/`Hook::run` exists anywhere in `classes/doi/` in a real local `pkp-lib` checkout. Nothing stable to build.
 - [ ] **EVT-010** Delivery policy per journal/event. — partial: `EventDeliveryPolicy::resolve()` + `EventDeliveryMode` implement the pure policy/filter decision (docs/v2/ARCHITECTURE.md §3.9's 5 modes), preserving v1's real `eventSyncMode` values (`note`/`open_update`) as the per-journal global default and adding per-event-type overrides v1 never had. No admin settings UI exists yet to populate per-event overrides (same deliberate scope boundary as KNO-020/CWO-013) — global-mode-only until one does. Not wired to any real delivery path yet.
-- [ ] **EVT-011** Private note delivery.
+- [ ] **EVT-011** Private note delivery. — partial: the "queued delivery" stage's persistence now exists — `chatwoot_support_event_queue` (`InstallSupportGatewayMigration`) + `DatabaseSupportEventQueueRepository::enqueue()`, idempotent on `SupportEvent::idempotencyKey()`'s real unique constraint. No consumer/sender exists yet — nothing actually reads the queue and posts a Chatwoot private note. That real-delivery slice (finding/creating a Chatwoot contact, posting the note, incrementing attempts on failure) is separate, higher-risk work given it's the first point Event Bridge v2 would touch the live Chatwoot API.
 - [ ] **EVT-012** Open/update conversation delivery.
 - [ ] **EVT-013** Opt-in proactive message delivery.
-- [ ] **EVT-014** Dead-letter/retry UI.
+- [ ] **EVT-014** Dead-letter/retry UI. — partial: the underlying dead-letter/retry bookkeeping exists in the queue schema itself (`attempts`/`run_after`/`last_error_code`/`status`, `DatabaseSupportEventQueueRepository::markFailed()`'s exponential backoff, same shape as v1's own retry queue) — a `failed` row past `max_attempts` is the dead letter, no separate table needed. No admin UI consumes it yet (same deliberate scope boundary as KNO-020/CWO-013).
 - [ ] **EVT-015** Replay/duplicate tests.
 
 ## HOF — Human Handoff
