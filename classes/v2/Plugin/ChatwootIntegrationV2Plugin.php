@@ -630,7 +630,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
 
         $accountFields = $bridge->getUserAccountFields($result->identity()->userId() ?? 0);
-        $diagnosis = AccountDiagnosticEngine::diagnose($scope, $accountFields['disabled'], $accountFields['dateValidated']);
+        $mailConfig = $scope === AccountDiagnosticEngine::SCOPE_MAIL_CONFIGURATION ? $bridge->getMailTransportConfiguration() : null;
+        $diagnosis = AccountDiagnosticEngine::diagnose($scope, $accountFields['disabled'], $accountFields['dateValidated'], $mailConfig);
 
         SupportApiResponse::success(DiagnosticResultSerializer::verified($diagnosis, $actions), $result->correlationId());
     }

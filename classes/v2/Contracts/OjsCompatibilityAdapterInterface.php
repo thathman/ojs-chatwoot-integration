@@ -77,6 +77,9 @@ interface OjsCompatibilityAdapterInterface
     /** DIA-007: PHP's real upload_max_filesize/post_max_size ini values in bytes — the only source of truth; OJS has no separate upload-limit setting. @return array{uploadMaxFilesizeBytes:int,postMaxSizeBytes:int} */
     public function getUploadLimits(): array;
 
+    /** DIA-011: real pkp-lib mail-transport config shape (sandbox->log override, smtp host requirement). @return array{driver:string,sandboxForced:bool,smtpHostConfigured:bool} */
+    public function getMailTransportConfiguration(): array;
+
     /** EVT-011: the submission's primary author contact, resolved at delivery time — never baked into a queued SupportEvent. @return array{email:string,name:string,userId:int}|null */
     public function getPrimarySubmissionAuthor($submission): ?array;
 

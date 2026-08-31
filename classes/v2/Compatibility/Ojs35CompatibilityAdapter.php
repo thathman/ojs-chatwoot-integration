@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Compatibility;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
+use PKP\config\Config;
 
 final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterface
 {
@@ -869,6 +870,34 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         return [
             'uploadMaxFilesizeBytes' => self::parseIniBytes((string) ini_get('upload_max_filesize')),
             'postMaxSizeBytes' => self::parseIniBytes((string) ini_get('post_max_size')),
+        ];
+    }
+
+    /**
+     * DIA-011: mirrors exactly the logic real pkp-lib itself uses to pick a
+     * mail transport (`classes/core/PKPContainer.php::getDefaultMailer()` +
+     * its `$items['mail']['mailers']['smtp']` block, verified against a
+     * real local pkp-lib checkout) — sandbox mode forces the `log` driver
+     * (mail is written to the error log, never actually sent) regardless
+     * of the configured `[email] default`; the `smtp` driver additionally
+     * requires `smtp_server` to be set or sending will fail. This reads
+     * only configuration, never attempts to send or inspect delivery —
+     * DIA-011 is a config-shape check, not delivery evidence (see
+     * AccountDiagnosticEngine::diagnosePasswordReset()'s docblock for why
+     * delivery evidence itself is out of reach).
+     *
+     * @return array{driver:string,sandboxForced:bool,smtpHostConfigured:bool}
+     */
+    public function getMailTransportConfiguration(): array
+    {
+        $sandboxForced = (bool) Config::getVar('general', 'sandbox', false);
+        $driver = $sandboxForced ? 'log' : (string) Config::getVar('email', 'default', '');
+        $smtpHost = trim((string) Config::getVar('email', 'smtp_server', ''));
+
+        return [
+            'driver' => $driver,
+            'sandboxForced' => $sandboxForced,
+            'smtpHostConfigured' => $smtpHost !== '',
         ];
     }
 
