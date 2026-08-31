@@ -156,6 +156,7 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportIdentitySerializer;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportSessionRepositoryInterface;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SubmissionDiagnosticEngine;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityCatalog;
@@ -303,6 +304,10 @@ namespace {
     $authorRelationship = $resolver->resolve(new SupportContext(7, 'journal-a', 42, [65538], 'index', 'index', 'en'), \APP\facades\Repo::$submissionsById[456]);
     escalateCheck($authorRelationship !== null && $authorRelationship->has('author'), 'test fixture: author must resolve a relationship');
 
+    // HOF-005: internally re-derived from the same already-verified
+    // requiredActions, never a caller-supplied diagnostic.
+    $diagnostic = SubmissionDiagnosticEngine::diagnoseRequiredAction(['submit_revisions']);
+
     $verifiedIdentitySummary = ['verified' => true, 'assurance' => 'v3', 'identity' => ['authenticated' => true, 'roles' => ['author']]];
     $fullSummary = HandoffSummaryFormatter::build(
         $verifiedIdentitySummary,
@@ -311,19 +316,23 @@ namespace {
         ['submit_revisions'],
         ['status' => 'not_yet_published', 'doi' => null],
         ['feeEnabled' => false, 'status' => 'not_applicable'],
-        'Editor has not responded in two weeks'
+        'Editor has not responded in two weeks',
+        $diagnostic
     );
     escalateCheck($fullSummary['resource'] === ['type' => 'submission', 'id' => 456, 'relationships' => ['author']], 'a real relationship must populate the resource block');
     escalateCheck($fullSummary['supportState'] === 'revision_requested', 'a computed support state must be included');
     escalateCheck($fullSummary['requiredActions'] === ['submit_revisions'], 'computed required actions must be included');
     escalateCheck($fullSummary['publication']['status'] === 'not_yet_published', 'publication facts must be included when provided');
     escalateCheck($fullSummary['payment']['status'] === 'not_applicable', 'payment facts must be included when provided');
+    escalateCheck($fullSummary['diagnostic']['code'] === 'ACTION_REQUIRED', 'a diagnostic fact must be included when computed, matching what the caller\'s own required-actions evidence already proves');
     escalateCheck(!array_key_exists('evidence', $fullSummary) && !array_key_exists('resource', $fullSummary) || !array_key_exists('evidence', $fullSummary['resource'] ?? []), 'summary must never expose internal relationship evidence');
+    escalateCheck(!array_key_exists('diagnostic', $minimalSummary), 'no diagnostic key when none was computed (unverified/no-relationship caller)');
 
     $noteText = HandoffSummaryFormatter::renderNoteText($fullSummary);
     escalateCheck(str_contains($noteText, 'revision_requested'), 'rendered note text must include the support state');
     escalateCheck(str_contains($noteText, 'submit_revisions'), 'rendered note text must include required actions');
     escalateCheck(str_contains($noteText, 'Editor has not responded'), 'rendered note text must include the (sanitized) reason');
+    escalateCheck(str_contains($noteText, 'At least one action is currently required'), 'rendered note text must include the diagnostic summary when one was computed');
     foreach (['email', 'password', 'reviewer_id', 'card', 'secret', 'token'] as $forbidden) {
         escalateCheck(!str_contains(strtolower($noteText), strtolower($forbidden)), "rendered note text must never contain the substring '{$forbidden}'");
     }
@@ -495,6 +504,14 @@ namespace {
     escalateCheck(
         str_contains($pluginSource, '$chatwoot->createConversationNote($chatwootConversationId,'),
         'the note must be posted to the request\'s own conversation tuple, never a caller-supplied override'
+    );
+    escalateCheck(
+        str_contains($pluginSource, 'SubmissionDiagnosticEngine::diagnoseRequiredAction($requiredActions)'),
+        'HOF-005: the endpoint must re-derive the diagnostic internally from its own already-verified requiredActions, never accept one from the caller'
+    );
+    escalateCheck(
+        !preg_match('/getUserVar\([\'"]diagnos/i', $pluginSource),
+        'the escalate endpoint must never read a caller-supplied diagnostic field — Captain could claim any code'
     );
 
     $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/SupportGatewayPageHandler.php');
