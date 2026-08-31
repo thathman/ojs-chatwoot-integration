@@ -177,6 +177,25 @@ namespace {
     $unknownScope = AccountDiagnosticEngine::diagnose('some_future_scope_this_engine_does_not_know_about', false, '2026-01-01 00:00:00');
     accountDiagnosticsCheck($unknownScope->status() === DiagnosticResult::STATUS_UNKNOWN, 'an unrecognized scope must return unknown, never guess a diagnosis for it');
 
+    // mail_configuration (DIA-011) — a config-shape check, not delivery evidence.
+    $noMailEvidence = AccountDiagnosticEngine::diagnose('mail_configuration', false, null, null);
+    accountDiagnosticsCheck($noMailEvidence->status() === DiagnosticResult::STATUS_UNKNOWN, 'missing mail configuration evidence must never be guessed');
+
+    $sandboxMail = AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'log', 'sandboxForced' => true, 'smtpHostConfigured' => false]);
+    accountDiagnosticsCheck($sandboxMail->status() === DiagnosticResult::STATUS_CONFIRMED && $sandboxMail->code() === 'MAIL_SENDING_DISABLED', 'sandbox mode must confirm mail sending is disabled, regardless of the configured default driver');
+
+    $logMail = AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'log', 'sandboxForced' => false, 'smtpHostConfigured' => false]);
+    accountDiagnosticsCheck($logMail->status() === DiagnosticResult::STATUS_CONFIRMED && $logMail->code() === 'MAIL_SENDING_DISABLED', 'the log driver must confirm mail sending is disabled even outside sandbox mode');
+
+    $misconfiguredSmtp = AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'smtp', 'sandboxForced' => false, 'smtpHostConfigured' => false]);
+    accountDiagnosticsCheck($misconfiguredSmtp->status() === DiagnosticResult::STATUS_CONFIRMED && $misconfiguredSmtp->code() === 'MAIL_MISCONFIGURED', 'smtp selected with no smtp host configured must confirm a real misconfiguration');
+
+    $workingSmtp = AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'smtp', 'sandboxForced' => false, 'smtpHostConfigured' => true]);
+    accountDiagnosticsCheck($workingSmtp->status() === DiagnosticResult::STATUS_CONFIRMED && $workingSmtp->code() === 'MAIL_CONFIGURED', 'smtp with a configured host must confirm mail is configured');
+
+    $sendmailMail = AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'sendmail', 'sandboxForced' => false, 'smtpHostConfigured' => false]);
+    accountDiagnosticsCheck($sendmailMail->status() === DiagnosticResult::STATUS_CONFIRMED && $sendmailMail->code() === 'MAIL_CONFIGURED', 'the sendmail driver needs no smtp host and must confirm mail is configured');
+
     // ================================================================
     // Part 2: DiagnosticResult — status validation, exceptions/provider
     // failures must become unknown, never a fabricated cause.
@@ -201,6 +220,8 @@ namespace {
         AccountDiagnosticEngine::diagnose('password_reset', false, null),
         AccountDiagnosticEngine::diagnose('profile', false, '2026-01-01 00:00:00'),
         AccountDiagnosticEngine::diagnose('profile', false, null),
+        AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'smtp', 'sandboxForced' => false, 'smtpHostConfigured' => true]),
+        AccountDiagnosticEngine::diagnose('mail_configuration', false, null, ['driver' => 'log', 'sandboxForced' => true, 'smtpHostConfigured' => false]),
     ] as $result) {
         $payload = DiagnosticResultSerializer::verified($result, ['view_status']);
         accountDiagnosticsCheck($payload['verified'] === true, "serialized payload for code {$result->code()} must say verified=true");
@@ -409,6 +430,8 @@ namespace {
         !preg_match('/getUserVar\([\'"](email|username|userId|user_id)[\'"]\)/', $methodBody),
         'the account-diagnostics endpoint must never read a caller-supplied email/username/userId — it diagnoses only the verified caller\'s own account'
     );
+
+    accountDiagnosticsCheck(str_contains($methodBody, 'getMailTransportConfiguration'), 'the account-diagnostics endpoint must wire real mail-transport evidence through to mail_configuration diagnoses');
 
     $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/SupportGatewayPageHandler.php');
     accountDiagnosticsCheck(str_contains($handlerSource, 'function accountDiagnostics('), 'handler must register the accountDiagnostics operation');
