@@ -38,6 +38,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainScenarioPr
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CanonicalToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\DatabaseSupportKnowledgeSyncRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
@@ -67,7 +68,7 @@ use PKP\security\Role;
  * It deliberately inherits the proven v1 behavior and overrides only seams
  * that have a tested v2 implementation. This keeps migration incremental.
  */
-class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
+class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \PKP\plugins\interfaces\HasTaskScheduler
 {
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const SUPPORT_KNOWLEDGE_PAGE = 'support-knowledge';
@@ -95,6 +96,26 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin
             Hook::add('LoadHandler', [$this, 'setSupportGatewayPageHandler']);
         }
         return $success;
+    }
+
+    /**
+     * Wires the long-flagged known gap (docs/v2/TASKLIST.md IDN-017:
+     * "no scheduled task ever calls purgeExpired() — expired rows are
+     * never actually swept") into OJS 3.5's real scheduled-task lifecycle
+     * — verified against a real local checkout of `pkp-lib`
+     * (`PKP\plugins\interfaces\HasTaskScheduler`,
+     * `PKP\scheduledTask\PKPScheduler::registerPluginSchedules()`, which
+     * auto-discovers any plugin implementing this interface). Daily is
+     * deliberately generous relative to session/challenge TTLs (minutes
+     * to hours) — this is cleanup of already-unusable rows, not a
+     * security control in itself.
+     */
+    public function registerSchedules(\PKP\scheduledTask\PKPScheduler $scheduler): void
+    {
+        $scheduler->addSchedule(new PurgeExpiredSupportDataTask())
+            ->daily()
+            ->name(PurgeExpiredSupportDataTask::class)
+            ->withoutOverlapping();
     }
 
     public function setSupportGatewayPageHandler(string $hookName, array $args): bool
