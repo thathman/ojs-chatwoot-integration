@@ -195,10 +195,14 @@ namespace {
 
     $scheduler = new \PKP\scheduledTask\PKPScheduler();
     $plugin->registerSchedules($scheduler);
-    pluginCheck(count($scheduler->addedTasks) === 1, 'registerSchedules() must register exactly one task');
+    pluginCheck(count($scheduler->addedTasks) === 2, 'registerSchedules() must register exactly two tasks');
     pluginCheck(
         $scheduler->addedTasks[0] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask,
-        'the registered task must be the real PurgeExpiredSupportDataTask, not a stand-in'
+        'the first registered task must be the real PurgeExpiredSupportDataTask, not a stand-in'
+    );
+    pluginCheck(
+        $scheduler->addedTasks[1] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask,
+        'the second registered task must be the real CaptainSyncScheduledTask, not a stand-in'
     );
 
     fwrite(STDOUT, "Live plugin tests passed\n");
