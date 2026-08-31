@@ -25,7 +25,9 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpErrorCode;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpSupportApiFailureMapper;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\RequiredActionsTool;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ResourceRelationship;
 
     function mcpIdentityCheck(bool $condition, string $message): void
     {
@@ -64,6 +66,16 @@ namespace {
     $unverifiedResult = SupportIdentityTool::handle($unverifiedContext);
     mcpIdentityCheck($unverifiedResult['verified'] === false, 'the MCP identity tool must report verified=false for an unverified context, same as REST');
     mcpIdentityCheck(!array_key_exists('journal', $unverifiedResult) && !array_key_exists('session', $unverifiedResult), 'the MCP identity tool must never leak journal/session detail for an unverified context, same as REST');
+
+    // ================================================================
+    // RequiredActionsTool — must reuse RequiredActionsSerializer::verified()
+    // verbatim (REST/MCP equivalence by construction).
+    // ================================================================
+    $authorRelationship = new ResourceRelationship('submission', 456, ['author'], ['author' => true]);
+    $verifiedResult = RequiredActionsTool::handleVerified($authorRelationship, ['submit_revisions'], ['view_status', 'view_required_actions']);
+    mcpIdentityCheck($verifiedResult['verified'] === true && $verifiedResult['resourceVerified'] === true, 'the MCP required-actions tool must report verified/resourceVerified=true, same as REST');
+    mcpIdentityCheck($verifiedResult['requiredActions'] === ['submit_revisions'], 'the MCP required-actions tool must expose the computed required actions verbatim');
+    mcpIdentityCheck(!array_key_exists('evidence', $verifiedResult), 'the MCP required-actions tool must never expose internal relationship evidence, same as REST');
 
     fwrite(STDOUT, "MCP identity tests passed\n");
 }
