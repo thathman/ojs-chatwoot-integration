@@ -79,7 +79,7 @@ does not attempt.
 
 ```xml
 <release version="2.0.0.0" date="2026-09-01" lang="en">
-    <package>PACKAGE_URL_PLACEHOLDER</package>
+    <package>https://github.com/thathman/ojs-chatwoot-integration/releases/download/v2.0.0.0/chatwootIntegration-2.0.0.0.tar.gz</package>
     <md5>752d100032f333ba9d142c485bbfd8ac</md5>
     <compatibility>
         <version>3.5.0.0</version>
@@ -87,9 +87,20 @@ does not attempt.
 </release>
 ```
 
-`PACKAGE_URL_PLACEHOLDER` is replaced with the real, immutable GitHub
-release asset URL once the release is created — see the real URL recorded
-in this document's revision history / the actual Gallery PR, whichever is
-more current. The MD5 above must be reconfirmed against the actual
-uploaded asset (re-downloaded and re-hashed) before it is used in any
-Gallery submission — never trusted from the local build alone.
+## Publication record (RELS-001/009/013)
+
+- **GitHub repository**: made public on 2026-09-01 —
+  `https://github.com/thathman/ojs-chatwoot-integration`.
+- **GitHub release**: `v2.0.0.0`, tag resolves to
+  `5cc04bc86f7e19e0df9d282f96f3d60d9e82b796` (confirmed via the GitHub API
+  `git/refs/tags/v2.0.0.0`) —
+  `https://github.com/thathman/ojs-chatwoot-integration/releases/tag/v2.0.0.0`.
+- **Asset re-verification**: the release asset was re-downloaded fresh
+  from the URL above and re-hashed. Size (341510 bytes), MD5
+  (`752d100032f333ba9d142c485bbfd8ac`), and SHA-256
+  (`af16b0657585af6676c86cd0cdd08ec25323cc941616ead97b6117f5107fb727`) all
+  matched the locally-built archive exactly — the upload preserved the
+  bytes byte-for-byte.
+- This release/tag is immutable: no future change to `2.0.0.0` will be
+  published under this tag or this package. Any future fix ships as a new
+  four-part version with a new archive and new checksums.
