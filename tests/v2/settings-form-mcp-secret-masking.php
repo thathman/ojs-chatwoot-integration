@@ -1,0 +1,112 @@
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__, 2);
+require_once $root . '/classes/v2/bootstrap.php';
+
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
+
+function settingsFormMaskingCheck(bool $condition, string $message): void
+{
+    if (!$condition) {
+        fwrite(STDERR, "FAIL: {$message}\n");
+        exit(1);
+    }
+}
+
+/**
+ * Admin/settings foundation: the first slice of the v2 "Support Gateway"
+ * admin section (Connection + Support API + MCP credential groups).
+ * ChatwootSettingsForm/settingsForm.tpl themselves cannot be exercised
+ * here (PKP\form\Form and Smarty rendering both need a live OJS
+ * runtime), so this covers the two things that ARE fully testable
+ * without one: the pure secret-masking logic every secret field shares,
+ * and source-level wiring assertions on the real form/template/export
+ * files, so a regression in either is still caught here.
+ */
+
+// ================================================================
+// SecretFieldMasking — the shared pure logic every secret field
+// (chatwootIdentityValidationSecret, chatwootApiAccessToken,
+// chatwootSupportApiToken, mcpServiceToken) is driven by.
+// ================================================================
+settingsFormMaskingCheck(SecretFieldMasking::displayValue('') === '', 'an empty stored secret must display as empty, never the mask, so a first-time admin knows nothing is set yet');
+settingsFormMaskingCheck(SecretFieldMasking::displayValue('real-secret-value') === SecretFieldMasking::MASK, 'a real stored secret must display only as the mask, never the plaintext value, once saved');
+
+settingsFormMaskingCheck(
+    SecretFieldMasking::resolveSavedValue(SecretFieldMasking::MASK, 'real-secret-value') === 'real-secret-value',
+    'resubmitting the mask unchanged must keep the real existing secret, never overwrite it with the literal mask string'
+);
+settingsFormMaskingCheck(
+    SecretFieldMasking::resolveSavedValue('a-new-real-value', 'real-secret-value') === 'a-new-real-value',
+    'submitting a genuinely new value must replace the stored secret'
+);
+settingsFormMaskingCheck(
+    SecretFieldMasking::resolveSavedValue('', 'real-secret-value') === '',
+    'submitting an explicitly empty value must clear the stored secret (a deliberate admin action), never be confused with "unchanged"'
+);
+settingsFormMaskingCheck(
+    SecretFieldMasking::resolveSavedValue(SecretFieldMasking::MASK, '') === '',
+    'resubmitting the mask when nothing was ever actually stored must resolve to empty, never to the literal mask string being saved as if it were a real secret'
+);
+
+// ================================================================
+// Wiring: the real settings form must mask exactly the four real
+// secrets, never the non-secret connection fields, and must apply
+// masking before ever calling updateSetting() for those keys.
+// ================================================================
+$formSource = (string) file_get_contents($root . '/ChatwootSettingsForm.php');
+
+settingsFormMaskingCheck(str_contains($formSource, 'use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;'), 'ChatwootSettingsForm must use the real shared SecretFieldMasking helper, never a bespoke inline copy');
+
+$secretKeysStart = strpos($formSource, 'private const SECRET_KEYS');
+settingsFormMaskingCheck($secretKeysStart !== false, 'ChatwootSettingsForm must declare a real SECRET_KEYS list');
+$secretKeysBlock = substr($formSource, $secretKeysStart, (int) strpos($formSource, '];', $secretKeysStart) - $secretKeysStart);
+foreach (['chatwootIdentityValidationSecret', 'chatwootApiAccessToken', 'chatwootSupportApiToken', 'mcpServiceToken'] as $secretKey) {
+    settingsFormMaskingCheck(str_contains($secretKeysBlock, "'{$secretKey}'"), "SECRET_KEYS must include the real secret \"{$secretKey}\"");
+}
+foreach (['chatwootBaseUrl', 'chatwootWebsiteToken', 'chatwootInboxId'] as $nonSecretKey) {
+    settingsFormMaskingCheck(!str_contains($secretKeysBlock, "'{$nonSecretKey}'"), "SECRET_KEYS must never include the non-secret \"{$nonSecretKey}\" — masking a connection detail that isn't actually a secret would just make the admin re-enter it needlessly");
+}
+
+settingsFormMaskingCheck(str_contains($formSource, "'mcpServiceToken'"), 'mcpServiceToken must be a real, wired settings key (initData/readInputData/execute), not just declared as a secret');
+settingsFormMaskingCheck(str_contains($formSource, 'SecretFieldMasking::displayValue($value)'), 'initData() must mask secret values through the real shared helper before ever assigning them to the template');
+settingsFormMaskingCheck(str_contains($formSource, 'SecretFieldMasking::resolveSavedValue($submitted, $existing)'), 'execute() must resolve the real saved value through the real shared helper before updateSetting() ever runs, so a resubmitted mask can never overwrite a real secret');
+
+$maskResolutionPos = strpos($formSource, 'SecretFieldMasking::resolveSavedValue($submitted, $existing)');
+$updateSettingPos = strpos($formSource, '$plugin->updateSetting($contextId, $key, $this->getData($key), $type)');
+settingsFormMaskingCheck($maskResolutionPos !== false && $updateSettingPos !== false && $maskResolutionPos < $updateSettingPos, 'secret values must be resolved through the masking helper before the settings-save loop runs, never after');
+
+// ================================================================
+// Wiring: mcpServiceToken must never be exportable/importable, exactly
+// like the other real secrets already established this session.
+// ================================================================
+$v2PluginSource = (string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
+$legacyExportKeysStart = strpos($v2PluginSource, 'LEGACY_EXPORT_KEYS = [');
+settingsFormMaskingCheck($legacyExportKeysStart !== false, 'the plugin must declare LEGACY_EXPORT_KEYS');
+$legacyExportKeysBlock = substr($v2PluginSource, $legacyExportKeysStart, (int) strpos($v2PluginSource, '];', $legacyExportKeysStart) - $legacyExportKeysStart);
+settingsFormMaskingCheck(!str_contains($legacyExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in LEGACY_EXPORT_KEYS — it must be structurally impossible to export or import via the settings backup path, same as the MCP credential design already establishes elsewhere');
+
+$v1PluginSource = (string) file_get_contents($root . '/ChatwootIntegrationPlugin.php');
+$v1ExportKeysStart = strpos($v1PluginSource, 'EXPORT_KEYS = [');
+settingsFormMaskingCheck($v1ExportKeysStart !== false, 'v1 must declare its own EXPORT_KEYS');
+$v1ExportKeysBlock = substr($v1PluginSource, $v1ExportKeysStart, (int) strpos($v1PluginSource, '];', $v1ExportKeysStart) - $v1ExportKeysStart);
+settingsFormMaskingCheck(!str_contains($v1ExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in v1\'s own EXPORT_KEYS either — v1\'s importSettings() gates on this same list, so this closes both the export and import path');
+
+// ================================================================
+// Wiring: the template must render every real secret as a password
+// field (never plaintext-echoed text), and must display the real MCP
+// endpoint/protocol revision, never a placeholder.
+// ================================================================
+$templateSource = (string) file_get_contents($root . '/templates/settingsForm.tpl');
+foreach (['chatwootIdentityValidationSecret', 'chatwootApiAccessToken', 'chatwootSupportApiToken', 'mcpServiceToken'] as $secretKey) {
+    settingsFormMaskingCheck(str_contains($templateSource, "type=\"password\" id=\"{$secretKey}\""), "the template must render \"{$secretKey}\" as a real password field, never plaintext text");
+}
+settingsFormMaskingCheck(str_contains($templateSource, 'type="text" id="chatwootBaseUrl"'), 'chatwootBaseUrl must remain a plain text field — it is not a secret');
+settingsFormMaskingCheck(str_contains($templateSource, '$mcpEndpointUrl') && str_contains($templateSource, '$mcpProtocolRevision'), 'the template must display the real MCP endpoint URL and protocol revision, not a static placeholder');
+
+$formPhpSource = $formSource;
+settingsFormMaskingCheck(str_contains($formPhpSource, "PKPApplication::ROUTE_PAGE, \$context->getPath(), 'ojsMcpGateway'"), 'the real MCP endpoint URL shown to the admin must be built from the real ojsMcpGateway page route, never a hand-typed/hardcoded URL string');
+
+fwrite(STDOUT, "Settings form MCP/secret masking tests passed\n");

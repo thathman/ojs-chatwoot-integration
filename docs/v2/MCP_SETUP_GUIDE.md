@@ -47,18 +47,12 @@ token — never reuse one for the other. Authentication happens before the
 request body is ever parsed, so a malformed body from an unauthenticated
 caller can never be used as a probing oracle.
 
-**Known gap:** unlike `chatwootBaseUrl`/`chatwootApiAccessToken`,
-`mcpServiceToken` does not yet have a field in the plugin's settings form
-(`templates/settingsForm.tpl`) — this is a real, tracked gap, not an
-oversight. Until that form field ships, set it with OJS's own generic
-plugin-settings mechanism, e.g. from a one-off script run through OJS's
-bootstrap:
-
-```php
-$plugin->updateSetting($contextId, 'mcpServiceToken', bin2hex(random_bytes(32)));
-```
-
-Treat the value exactly like an API key: generate it with a
+Set it from the journal's own **Settings → Website → Plugins →
+Chatwoot Integration** settings form, under the "MCP" section
+(ADM-001) — the field is masked after saving, same as the other
+credential fields, and the form also shows this journal's real MCP
+endpoint URL and protocol revision. If you generate the token
+yourself rather than typing one in, treat the value exactly like an API key: generate it with a
 cryptographically random source, store it only in your MCP client's own
 secret store, and rotate it the same way you would `chatwootApiAccessToken`.
 

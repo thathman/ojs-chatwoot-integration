@@ -2,6 +2,7 @@
 
 namespace APP\plugins\generic\chatwootIntegration;
 
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
 use APP\template\TemplateManager;
 use PKP\form\Form;
 use PKP\form\validation\FormValidator;
@@ -11,6 +12,18 @@ use PKP\security\Role;
 
 class ChatwootSettingsForm extends Form
 {
+    /**
+     * Secret fields the settings form must mask: never rendered back in
+     * full once saved, never overwritten by resubmitting the mask
+     * unchanged. See SecretFieldMasking.
+     */
+    private const SECRET_KEYS = [
+        'chatwootIdentityValidationSecret',
+        'chatwootApiAccessToken',
+        'chatwootSupportApiToken',
+        'mcpServiceToken',
+    ];
+
     public function __construct(private ChatwootIntegrationPlugin $plugin, private int $contextId)
     {
         parent::__construct($plugin->getTemplateResource('settingsForm.tpl'));
@@ -25,14 +38,15 @@ class ChatwootSettingsForm extends Form
 
         $keys = [
             'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
-            'chatwootSupportApiToken',
+            'chatwootSupportApiToken','mcpServiceToken',
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
             'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson','launcherBottomOffset',
         ];
         foreach ($keys as $key) {
-            $this->setData($key, $plugin->getSetting($contextId, $key));
+            $value = (string) $plugin->getSetting($contextId, $key);
+            $this->setData($key, in_array($key, self::SECRET_KEYS, true) ? SecretFieldMasking::displayValue($value) : $value);
         }
 
         $roles = [Role::ROLE_ID_MANAGER, Role::ROLE_ID_SITE_ADMIN, Role::ROLE_ID_SUB_EDITOR, Role::ROLE_ID_AUTHOR, Role::ROLE_ID_REVIEWER, Role::ROLE_ID_ASSISTANT, Role::ROLE_ID_READER];
@@ -47,7 +61,7 @@ class ChatwootSettingsForm extends Form
     {
         $vars = [
             'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
-            'chatwootSupportApiToken',
+            'chatwootSupportApiToken','mcpServiceToken',
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
@@ -87,6 +101,13 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('saveGlobalProfileUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'saveGlobalProfile'])));
         $templateMgr->assign('applyGlobalProfileUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'applyGlobalProfile'])));
 
+        $context = $request->getContext();
+        $mcpEndpointUrl = $context
+            ? $request->getDispatcher()->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), 'ojsMcpGateway')
+            : '';
+        $templateMgr->assign('mcpEndpointUrl', $mcpEndpointUrl);
+        $templateMgr->assign('mcpProtocolRevision', '2026-07-28');
+
         return parent::fetch($request, $template, $display);
     }
 
@@ -95,6 +116,12 @@ class ChatwootSettingsForm extends Form
         $plugin = $this->plugin;
         $contextId = $this->contextId;
 
+        foreach (self::SECRET_KEYS as $key) {
+            $submitted = (string) $this->getData($key);
+            $existing = (string) $plugin->getSetting($contextId, $key);
+            $this->setData($key, SecretFieldMasking::resolveSavedValue($submitted, $existing));
+        }
+
         $settings = [
             'chatwootBaseUrl' => 'string',
             'chatwootWebsiteToken' => 'string',
@@ -102,6 +129,7 @@ class ChatwootSettingsForm extends Form
             'chatwootApiAccessToken' => 'string',
             'chatwootInboxId' => 'int',
             'chatwootSupportApiToken' => 'string',
+            'mcpServiceToken' => 'string',
             'enableWidget' => 'bool',
             'enableDebugMode' => 'bool',
             'enablePrivacyMode' => 'bool',

@@ -7,6 +7,15 @@ msgstr "Integrates Chatwoot live chat with OJS."
 msgid "plugins.generic.chatwootIntegration.settings"
 msgstr "Chatwoot Settings"
 
+msgid "plugins.generic.chatwootIntegration.settings.section.connection"
+msgstr "Connection"
+
+msgid "plugins.generic.chatwootIntegration.settings.section.supportApi"
+msgstr "Support API"
+
+msgid "plugins.generic.chatwootIntegration.settings.section.mcp"
+msgstr "MCP (Model Context Protocol)"
+
 msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrl"
 msgstr "Chatwoot Base URL"
 
@@ -42,6 +51,15 @@ msgstr "Support API Token"
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.description"
 msgstr "Shared secret Chatwoot Captain must send as a Bearer token when calling the conversation-bound Support API. Required for that API to respond."
+
+msgid "plugins.generic.chatwootIntegration.settings.mcpEndpoint.description"
+msgstr "MCP-capable clients (e.g. an AI agent) can reach this journal's read-only support tools at %endpoint%, speaking MCP protocol revision %revision%. See the MCP setup guide for details."
+
+msgid "plugins.generic.chatwootIntegration.settings.mcpServiceToken"
+msgstr "MCP Service Token"
+
+msgid "plugins.generic.chatwootIntegration.settings.mcpServiceToken.description"
+msgstr "Shared secret an MCP client must send as a Bearer token when calling the MCP gateway above. Distinct from the Support API Token above — never reuse one for the other."
 
 msgid "plugins.generic.chatwootIntegration.settings.enableWidget"
 msgstr "Enable Chat Widget"
