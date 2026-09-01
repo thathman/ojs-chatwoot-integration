@@ -330,8 +330,8 @@ The remaining ADR-023 tools (`identity.*`/`submission.get_support_status`/`submi
 - [ ] **DOC-003** Captain Intelligence prerequisites/provisioning guide.
 - [ ] **DOC-004** Verification/security admin guide.
 - [ ] **DOC-005** Knowledge provider guide.
-- [ ] **DOC-006** MCP setup guide.
-- [ ] **DOC-007** REST/OpenAPI guide.
+- [x] **DOC-006** MCP setup guide. — new `docs/v2/MCP_SETUP_GUIDE.md`, written now that the MCP surface has stabilized (MCP-001 through MCP-009 all done), per ADR-023's own stated sequencing ("user-facing docs follow once the externally visible MCP/OpenAPI/runtime surfaces have stabilized, not before"). Covers the endpoint/auth/protocol basics, the full built tool/resource tables, error codes, and honestly documents a real gap: `mcpServiceToken` has no settings-form field yet (unlike `chatwootBaseUrl`/`chatwootApiAccessToken`), so the guide gives the real generic OJS mechanism (`Plugin::updateSetting()`) rather than pointing at a UI field that doesn't exist.
+- [x] **DOC-007** REST/OpenAPI guide. — new `docs/v2/REST_API_GUIDE.md`. Points at `openapi.json` as the authoritative machine-readable contract rather than duplicating its endpoint list (which would drift); covers auth (including real multi-token rotation support already in `ServiceTokenAuthenticator::verify()`), the conversation-tuple convention, the response envelope, and the anti-enumeration rule every resource-scoped endpoint shares.
 - [ ] **DOC-008** Troubleshooting/health guide.
 - [ ] **DOC-009** Upgrade from v1 guide.
 - [ ] **DOC-010** Privacy/data-retention guide.
