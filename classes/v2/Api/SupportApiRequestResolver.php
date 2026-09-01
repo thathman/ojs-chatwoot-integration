@@ -7,6 +7,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\SupportApiAuditLogg
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\RateLimiter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ServiceTokenAuthenticator;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
+use PKP\config\Config;
 
 /**
  * The shared pipeline every Support API endpoint runs before it does
@@ -136,19 +137,29 @@ final class SupportApiRequestResolver
      * The service token is a bearer credential; it must never travel over
      * plain HTTP. Accepts a reverse-proxy-terminated TLS connection (the
      * X-Forwarded-Proto convention used by the nginx/cloudflared fronting
-     * this plugin's real deployments) as well as a direct HTTPS connection.
+     * this plugin's real deployments) as well as a direct HTTPS connection
+     * — but only when the site admin has actually declared this OJS
+     * install sits behind a trusted reverse proxy.
      *
-     * ponytail: trusts X-Forwarded-Proto unconditionally rather than
-     * checking a configured trusted-proxy list, because this plugin has no
-     * existing trusted-proxy concept to hook into. A request that reaches
-     * PHP at all already passed through whatever reverse proxy fronts this
-     * OJS install; add a trusted-proxy allowlist if that stops holding.
+     * Reuses OJS core's own `[general] trust_x_forwarded_for` config flag
+     * (see PKPRequest::getRemoteAddr()) as that declaration, rather than
+     * inventing a separate plugin setting: it is the one real,
+     * admin-controlled "there is a reverse proxy in front of this install
+     * and I control its forwarded headers" boundary this codebase already
+     * has, for the exact same threat model (an untrusted caller cannot be
+     * allowed to set a forwarded header and have it believed). When that
+     * flag is off (the config template's own shipped default), an
+     * arbitrary caller-supplied X-Forwarded-Proto must never be trusted.
      */
     private function transportSecure(): bool
     {
         $https = $_SERVER['HTTPS'] ?? '';
         if (is_string($https) && $https !== '' && strtolower($https) !== 'off') {
             return true;
+        }
+
+        if (!Config::getVar('general', 'trust_x_forwarded_for', true)) {
+            return false;
         }
 
         $forwardedProto = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
