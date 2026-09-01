@@ -154,6 +154,12 @@ msgstr "Inbox ID"
 msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId.description"
 msgstr "Required for open/update conversation mode when no existing conversation is found."
 
+msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId"
+msgstr "Captain Assistant ID"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.description"
+msgstr "The numeric ID of the Chatwoot Captain assistant this journal's Knowledge Document, Custom Tools, and Scenarios should be provisioned under. Required for Sync/Repair Captain to do anything — without it, Captain provisioning silently does nothing."
+
 msgid "plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"
 msgstr "Support API Token"
 
