@@ -1,27 +1,33 @@
 # PKP Plugin Gallery Release Metadata (RELS-010/011/012)
 
-Draft metadata and a draft Gallery XML `<release>` snippet for the
-`2.0.0.0` release, prepared ahead of actual publication per the standing
-release directive's "prepare, do not publish" instruction. **Nothing in
-this document has been submitted anywhere** — the package download URL
-below is an explicit placeholder, since no public release artifact exists
-yet (creating one is gated by the standing PUBLIC RELEASE GATE).
+Final metadata and Gallery XML `<release>` snippet for the `2.0.0.0`
+release. This document was rewritten once more immediately before
+publication after a real packaging gap was found and fixed (`.forgejo/`,
+`.github/`, dev tooling config, and the full `tests/` suite were being
+bundled into the release archive; see `.gitattributes`) — the values
+below are the true final ones, not the earlier, now-obsolete build.
 
 ## Real release facts
 
-- **Version**: `2.0.0.0` (`version.xml`, real — see `docs/v2/TASKLIST.md` RELS-007).
+- **Version**: `2.0.0.0` (`version.xml`, real).
 - **Release date**: 2026-09-01.
-- **Package**: `chatwootIntegration-2.0.0.0.tar.gz`, built via `git archive
-  --format=tar --prefix=chatwootIntegration/ HEAD | gzip` from `v2-dev` at
-  commit `997ae6d` — a real, single top-level `chatwootIntegration/`
-  directory, verified to extract cleanly (293 real files).
-- **Real file size**: 509711 bytes.
-- **Real MD5**: `d68300580b044df8d3185c12717d6802`
+- **Final release commit**: `5cc04bc86f7e19e0df9d282f96f3d60d9e82b796`
+  (both Forgejo `v2-dev` and GitHub `main` point to this commit).
+- **Package**: `chatwootIntegration-2.0.0.0.tar.gz`, built via `git
+  archive --format=tar --prefix=chatwootIntegration/ HEAD | gzip` from
+  the commit above — a real, single top-level `chatwootIntegration/`
+  directory (244 archive entries / 210 real files), verified to extract
+  cleanly into a fresh directory, no `.git`/dev-CI/test content (excluded
+  via `.gitattributes` `export-ignore`), no path traversal, `version.xml`
+  reports `2.0.0.0`, `LICENSE` present and GPL-3.0-or-later SPDX-tagged.
+- **Real file size**: 341510 bytes.
+- **Real MD5**: `752d100032f333ba9d142c485bbfd8ac`
+- **Real SHA-256**: `af16b0657585af6676c86cd0cdd08ec25323cc941616ead97b6117f5107fb727`
 
-(Re-run the exact same `git archive` command against the actual commit
-being tagged for release to regenerate this file/MD5 before publication —
-the ones above are current as of this preparation pass, not necessarily
-the final tagged commit.)
+Final pre-publication verification against this exact commit: full
+`tests/v2/*.php` suite green, `php-cs-fixer` clean, a real Semgrep scan
+(`p/php`/`p/security-audit`/`p/secrets`) at 0 findings across 215 tracked
+files, and a targeted secret-literal grep with no matches (SEC-010).
 
 ## Title / summary / description (RELS-011)
 
@@ -43,46 +49,58 @@ the final tagged commit.)
   > policy (private note, customer-visible message with explicit opt-in,
   > or audit-only). Blind-review anonymity and cross-journal isolation are
   > enforced server-side, never left to client-supplied data.
+  >
+  > Does not include: OJS 3.6 compatibility, a public staff-mutation
+  > plane (staff-facing writes/diagnostics remain out of scope for this
+  > release), or the full admin-configurable verification EmailTemplate
+  > migration (the built-in PIN/link verification emails work; promoting
+  > them to editable OJS EmailTemplates is a documented follow-up).
 
-- **Homepage**: `https://git.airixmedia.com/thathman/ojs-chatwoot-integration`
-  (the real, current repository location; this repo's own description
-  names GitHub as the eventual public-publication target — that URL does
-  not exist publicly yet and is not used here).
+- **Homepage**: `https://github.com/thathman/ojs-chatwoot-integration`
+  (the real public GitHub repository — the actual publication target,
+  now public).
 - **Maintainer**: Hendrix Nwaokolo (`n.hendrix.e@gmail.com`).
 
-## Draft Gallery XML `<release>` snippet (RELS-012)
+## Compatibility matrix — supported vs. actually tested (RELS-008/RELS-017)
 
-Follows the real PKP Plugin Gallery XML release-entry shape (a `<release>`
-element inside the plugin's own gallery-registered `<plugin>` entry —
-this snippet covers only the new release entry to add, not a full
-from-scratch gallery XML file, since this plugin is not yet Gallery-listed
-at all):
+Two distinct claims, kept explicitly separate:
+
+| | OJS's own stated support | This plugin's real integration testing |
+|---|---|---|
+| OJS version | 3.5.x | Real, live install/upgrade verified against a real OJS 3.5.0-5 instance (`docs/v2/TASKLIST.md` TST-004/RUN-001), including the real HTTP-route fixes from TST-014. |
+| PHP | 8.2, 8.3 (OJS 3.5's own real `composer.json`/`PKPApplication::PHP_REQUIRED_VERSION` requirement, and OJS's own upstream CI matrix) | This plugin's CI runs PHP 8.2 and 8.3 on every change — matches OJS's real requirement exactly. |
+| Database | MySQL/MariaDB and PostgreSQL are both supported by OJS 3.5 itself | **Only MySQL 8.0 has been integration-tested by this plugin** (the real live upgrade above). MariaDB and PostgreSQL are expected to work (OJS itself supports them, and this plugin's own migration uses portable Laravel schema-builder calls, not raw MySQL-specific SQL) but have **not** received equivalent real integration verification for this release. |
+
+OJS 3.6 is explicitly **not** claimed — `pkp/ojs`'s own `main` branch
+already reports `3.6.0.0`, a separate compatibility target this release
+does not attempt.
+
+## Gallery XML `<release>` snippet (RELS-012)
 
 ```xml
 <release version="2.0.0.0" date="2026-09-01" lang="en">
-    <package>PLACEHOLDER_NO_PUBLISHED_PACKAGE_URL_YET</package>
-    <md5>d68300580b044df8d3185c12717d6802</md5>
+    <package>https://github.com/thathman/ojs-chatwoot-integration/releases/download/v2.0.0.0/chatwootIntegration-2.0.0.0.tar.gz</package>
+    <md5>752d100032f333ba9d142c485bbfd8ac</md5>
     <compatibility>
         <version>3.5.0.0</version>
     </compatibility>
 </release>
 ```
 
-**The `<package>` URL is a real, explicit placeholder** — filling it in
-with a real GitHub release asset URL requires RELS-002/009 (creating a
-public release artifact), both gated by the standing PUBLIC RELEASE GATE
-and not attempted here. `<compatibility><version>` names OJS `3.5.0.0`
-only, matching this release's real, tested target (`docs/v2/
-VERIFICATION_MATRIX.md`'s PHP support matrix and TST-004/RUN-001's real
-install/upgrade verification) — OJS 3.6 remains explicitly out of scope
-and is not listed.
+## Publication record (RELS-001/009/013)
 
-## What remains before this can actually be submitted
-
-- RELS-002/009: an actual public, downloadable release package and an
-  immutable GitHub release/tag — both real publication actions gated by
-  the standing PUBLIC RELEASE GATE.
-- RELS-013: validating the final XML/package URL/MD5 once a real package
-  URL exists.
-- RELS-014: opening the actual PR to `pkp/plugin-gallery` — gated by the
-  same PUBLIC RELEASE GATE.
+- **GitHub repository**: made public on 2026-09-01 —
+  `https://github.com/thathman/ojs-chatwoot-integration`.
+- **GitHub release**: `v2.0.0.0`, tag resolves to
+  `5cc04bc86f7e19e0df9d282f96f3d60d9e82b796` (confirmed via the GitHub API
+  `git/refs/tags/v2.0.0.0`) —
+  `https://github.com/thathman/ojs-chatwoot-integration/releases/tag/v2.0.0.0`.
+- **Asset re-verification**: the release asset was re-downloaded fresh
+  from the URL above and re-hashed. Size (341510 bytes), MD5
+  (`752d100032f333ba9d142c485bbfd8ac`), and SHA-256
+  (`af16b0657585af6676c86cd0cdd08ec25323cc941616ead97b6117f5107fb727`) all
+  matched the locally-built archive exactly — the upload preserved the
+  bytes byte-for-byte.
+- This release/tag is immutable: no future change to `2.0.0.0` will be
+  published under this tag or this package. Any future fix ships as a new
+  four-part version with a new archive and new checksums.
