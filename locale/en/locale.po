@@ -34,6 +34,15 @@ msgstr "Captain provisioning health:"
 msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterCount"
 msgstr "Failed event-queue entries (dead letters):"
 
+msgid "plugins.generic.chatwootIntegration.settings.health.syncCaptainDescription"
+msgstr "Captain resources normally sync once daily. Use this to sync/repair this journal's Knowledge Document, Custom Tools, and Scenarios on demand — this only ever creates or updates resources this plugin already owns; it never touches an administrator's own unrelated Captain resources."
+
+msgid "plugins.generic.chatwootIntegration.settings.health.syncCaptain"
+msgstr "Sync/Repair Captain"
+
+msgid "plugins.generic.chatwootIntegration.captainSync.failed"
+msgstr "Captain sync could not be completed. Check the Support Gateway Health section above for configuration issues."
+
 msgid "plugins.generic.chatwootIntegration.settings.section.connection"
 msgstr "Connection"
 
