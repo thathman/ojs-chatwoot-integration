@@ -36,6 +36,10 @@ namespace PKP\core {
 namespace PKP\scheduledTask {
     abstract class ScheduledTask
     {
+        /** Mirrors the real constructor signature (TST-021) so subclasses calling parent::__construct() work against this mock too. */
+        public function __construct(private array $args = [])
+        {
+        }
         public function getName(): string
         {
             return 'test-task';
