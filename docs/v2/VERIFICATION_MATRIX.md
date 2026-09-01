@@ -137,3 +137,37 @@ Before any stable v2 release:
 3. run the declared OJS/DB/PHP compatibility matrix;
 4. update any changed claim from Confirmed to Conditional/Build Required as necessary;
 5. never preserve a product claim merely because it was true at v2 inception.
+
+## Compatibility-update process for a future OJS release (RELS-017)
+
+When a new OJS release appears (a new 3.5.x patch, or eventually 3.6),
+repeat exactly the real, verified process this release actually used —
+do not assume compatibility carries forward silently:
+
+1. **Re-run the hook check** (`docs/v2/V1_INVENTORY.md` "Registered hooks
+   in v1") against a real local checkout of the new target branch —
+   confirm each of the 7 real hook names this plugin registers still
+   exists at the same real call site, the same way `Publication::publish`
+   vs. `Publication::publish::before` was disambiguated for 3.5. A hook
+   rename or removal is a real compatibility break, not a cosmetic one.
+2. **Re-run the PHP support matrix check**
+   (`docs/v2/VERIFICATION_MATRIX.md` "PHP support matrix") against the new
+   target's own `composer.json`/`PKPApplication::PHP_REQUIRED_VERSION` and
+   its own real upstream CI matrix — never assume the previous PHP range
+   still applies; update `.forgejo/workflows/ci.yml` (and, for
+   consistency, `.github/workflows/ci.yml`) only to what's actually
+   verified.
+3. **Re-run the real install/upgrade proof** (`docs/v2/TASKLIST.md`
+   TST-004/RUN-001) against a real instance of the new OJS version —
+   `lib/pkp/tools/installPluginVersion.php`, verifying the real `versions`
+   table row and all 5 real Support Gateway tables, plus a real HTTP
+   smoke test of the new v2 routes (the exact class of bug TST-014 found
+   and fixed was only discoverable this way, never by code review alone).
+4. **Re-run the real Chatwoot API verification** in
+   `docs/v2/VERIFICATION_MATRIX.md`'s claim matrix for anything Captain/
+   Custom-Tool/Scenario-related against a current `chatwoot/chatwoot`
+   checkout — Chatwoot's own Captain API has changed shape before (see
+   the real `enterprise/` findings cited throughout `docs/v2/
+   KNOWLEDGE_DIAGNOSTICS.md`).
+5. Only after 1–4 pass for real does the version get added to this
+   plugin's declared compatibility range — never widened speculatively.
