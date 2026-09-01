@@ -39,6 +39,7 @@ class ChatwootSettingsForm extends Form
 
         $keys = [
             'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+            'chatwootCaptainAssistantId',
             'chatwootSupportApiToken','mcpServiceToken',
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
@@ -63,6 +64,7 @@ class ChatwootSettingsForm extends Form
     {
         $vars = [
             'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+            'chatwootCaptainAssistantId',
             'chatwootSupportApiToken','mcpServiceToken',
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
@@ -145,6 +147,7 @@ class ChatwootSettingsForm extends Form
             'chatwootIdentityValidationSecret' => 'string',
             'chatwootApiAccessToken' => 'string',
             'chatwootInboxId' => 'int',
+            'chatwootCaptainAssistantId' => 'int',
             'chatwootSupportApiToken' => 'string',
             'mcpServiceToken' => 'string',
             'enableWidget' => 'bool',

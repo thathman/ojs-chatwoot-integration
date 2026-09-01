@@ -140,6 +140,10 @@
 			{fbvElement type="text" id="chatwootInboxId" value=$chatwootInboxId label="plugins.generic.chatwootIntegration.settings.chatwootInboxId.description"}
 		{/fbvFormSection}
 
+		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId"}
+			{fbvElement type="text" id="chatwootCaptainAssistantId" value=$chatwootCaptainAssistantId label="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.description"}
+		{/fbvFormSection}
+
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.supportApi"}</h4>
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"}
 			{fbvElement type="password" id="chatwootSupportApiToken" value=$chatwootSupportApiToken label="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.description"}
