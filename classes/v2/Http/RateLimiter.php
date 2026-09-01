@@ -11,6 +11,11 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Http;
  * is. APCu is per-worker, so this ceiling does not hold across multiple
  * PHP-FPM workers or machines; upgrade to a shared store (DB table/Redis)
  * if real abuse patterns show that ceiling matters.
+ *
+ * See docs/v2/SECURITY_PRIVACY.md §4.4 (API-007): the documented deployment
+ * model expects the primary rate-limit ceiling to be enforced at the
+ * fronting reverse-proxy/load-balancer layer, which holds across every
+ * worker/machine; this class is the second, independent layer.
  */
 final class RateLimiter
 {

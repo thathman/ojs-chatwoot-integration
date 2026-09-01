@@ -81,6 +81,19 @@ Response to verification request is always generic:
 
 Never reveal whether arbitrary addresses are registered.
 
+### 4.4 Transport trust and rate-limit deployment model (API-007)
+
+The Support API's service-token bearer credential must never travel over plain HTTP. `SupportApiRequestResolver::transportSecure()` accepts a direct HTTPS connection (`$_SERVER['HTTPS']`) or a reverse-proxy-terminated one signaled by `X-Forwarded-Proto: https` — but only when the site admin has declared this OJS install actually sits behind a trusted reverse proxy, via OJS core's own existing `config.inc.php` flag:
+
+```
+[general]
+trust_x_forwarded_for = On
+```
+
+This is the same real, already-documented, admin-controlled trust boundary OJS core itself uses to decide whether `X-Forwarded-For` may override `REMOTE_ADDR` (`PKPRequest::getRemoteAddr()`) — reused here rather than inventing a second, plugin-specific proxy-trust setting, since it is the same threat model: an untrusted caller must never be able to set a forwarded header and have it believed. When this flag is off (the config template's own shipped default), a caller-forged `X-Forwarded-Proto: https` is rejected and the request is treated as insecure. **Deployment requirement:** an admin running this plugin behind nginx, Cloudflare, or any other TLS-terminating reverse proxy must set `trust_x_forwarded_for = On` and ensure that proxy is the only path able to reach the OJS backend (the backend port must not be directly internet-reachable) — otherwise an external caller could forge the header directly against the backend.
+
+Rate limiting is defense-in-depth, not the primary security boundary — the bearer service token plus exact bound-conversation match is. `classes/v2/Http/RateLimiter.php` provides a best-effort fixed-window limiter (default 30 requests/60s per `contextId:conversationId`) using APCu when available, failing open when it is not. APCu is per-PHP-worker, so this ceiling does not hold across multiple PHP-FPM workers or machines. **Deployment recommendation:** the primary rate-limit ceiling should be enforced at the reverse-proxy/load-balancer layer in front of OJS (e.g. nginx `limit_req`, Cloudflare rate limiting rules), which holds across every worker/machine without requiring a mandatory shared store (Redis) for this plugin. The plugin's own APCu limiter remains active as a second, independent layer. If real abuse patterns later show the per-worker ceiling is insufficient even with a fronting proxy limiter, upgrading `RateLimiter` to a shared store (a DB table, consistent with this plugin's existing no-new-infra-dependency posture, or Redis if already present in the deployment) is the documented next step — not attempted here, since no such evidence exists yet.
+
 ## 5. Verification challenge controls
 
 Defaults (configurable only within safe ranges):

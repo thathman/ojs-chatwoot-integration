@@ -40,6 +40,25 @@ namespace PKP\user {
     }
 }
 
+namespace PKP\config {
+    /**
+     * Fakes pkp-lib's real Config::getVar($section, $key, $default) surface
+     * — same stub shape as tests/v2/mail-configuration-diagnostic.php and
+     * tests/v2/api-trusted-proxy-transport.php — so the end-to-end resolver
+     * calls below can exercise API-007's trusted-proxy gate.
+     */
+    final class Config
+    {
+        /** @var array<string,array<string,mixed>> */
+        public static array $vars = [];
+
+        public static function getVar(string $section, string $key, mixed $default = null): mixed
+        {
+            return self::$vars[$section][$key] ?? $default;
+        }
+    }
+}
+
 namespace {
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
