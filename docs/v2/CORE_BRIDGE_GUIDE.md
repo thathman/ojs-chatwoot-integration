@@ -82,7 +82,7 @@ the blind-review anonymity concern, not general privacy.
 | Setting | Real effect |
 |---|---|
 | Lazy-load Chat Widget | Defers loading the widget script until idle or first interaction (see the Lazy Load Trigger option), rather than blocking page render. |
-| Launcher Bottom Offset (px) | Real pixel offset applied to the widget's launcher button position. |
+| Launcher Bottom Offset (px) | **Correction: this setting is currently dead.** It saves and loads a value, but nothing in `addChatwootWidget()`'s real widget-script assembly ever reads it — setting it has no effect today. Documented as a real, verified gap in `docs/v2/V1_INVENTORY.md` rather than silently fixed here. |
 | Skip Widget on Workflow Page | Never loads the widget on OJS's editorial workflow pages specifically. |
 | Enable CSP-safe Script Mode | Adjusts how the widget script is injected for installs running a strict Content-Security-Policy. |
 | Widget Settings JSON (advanced) | Raw JSON merged directly into `window.chatwootSettings` before the widget script runs — for real Chatwoot widget options this plugin has no dedicated field for. Invalid JSON here is a configuration mistake this plugin does not validate for you; check your browser console. |
