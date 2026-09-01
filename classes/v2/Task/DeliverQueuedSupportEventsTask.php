@@ -14,8 +14,20 @@ use PKP\scheduledTask\ScheduledTask;
  */
 final class DeliverQueuedSupportEventsTask extends ScheduledTask
 {
+    /**
+     * TST-021: must call parent::__construct() — pkp-lib's own
+     * ScheduledTask::__construct() is what initializes the typed
+     * $executionLogFile property (via PrivateFileManager); skipping it
+     * left every real invocation of this task fataling with "Typed
+     * property ScheduledTask::$executionLogFile must not be accessed
+     * before initialization" the moment addExecutionLogEntry() ran —
+     * confirmed live via the real OJS web-based task scheduler on
+     * ojs-demo.airixmedia.com, which reproduced on every request once the
+     * 60-second task_runner_interval elapsed.
+     */
     public function __construct(private ChatwootIntegrationV2Plugin $plugin)
     {
+        parent::__construct();
     }
 
     public function getName(): string
