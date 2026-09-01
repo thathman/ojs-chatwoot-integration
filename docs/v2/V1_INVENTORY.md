@@ -44,23 +44,58 @@ Phase 0 rule: preserve these while they are tested against the selected OJS 3.5 
 
 ### Widget / privacy / visibility
 
-`enableWidget`, `enableDebugMode`, `enablePrivacyMode`, `hideForGuests`, all current `hideForRole_*`, `lazyLoadWidget`, `lazyLoadTrigger`, `excludedPages`, `cspSafeMode`, `skipBackendPages` are **KEEP/MIGRATE**.
-
-Important v2 behavior change: `enablePrivacyMode` may continue as a UI/config compatibility setting, but resource authorization and reviewer anonymity move to Relationship Resolver + Policy Engine. Role-wide reviewer masking is not the v2 security boundary.
+| Setting | Classification | Notes |
+|---|---|---|
+| `enableWidget` | KEEP | master widget on/off |
+| `enableDebugMode` | KEEP | see `docs/v2/CORE_BRIDGE_GUIDE.md` §4 — never enable in production, logs identity/HMAC to the browser console |
+| `enablePrivacyMode` | KEEP, HARDENED | blind-review widget masking (`docs/v2/CORE_BRIDGE_GUIDE.md` §3); role-wide masking is presentation-only, never the v2 authorization boundary — that moved to the Relationship Resolver + Policy Engine |
+| `hideForGuests` | KEEP | visibility toggle |
+| `hideForRole_1` (Site Admin) | KEEP | visibility toggle |
+| `hideForRole_16` (Manager) | KEEP | visibility toggle |
+| `hideForRole_17` (Sub Editor) | KEEP | visibility toggle |
+| `hideForRole_4097` (Assistant) | KEEP | visibility toggle |
+| `hideForRole_65536` (Author) | KEEP | visibility toggle |
+| `hideForRole_4096` (Reviewer) | KEEP | visibility toggle |
+| `hideForRole_1048576` (Reader) | KEEP | visibility toggle |
+| `lazyLoadWidget` | KEEP | performance |
+| `lazyLoadTrigger` | KEEP | performance (`idle`/`interaction`) |
+| `excludedPages` | KEEP | matched against the exact real `getRequestedPage()` value — see `docs/v2/CORE_BRIDGE_GUIDE.md` §4 |
+| `cspSafeMode` | KEEP | performance/compatibility |
+| `skipBackendPages` | KEEP | performance |
+| `widgetSettingsJson` | KEEP, EXPORT GAP CLOSED | read by v1's widget rendering; was not listed in v1's own `EXPORT_KEYS` (a real, pre-existing v1 gap, not introduced by v2) — v2's `LEGACY_EXPORT_KEYS` still does not include it either, so this gap is carried forward unchanged, not silently fixed. Flagged here rather than fixed to avoid an unreviewed behavior change to the export/import contract during this inventory pass. |
 
 ### Global defaults
 
-`enableGlobalDefaults` and the existing site/global profile workflow are **KEEP PENDING COMPATIBILITY REVIEW**. The use of context `0` for plugin settings must be tested against each supported OJS target before v2 treats it as stable.
+| Setting | Classification | Notes |
+|---|---|---|
+| `enableGlobalDefaults` | KEEP PENDING COMPATIBILITY REVIEW | the existing site/global profile workflow uses context `0` for plugin settings — must be tested against each supported OJS target before v2 treats it as stable; not yet re-verified against a real OJS 3.5 install specifically (the real runtime harness work this session, TST-004/RUN-001, exercised the plugin's own v2 settings, not this v1 global-profile mechanism) |
 
 ### Retry/event bridge
 
-`retryQueueEnabled`, `maxRetryAttempts`, `eventSyncMode`, `eventSubmissionCreated`, `eventRevisionRequested`, `eventAccepted`, `eventRejected`, `eventPublicationScheduled`, `eventPublicationPublished`, `eventDecisionRecorded` are **KEEP/MIGRATE**.
+| Setting | Classification | Notes |
+|---|---|---|
+| `retryQueueEnabled` | KEEP | gates the v1 JSON retry-queue path |
+| `maxRetryAttempts` | KEEP | |
+| `eventSyncMode` | KEEP, SUPERSEDED-BY-DEFAULT | still the real fallback default for `EventDeliverySettingsResolver` (`docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md` §2) whenever the new Event Bridge global mode is left at "(use the legacy Sync Mode setting above)" — an existing install's behavior never changes silently on upgrade |
+| `eventSubmissionCreated` | KEEP | per-event enable toggle |
+| `eventRevisionRequested` | KEEP | per-event enable toggle |
+| `eventAccepted` | KEEP | per-event enable toggle |
+| `eventRejected` | KEEP | per-event enable toggle |
+| `eventPublicationScheduled` | KEEP | per-event enable toggle |
+| `eventPublicationPublished` | KEEP | per-event enable toggle |
+| `eventDecisionRecorded` | KEEP | per-event enable toggle |
+| `apiQueue` | MIGRATE (not yet started) | v1's own JSON-blob retry queue, distinct from v2's real `chatwoot_support_event_queue` table (`docs/v2/PRIVACY_DATA_RETENTION_GUIDE.md` §1); untouched until migration semantics are implemented and tested — the two queues currently coexist independently, v1's queue is not read or written by any v2 code |
 
-The current `apiQueue` plugin-setting JSON store is **MIGRATE** to a durable v2 queue/outbox model; it remains untouched until migration semantics are implemented and tested.
+### v2-added settings (for completeness — not v1 settings, listed so this remains the one real, current settings inventory)
 
-### Additional widget configuration
-
-`widgetSettingsJson` is read by v1 and should be **KEEP/MIGRATE**, but it is not currently listed in `EXPORT_KEYS`; v2 export/import behavior should be made explicit rather than inferred.
+| Setting | Classification | Notes |
+|---|---|---|
+| `chatwootSupportApiToken` | NEW (v2) | see `docs/v2/INSTALL_CONFIG_GUIDE.md` §4 |
+| `mcpServiceToken` | NEW (v2) | see `docs/v2/INSTALL_CONFIG_GUIDE.md` §4 |
+| `eventDeliveryGlobalMode` | NEW (v2) | see `docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md` §2 |
+| `eventDeliveryCustomerMessageConsent` | NEW (v2) | see `docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md` §2 |
+| `eventDeliveryPerEventOverridesJson` | NEW (v2) | see `docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md` §2 |
+| `launcherBottomOffset` | REAL, VERIFIED DEAD SETTING | saved/loaded by the settings form and rendered as a real input field, but never read anywhere in `addChatwootWidget()`'s actual widget-script assembly — confirmed by source: no reference to it outside `ChatwootSettingsForm.php`/`templates/settingsForm.tpl`. Setting it currently has zero effect. This is a real, pre-existing gap (present before this inventory pass), not introduced here; `docs/v2/CORE_BRIDGE_GUIDE.md` §5 is corrected in the same PR as this finding to stop claiming it has a real effect. REMOVE or WIRE UP is a genuine open decision for a future PR — not resolved here. |
 
 ## Current context sent to Chatwoot
 
