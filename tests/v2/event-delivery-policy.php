@@ -35,6 +35,16 @@ eventDeliveryPolicyCheck(
     'an unrecognized global mode value must degrade to PRIVATE_NOTE rather than propagate an invalid mode'
 );
 
+// --- ADM-004: a real EventDeliveryMode constant may also be passed directly as the global mode ---
+eventDeliveryPolicyCheck(
+    EventDeliveryPolicy::resolve(SupportEventType::SUBMISSION_CREATED, EventDeliveryMode::AUDIT_ONLY) === EventDeliveryMode::AUDIT_ONLY,
+    'a real EventDeliveryMode constant passed as the global mode must be honored directly, not remapped through the legacy note/open_update rule'
+);
+eventDeliveryPolicyCheck(
+    EventDeliveryPolicy::resolve(SupportEventType::SUBMISSION_CREATED, EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE) === EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE,
+    'this class itself has no opinion on consent — that gate lives in EventDeliverySettingsResolver, which must have already been applied before a mode reaches here'
+);
+
 // --- per-event overrides (the "per event" half EVT-010 adds beyond v1) ---
 eventDeliveryPolicyCheck(
     EventDeliveryPolicy::resolve(
