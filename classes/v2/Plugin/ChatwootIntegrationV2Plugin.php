@@ -48,6 +48,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEvent;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventMessageBuilder;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthAggregator;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthSummary;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\McpGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ResponseTimingNormalizer;
@@ -1989,6 +1991,69 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         try {
             $service = new CaptainProvisioningHealthService(new DatabaseSupportKnowledgeSyncRepository());
             return $service->buildReport((int) $context->getId(), (string) Locale::getLocale());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * ADM-002 (first slice): consolidates every already-built health
+     * signal (Knowledge, Captain provisioning, payment providers,
+     * credential configuration, mail transport, event-queue dead
+     * letters) into one SupportGatewayHealthSummary for the admin
+     * settings page. Every input gathered here is either a pure local
+     * read (settings values, the local `chatwoot_support_knowledge_sync`
+     * records Captain health already reads) or an OJS-internal read
+     * (Knowledge Compiler, mail transport config) — never a live
+     * Chatwoot/Captain API call, so this is always safe to build on
+     * every admin page render. `SupportGatewayHealthAggregator` itself
+     * is pure and does none of this gathering — see that class for the
+     * deterministic overall-state rule.
+     */
+    public function supportGatewayHealthSummary($request): ?SupportGatewayHealthSummary
+    {
+        $context = $request->getContext();
+        if (!$context || !method_exists($context, 'getId')) {
+            return null;
+        }
+
+        try {
+            $contextId = (int) $context->getId();
+            $bridge = $this->runtimeContextBridge();
+
+            $chatwootConfigured = $this->supportGatewayUsable($contextId);
+            $supportApiConfigured = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootSupportApiToken', '')) !== '';
+            $mcpConfigured = trim((string) $this->v2EffectiveSetting($contextId, 'mcpServiceToken', '')) !== '';
+
+            $mailDiagnosis = AccountDiagnosticEngine::diagnose(AccountDiagnosticEngine::SCOPE_MAIL_CONFIGURATION, null, null, $bridge->getMailTransportConfiguration());
+            $verificationConfigured = $mailDiagnosis->code() === 'MAIL_CONFIGURED';
+
+            $knowledgeHealth = $bridge->buildKnowledgeHealthReport($context, $request, $contextId, (string) Locale::getLocale());
+            $captainHealth = $this->captainProvisioningHealth($request);
+
+            $paymentProviderHealth = [];
+            $airixProvider = $bridge->getAirixSubmissionFeeProvider($context);
+            if ($airixProvider) {
+                $paymentProviderHealth[$airixProvider->providerId()] = $airixProvider->health($context);
+            }
+
+            $deadLetterCount = 0;
+            try {
+                $deadLetterCount = (new DatabaseSupportEventQueueRepository())->countByStatus('failed');
+            } catch (\Throwable $e) {
+                $deadLetterCount = 0;
+            }
+
+            return SupportGatewayHealthAggregator::build(
+                $chatwootConfigured,
+                $supportApiConfigured,
+                $mcpConfigured,
+                $verificationConfigured,
+                $knowledgeHealth,
+                $captainHealth,
+                $paymentProviderHealth,
+                $deadLetterCount
+            );
         } catch (\Throwable $e) {
             return null;
         }

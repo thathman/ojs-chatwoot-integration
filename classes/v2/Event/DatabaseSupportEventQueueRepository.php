@@ -96,6 +96,11 @@ final class DatabaseSupportEventQueueRepository implements SupportEventQueueRepo
         ]);
     }
 
+    public function countByStatus(string $status): int
+    {
+        return DB::table(self::table())->where('status', $status)->count();
+    }
+
     private function toDatabaseTime(int $timestamp): string
     {
         return gmdate('Y-m-d H:i:s', $timestamp);
