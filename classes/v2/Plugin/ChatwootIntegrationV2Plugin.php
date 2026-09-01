@@ -41,6 +41,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DatabaseSupportEven
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\DecisionRecordedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\PublicationStatusEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionCreatedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionStatusChangedEventAdapter;
@@ -353,8 +354,16 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         if ($event === null) {
             return;
         }
-        $globalMode = (string) $this->v2EffectiveSetting($event->contextId(), 'eventSyncMode', 'note');
-        $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode);
+        $contextId = $event->contextId();
+        $legacyMode = (string) $this->v2EffectiveSetting($contextId, 'eventSyncMode', 'note');
+        $configuredGlobalMode = trim((string) $this->v2EffectiveSetting($contextId, 'eventDeliveryGlobalMode', ''));
+        $consentGiven = (bool) $this->v2EffectiveSetting($contextId, 'eventDeliveryCustomerMessageConsent', false);
+        $overridesJson = (string) $this->v2EffectiveSetting($contextId, 'eventDeliveryPerEventOverridesJson', '');
+
+        $globalMode = EventDeliverySettingsResolver::resolveGlobalMode($configuredGlobalMode, $legacyMode, $consentGiven);
+        $perEventOverrides = EventDeliverySettingsResolver::parsePerEventOverrides($overridesJson, $consentGiven);
+
+        $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode, $perEventOverrides);
         (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode);
     }
 

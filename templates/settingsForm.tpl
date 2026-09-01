@@ -155,6 +155,18 @@
 			{fbvElement type="checkbox" id="eventDecisionRecorded" value="1" checked=$eventDecisionRecorded label="plugins.generic.chatwootIntegration.settings.eventDecisionRecorded"}
 		{/fbvFormSection}
 
+		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.eventBridge"}</h4>
+		<div id="description">{translate key="plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.description"}</div>
+		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode"}
+			{fbvElement type="select" id="eventDeliveryGlobalMode" from=$eventDeliveryGlobalModeOptions selected=$eventDeliveryGlobalMode label="plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.help" translate=false}
+		{/fbvFormSection}
+		{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent"}
+			{fbvElement type="checkbox" id="eventDeliveryCustomerMessageConsent" value="1" checked=$eventDeliveryCustomerMessageConsent label="plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent.description"}
+		{/fbvFormSection}
+		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson"}
+			{fbvElement type="textarea" id="eventDeliveryPerEventOverridesJson" value=$eventDeliveryPerEventOverridesJson label="plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson.description"}
+		{/fbvFormSection}
+
 		{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.performance"}
 			{fbvElement type="checkbox" id="lazyLoadWidget" value="1" checked=$lazyLoadWidget label="plugins.generic.chatwootIntegration.settings.lazyLoadWidget"}
 			{fbvElement type="select" id="lazyLoadTrigger" from=$lazyLoadTriggerOptions selected=$lazyLoadTrigger label="plugins.generic.chatwootIntegration.settings.lazyLoadTrigger" translate=false}

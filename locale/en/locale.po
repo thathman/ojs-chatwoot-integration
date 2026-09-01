@@ -43,6 +43,45 @@ msgstr "Sync/Repair Captain"
 msgid "plugins.generic.chatwootIntegration.captainSync.failed"
 msgstr "Captain sync could not be completed. Check the Support Gateway Health section above for configuration issues."
 
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode"
+msgstr "Default Delivery Mode"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.help"
+msgstr "What a queued event does by default, unless a per-event override below applies."
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.description"
+msgstr "Controls how events queued by the Event Bridge (submission created, decision recorded, publication published, etc.) are delivered to Chatwoot."
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.useLegacy"
+msgstr "(use the legacy Sync Mode setting above)"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryMode.privateNote"
+msgstr "Private note (staff-only, never customer-visible)"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryMode.openUpdateConversation"
+msgstr "Open or update a conversation (private note)"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryMode.updateContext"
+msgstr "Update conversation context only"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryMode.auditOnly"
+msgstr "Audit only (never sent to Chatwoot)"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryMode.optInCustomerMessage"
+msgstr "Send a customer-visible message (requires consent below)"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent"
+msgstr "Customer-Visible Messages"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent.description"
+msgstr "I understand that selecting \"Send a customer-visible message\" above (or in a per-event override) will send an outgoing, contact-visible Chatwoot message for that event. Without this checked, that mode is never applied — events fall back to a private note instead."
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson"
+msgstr "Per-Event Overrides"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson.description"
+msgstr "Optional JSON object mapping an event type to a delivery mode, overriding the default above for just that event, e.g. {\"publication.published\": \"audit_only\"}. Recognized event types: submission.created, submission.decision_recorded, submission.revision_requested, submission.accepted, submission.rejected, publication.scheduled, publication.published, submission.review_submitted. An unrecognized event type or mode is silently ignored."
+
 msgid "plugins.generic.chatwootIntegration.settings.section.connection"
 msgstr "Connection"
 
@@ -51,6 +90,9 @@ msgstr "Support API"
 
 msgid "plugins.generic.chatwootIntegration.settings.section.mcp"
 msgstr "MCP (Model Context Protocol)"
+
+msgid "plugins.generic.chatwootIntegration.settings.section.eventBridge"
+msgstr "Event Bridge"
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrl"
 msgstr "Chatwoot Base URL"
