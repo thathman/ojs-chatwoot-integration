@@ -580,6 +580,22 @@ namespace {
         substr_count($requestMethodBody, 'SupportApiResponse::success(') === 1,
         'the verification-request endpoint must have exactly one success response call in its body — every code path (found/not-found/throttled/mail-failed) must fall through to the same unconditional response, never branch to a distinguishable one'
     );
+    // TST-019: real acceptance testing against ojs-demo.airixmedia.com found
+    // that verificationRequest never returned a challenge reference at all,
+    // so no real client could ever call verificationConfirm afterward — the
+    // PIN/link flow was unusable end-to-end despite every unit test passing.
+    // The fix must generate the reference unconditionally, before the
+    // found/not-found branch, and always include it in the one success
+    // response above (never only on the "found" branch, which would leak
+    // account existence).
+    verificationCheck(
+        (bool) preg_match('/\$publicReference\s*=\s*bin2hex\(random_bytes\(16\)\)/', $requestMethodBody),
+        'a same-shape dummy challenge reference must be generated unconditionally, before the found/not-found branch runs, so its presence in the response never reveals whether the account exists'
+    );
+    verificationCheck(
+        str_contains($requestMethodBody, "'challenge' => \$publicReference"),
+        'the one success response must always include the challenge reference — otherwise no real client can ever call verificationConfirm'
+    );
     verificationCheck(
         str_contains($pluginSource, 'ASSURANCE_AUTHENTICATED_SESSION') || str_contains($pluginSource, "'assurance' => \$session ? \$session->assuranceLevel()"),
         'the confirm endpoint must report the real session assurance, not a hardcoded claim'
