@@ -32,8 +32,10 @@ use PKP\scheduledTask\ScheduledTask;
  */
 final class CaptainSyncScheduledTask extends ScheduledTask
 {
+    /** @see DeliverQueuedSupportEventsTask::__construct() for why this must call parent::__construct() (TST-021). */
     public function __construct(private ChatwootIntegrationV2Plugin $plugin)
     {
+        parent::__construct();
     }
 
     public function getName(): string
