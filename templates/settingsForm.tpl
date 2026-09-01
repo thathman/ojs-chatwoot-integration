@@ -63,6 +63,13 @@
 				alert(JSON.stringify(resp.content || resp, null, 2));
 			{rdelim});
 		{rdelim});
+
+		$('#chatwootRetryDeadLettersBtn').on('click', function(e) {ldelim}
+			e.preventDefault();
+			cwPost('{$retryDeadLetterEventsUrl|escape:"javascript"}').done(function(resp) {ldelim}
+				alert(JSON.stringify(resp.content || resp, null, 2));
+			{rdelim});
+		{rdelim});
 	{rdelim});
 </script>
 
@@ -85,6 +92,7 @@
 					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.verificationConfigured"} {if $supportGatewayHealth.verificationConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
 					{if $supportGatewayHealth.knowledgeState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.knowledgeState"} {$supportGatewayHealth.knowledgeState|escape}</li>{/if}
 					{if $supportGatewayHealth.captainState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.captainState"} {$supportGatewayHealth.captainState|escape}</li>{/if}
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.pendingEventCount"} {$supportGatewayHealth.pendingEventCount|escape}</li>
 					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}</li>
 				</ul>
 			</div>
@@ -92,6 +100,12 @@
 				{translate key="plugins.generic.chatwootIntegration.settings.health.syncCaptainDescription"}
 			</div>
 			{fbvElement type="button" id="chatwootSyncCaptainBtn" label="plugins.generic.chatwootIntegration.settings.health.syncCaptain"}
+			{if $supportGatewayHealth.deadLetterCount > 0}
+				<div id="description">
+					{translate key="plugins.generic.chatwootIntegration.settings.health.retryDeadLettersDescription"}
+				</div>
+				{fbvElement type="button" id="chatwootRetryDeadLettersBtn" label="plugins.generic.chatwootIntegration.settings.health.retryDeadLetters"}
+			{/if}
 		{/if}
 
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.connection"}</h4>

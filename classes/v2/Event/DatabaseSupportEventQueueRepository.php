@@ -101,6 +101,28 @@ final class DatabaseSupportEventQueueRepository implements SupportEventQueueRepo
         return DB::table(self::table())->where('status', $status)->count();
     }
 
+    public function retryDeadLetters(int $contextId, int $limit): int
+    {
+        // Two-step select-then-update rather than an UPDATE...LIMIT: not
+        // every supported database driver allows a LIMIT clause on
+        // UPDATE, and selecting the exact row ids first is portable and
+        // still race-safe enough for an infrequent admin-triggered action.
+        $ids = DB::table(self::table())
+            ->where('context_id', $contextId)
+            ->where('status', 'failed')
+            ->orderBy('created_at')
+            ->limit($limit)
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return 0;
+        }
+
+        return DB::table(self::table())
+            ->whereIn('id', $ids)
+            ->update(['status' => 'pending', 'attempts' => 0, 'run_after' => null]);
+    }
+
     private function toDatabaseTime(int $timestamp): string
     {
         return gmdate('Y-m-d H:i:s', $timestamp);

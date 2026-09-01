@@ -26,6 +26,7 @@ final class SupportGatewayHealthSummary
         private ?CaptainProvisioningHealthReport $captainHealth,
         private array $paymentProviderHealth,
         private int $deadLetterCount,
+        private int $pendingEventCount,
         private string $overallState
     ) {
     }
@@ -71,6 +72,11 @@ final class SupportGatewayHealthSummary
         return $this->deadLetterCount;
     }
 
+    public function pendingEventCount(): int
+    {
+        return $this->pendingEventCount;
+    }
+
     public function overallState(): string
     {
         return $this->overallState;
@@ -89,6 +95,7 @@ final class SupportGatewayHealthSummary
             'captainState' => $this->captainHealth?->overallState(),
             'paymentProviderHealth' => $this->paymentProviderHealth,
             'deadLetterCount' => $this->deadLetterCount,
+            'pendingEventCount' => $this->pendingEventCount,
         ];
     }
 }
