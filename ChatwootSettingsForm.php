@@ -2,6 +2,7 @@
 
 namespace APP\plugins\generic\chatwootIntegration;
 
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
 use APP\template\TemplateManager;
 use PKP\form\Form;
@@ -43,6 +44,7 @@ class ChatwootSettingsForm extends Form
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
             'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson','launcherBottomOffset',
+            'eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
         ];
         foreach ($keys as $key) {
             $value = (string) $plugin->getSetting($contextId, $key);
@@ -66,6 +68,7 @@ class ChatwootSettingsForm extends Form
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
             'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson','launcherBottomOffset',
+            'eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
         ];
 
         $roles = [Role::ROLE_ID_MANAGER, Role::ROLE_ID_SITE_ADMIN, Role::ROLE_ID_SUB_EDITOR, Role::ROLE_ID_AUTHOR, Role::ROLE_ID_REVIEWER, Role::ROLE_ID_ASSISTANT, Role::ROLE_ID_READER];
@@ -91,6 +94,14 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('lazyLoadTriggerOptions', [
             'idle' => __('plugins.generic.chatwootIntegration.settings.lazyLoadTrigger.idle'),
             'interaction' => __('plugins.generic.chatwootIntegration.settings.lazyLoadTrigger.interaction'),
+        ]);
+        $templateMgr->assign('eventDeliveryGlobalModeOptions', [
+            '' => __('plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.useLegacy'),
+            EventDeliveryMode::PRIVATE_NOTE => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.privateNote'),
+            EventDeliveryMode::OPEN_UPDATE_CONVERSATION => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.openUpdateConversation'),
+            EventDeliveryMode::UPDATE_CONTEXT => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.updateContext'),
+            EventDeliveryMode::AUDIT_ONLY => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.auditOnly'),
+            EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.optInCustomerMessage'),
         ]);
 
         $params = ['plugin' => $this->plugin->getName(), 'category' => 'generic'];
@@ -156,6 +167,9 @@ class ChatwootSettingsForm extends Form
             'skipBackendPages' => 'bool',
             'widgetSettingsJson' => 'string',
             'launcherBottomOffset' => 'int',
+            'eventDeliveryGlobalMode' => 'string',
+            'eventDeliveryCustomerMessageConsent' => 'bool',
+            'eventDeliveryPerEventOverridesJson' => 'string',
         ];
 
         foreach ($settings as $key => $type) {
