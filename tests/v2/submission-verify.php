@@ -22,24 +22,6 @@ namespace PKP\db {
     }
 }
 
-namespace PKP\user {
-    final class Repo
-    {
-        /** @var array<int,object> */
-        public static array $usersById = [];
-
-        public static function user(): self
-        {
-            return new self();
-        }
-
-        public function get(int $id): ?object
-        {
-            return self::$usersById[$id] ?? null;
-        }
-    }
-}
-
 namespace PKP\security {
     final class Role
     {
@@ -58,6 +40,9 @@ namespace APP\facades {
     {
         /** @var array<int,object> */
         public static array $submissionsById = [];
+
+        /** @var array<int,object> */
+        public static array $usersById = [];
 
         /** @var array<int,array<int,array<int>>> keyed by userId, value is the raw "stages" shape the provider iterates */
         public static array $workflowStagesByUserId = [];
@@ -78,6 +63,11 @@ namespace APP\facades {
         public static function user(): object
         {
             return new class () {
+                public function get(int $id): ?object
+                {
+                    return \APP\facades\Repo::$usersById[$id] ?? null;
+                }
+
                 public function getAccessibleWorkflowStages(int $userId, int $contextId, $submission, array $roleIds): array
                 {
                     $submissionId = is_object($submission) && method_exists($submission, 'getId') ? $submission->getId() : 0;
@@ -386,7 +376,7 @@ namespace {
     // endpoint method itself is not called directly because it exits the
     // process via SupportApiResponse (same convention as support-status.php).
     // ================================================================
-    \PKP\user\Repo::$usersById[42] = new FakeOjsUser(42, [65538]);
+    \APP\facades\Repo::$usersById[42] = new FakeOjsUser(42, [65538]);
 
     final class InMemorySupportSessionRepositoryForVerify implements SupportSessionRepositoryInterface
     {

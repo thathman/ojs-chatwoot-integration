@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PKP\user {
+namespace APP\facades {
     final class Repo
     {
         /** @var array<int,object> */
@@ -100,7 +100,7 @@ namespace {
         }
     }
 
-    \PKP\user\Repo::$usersById[42] = new DummyUserForIsolation(42, [new DummyRoleForIsolation(65538)]);
+    \APP\facades\Repo::$usersById[42] = new DummyUserForIsolation(42, [new DummyRoleForIsolation(65538)]);
 
     $adapter = new Ojs35CompatibilityAdapter();
     $resolver = new ContextResolver($adapter);

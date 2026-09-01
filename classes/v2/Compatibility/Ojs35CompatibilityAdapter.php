@@ -57,11 +57,11 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
      */
     public function getUserById(int $userId)
     {
-        if ($userId <= 0 || !class_exists('\PKP\user\Repo')) {
+        if ($userId <= 0 || !class_exists('\APP\facades\Repo')) {
             return null;
         }
 
-        return \PKP\user\Repo::user()->get($userId);
+        return \APP\facades\Repo::user()->get($userId);
     }
 
     /**
@@ -445,12 +445,12 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
      */
     public function getUserByEmail(string $email): ?object
     {
-        if (trim($email) === '' || !class_exists('\PKP\user\Repo')) {
+        if (trim($email) === '' || !class_exists('\APP\facades\Repo')) {
             return null;
         }
 
         try {
-            return \PKP\user\Repo::user()->getByEmail(trim($email));
+            return \APP\facades\Repo::user()->getByEmail(trim($email));
         } catch (\Throwable $e) {
             return null;
         }

@@ -44,24 +44,6 @@ namespace APP\payment\ojs {
     }
 }
 
-namespace PKP\user {
-    final class Repo
-    {
-        /** @var array<int,object> */
-        public static array $usersById = [];
-
-        public static function user(): self
-        {
-            return new self();
-        }
-
-        public function get(int $id): ?object
-        {
-            return self::$usersById[$id] ?? null;
-        }
-    }
-}
-
 namespace PKP\security {
     final class Role
     {
@@ -87,6 +69,9 @@ namespace APP\facades {
         /** @var array<string,object[]> */
         public static array $reviewAssignmentsByPair = [];
 
+        /** @var array<int,object> */
+        public static array $usersById = [];
+
         public static function submission(): object
         {
             return new class () {
@@ -100,6 +85,11 @@ namespace APP\facades {
         public static function user(): object
         {
             return new class () {
+                public function get(int $id): ?object
+                {
+                    return \APP\facades\Repo::$usersById[$id] ?? null;
+                }
+
                 public function getAccessibleWorkflowStages(int $userId, int $contextId, $submission, array $roleIds): array
                 {
                     $submissionId = is_object($submission) && method_exists($submission, 'getId') ? $submission->getId() : 0;
@@ -361,7 +351,7 @@ namespace {
     // only ever included when the exact same capability its own
     // dedicated endpoint enforces is actually allowed.
     // ================================================================
-    \PKP\user\Repo::$usersById[42] = new FakeOjsUser(42, [65538]);
+    \APP\facades\Repo::$usersById[42] = new FakeOjsUser(42, [65538]);
 
     final class InMemorySupportSessionRepositoryForEscalate implements SupportSessionRepositoryInterface
     {
