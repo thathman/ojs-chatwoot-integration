@@ -900,6 +900,14 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         $chatwootConversationId = trim((string) $request->getUserVar('chatwootConversationId'));
 
         $auditReason = 'malformed_request';
+        // TST-019: always generated up front (never left null) so a real
+        // client can always complete verificationConfirm. When no real
+        // challenge is created below, this stays a same-shape (32 hex
+        // chars, matching VerificationChallengeService's own
+        // bin2hex(random_bytes(16))) reference that simply never matches
+        // any stored row — indistinguishable from a real one by shape or
+        // timing, so returning it never leaks whether the account exists.
+        $publicReference = bin2hex(random_bytes(16));
         // IDN-015: normalized below to a fixed floor regardless of which
         // branch runs, closing the timing side-channel between "user not
         // found" (near-instant) and "user found, mail sent" (real hashing
@@ -947,6 +955,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
                             if ($body !== null) {
                                 Mail::send(new SupportVerificationMailable($context, $user, $subject, $body));
                                 $auditReason = 'challenge_created';
+                                $publicReference = $prepared->challenge()->publicReference();
                             }
                         }
                     }
@@ -963,7 +972,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
 
         ResponseTimingNormalizer::normalize($timingStartedAt, self::VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS);
 
-        SupportApiResponse::success(['verificationRequested' => true], $result->correlationId());
+        SupportApiResponse::success(['verificationRequested' => true, 'challenge' => $publicReference], $result->correlationId());
     }
 
     /**
