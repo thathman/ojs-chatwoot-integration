@@ -23,7 +23,8 @@ existence/length/behavior is recorded.
 | OJS URL | `https://ojs-demo.airixmedia.com` (routed via Cloudflare Tunnel + local nginx) |
 | OJS version | 3.5.0.5 (confirmed via page generator meta tag and `version.xml`) |
 | DB | MySQL 8.0 (`ojs-fresh-db-1`), single journal `ajdsi` (journal_id=1) |
-| Plugin code under test | `5cc04bc86f7e19e0df9d282f96f3d60d9e82b796` — the exact `v2.0.0.0` release commit, checked out live into the demo's plugin directory for this pass (was previously on an older TST-014-era commit) |
+| Plugin code under test | Live `v2-dev` HEAD, redeployed after each fix this pass (started at the exact `v2.0.0.0` release commit `5cc04bc`) |
+| Active theme | "AJDSI Production Theme" (`ajdsiProduction`, host path `/home/hendrix/ojs-fresh/plugins-src/ajdsiProduction`, no git/version control) — real, separate codebase from this plugin |
 | Chatwoot URL | `https://support.airixmedia.com` (owner-supplied `aitrixmedia.com` does not resolve — documented discrepancy) |
 | Chatwoot version/edition | `chatwoot/chatwoot:v4.14.2`, `CW_EDITION=ee` (Enterprise) |
 | Captain | Enabled (`Account#feature_enabled?("captain_integration")` → true, confirmed via `rails runner`). A real "OJS Demo (AJDSI)" WebWidget inbox (id 15) already exists, but **no Captain assistant is bound to it yet** — Sync/Repair Captain has never been run for this integration (existing custom tools/scenarios in the account belong to unrelated inboxes) |
@@ -130,15 +131,85 @@ created), and security cross-cutting checks are still pending and will be
 appended to this document as they are actually executed against the real
 environment.
 
+## Admin UI (real browser, real logged-in admin session)
+
+| ID | Feature | Test | Expected | Result | Evidence | Defect/PR |
+| -- | ------- | ---- | -------- | ------ | -------- | --------- |
+| SET-01 | Settings page loads | Open Website Settings → Plugins → Chatwoot Integration → Settings, real browser | Modal renders completely, no error | **FAIL → fixed (3 real defects)** | See TST-020, TST-021, and the theme-drift finding below | #148, #147 |
+| SET-05 | Secret masking | Inspect Identity Validation Secret / API Access Token / Support API Token fields | Rendered as `********`, never plaintext | **PASS** | Confirmed in the real rendered form HTML | — |
+| SET-05b | Non-secret field visibility | Inspect Website Token field | Rendered in plaintext (it's the public widget embed token, not a secret) | **PASS** | Correctly differentiated from the real secrets above | — |
+
+### TST-020 — widget-injection hook fatals under component-routed requests (SEVERE)
+
+`ChatwootIntegrationBasePlugin::addChatwootWidget()` is hooked into both
+`TemplateManager::display` and `TemplateManager::fetch` — meaning it
+fires on *every* template render site-wide, including component-routed
+AJAX calls (any plugin's own settings modal, any grid cell render). It
+called `$request->getRequestedPage()`/`getRequestedOp()` unconditionally
+at three call sites (plus the same pattern in a `getPriorityFlags()`
+helper it calls) — those methods only exist on `PKPPageRouter`; under a
+`PKPComponentRouter` (any AJAX/component request) they fatal:
+
+```
+Call to undefined method PKP\core\PKPComponentRouter::getRequestedPage()
+```
+
+Confirmed via the real Apache error log on the exact request that renders
+this plugin's own settings form: `ChatwootSettingsForm::fetch()` itself
+recursively triggers this same widget hook while rendering
+`settingsForm.tpl`, and the resulting fatal — caught and logged by PKP's
+own `Hook::call()`, never surfaced to the user — silently corrupted that
+very render. **Fixed in PR #148** (a real process gap: this fix was built
+and verified live on dell earlier in this pass, but the PR/CI/merge cycle
+was never actually completed for it until this correction — a branch
+existed with no PR).
+
+### TST-021 — scheduled tasks fatal on the real OJS scheduler (SEVERE)
+
+Separately, and unrelated to TST-020: once past the widget-hook crash,
+the settings page still failed intermittently (then consistently, as the
+60-second `[schedule] task_runner_interval` kept re-triggering) with a
+real HTTP 500 from an entirely different cause:
+
+```
+Typed property PKP\scheduledTask\ScheduledTask::$executionLogFile
+must not be accessed before initialization
+```
+
+Root cause: `DeliverQueuedSupportEventsTask` and `CaptainSyncScheduledTask`
+both declare their own `__construct()` (to inject the plugin instance)
+without ever calling `parent::__construct()` — pkp-lib's real
+`ScheduledTask::__construct()` is what initializes the typed
+`$executionLogFile` property. Skipping it means **neither task has ever
+completed a real run via the actual OJS scheduler**, in this project's
+entire history — invisible to every existing unit test because the
+shared test mock for `ScheduledTask` has no constructor at all. **Fixed
+in PR #147**, deployed and reconfirmed live.
+
+### Real environment-drift finding (not a `v2-dev` code defect)
+
+Separately from both bugs above, the *active theme* ("AJDSI Production
+Theme", a real, separate codebase with no version control at
+`/home/hendrix/ojs-fresh/plugins-src/ajdsiProduction`) carries its own
+stale override copy of this plugin's `settingsForm.tpl` — OJS's standard,
+legitimate theme-template-override mechanism — that predates the Health
+Dashboard, Captain sync/repair, mail-test, and MCP configuration sections
+entirely. This silently hid those sections from the rendered admin UI on
+this real journal, independent of both TST-020/TST-021. Backed up
+(`/home/hendrix/ojs-fresh/backups/ajdsiproduction-settingsForm.tpl.bak-*`)
+and synced to the plugin's current real template (preserving the theme's
+two legitimate CSS-class additions) directly on dell, since the actual
+defect lives in a separate, out-of-scope codebase, not this repository.
+
 ## Running totals (partial — pass in progress)
 
 ```
-TOTAL TESTS: 22
-PASS: 16
-FAIL: 3 (all fixed — REST-03/MCP-01 PR #141, REST-12/TST-018 PR #143, REST-12/TST-019 PR #144)
+TOTAL TESTS: 25
+PASS: 18
+FAIL: 5 (all fixed — REST-03/MCP-01 PR #141, REST-12/TST-018 PR #143, REST-12/TST-019 PR #144, SET-01/TST-020 PR #148, SET-01/TST-021 PR #147)
 BLOCKED: 0
 NOT APPLICABLE: 0
-PENDING (not yet executed / retest pending redeploy): REST-13, LIFE-03, MCP-02+, and everything in "Remaining domains" below
+PENDING (not yet executed / retest pending redeploy): REST-13, LIFE-03, MCP-02+, full Admin UI field-by-field pass, and everything in "Remaining domains" below
 ```
 
 Production acceptance is **not yet decided** — this document will be
