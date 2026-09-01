@@ -2,8 +2,8 @@
 
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Http;
 
+use APP\handler\Handler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin;
-use PKP\controllers\page\PageHandler;
 
 /**
  * Public, unauthenticated GET routes for generated journal knowledge
@@ -13,8 +13,17 @@ use PKP\controllers\page\PageHandler;
  * one serves plain HTML documents to anonymous visitors/crawlers/Captain
  * Documents and must never require a SupportSession or any capability
  * check to render.
+ *
+ * Extends the plain app `Handler`, not `PKP\controllers\page\PageHandler`:
+ * that class's own `authorize()` only grants anonymous access to its two
+ * built-in ops (`tasks`/`css`), so every real public knowledge op here
+ * fell through to a login redirect instead of rendering — the opposite of
+ * "must never require... any capability check to render" (confirmed live
+ * on ojs-demo.airixmedia.com; see TST-014). Matches the same real,
+ * proven-working pattern as `contributorUserSync`'s
+ * `ContributorApprovalHandler` on this same box.
  */
-final class SupportKnowledgePageHandler extends PageHandler
+final class SupportKnowledgePageHandler extends Handler
 {
     public function __construct(private ChatwootIntegrationV2Plugin $plugin)
     {
