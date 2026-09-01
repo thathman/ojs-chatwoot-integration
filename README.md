@@ -1,75 +1,56 @@
 # OJS-Chatwoot Integration Plugin
 
-This plugin integrates [Chatwoot](https://www.chatwoot.com/), an open-source customer engagement suite, with Open Journal Systems (OJS) 3.5+. It provides a seamless support experience for authors, reviewers, and readers directly within the journal interface.
+This plugin integrates [Chatwoot](https://www.chatwoot.com/), an open-source customer engagement suite, with Open Journal Systems (OJS) 3.5. It adds a live chat widget with rich journal context (v1), and a full public Support Gateway — verified identity, a REST API, an MCP adapter for AI agents, generated public knowledge pages, and an admin console — for building AI/agent-assisted support on top of Chatwoot (v2).
+
+Full documentation lives in [`docs/v2/`](docs/v2/); this README is a short orientation, not a substitute for it.
 
 ## Features
 
-### 1. Live Chat Widget
+### 1. Live Chat Widget (v1)
 - **Universal Access**: Adds the Chatwoot widget to both the frontend (reader/author view) and backend (dashboard).
 - **Localization**: Automatically syncs the widget language with the OJS user's current locale.
 
-### 2. Deep Contextual Awareness
-The plugin passes rich data to Chatwoot, allowing support agents to see exactly who they are talking to and what they are looking at.
+### 2. Deep Contextual Awareness (v1)
+The plugin passes rich data to Chatwoot, allowing support agents to see exactly who they are talking to and what they are looking at — presentation context only, never an authorization source (see [`docs/v2/CORE_BRIDGE_GUIDE.md`](docs/v2/CORE_BRIDGE_GUIDE.md)).
 
-- **User Identity**:
-  - Name, Email, and User ID.
-  - **HMAC Security**: Uses HMAC-SHA256 to verify user identity and prevent impersonation.
-- **Rich Attributes**:
-  - **Roles**: Displays the user's OJS roles (e.g., Manager, Author, Reviewer).
-  - **ORCID iD**: Links to the user's ORCID profile if available.
-  - **Affiliation**: Shows the user's institutional affiliation.
-  - **Active Submissions**: Displays the count of active submissions for the user.
-- **Page Context**:
-  - **Article View**: When viewing an article, the plugin sends the `Article Title`, `DOI`, `Article ID`, and `Section Title` to Chatwoot.
-  - **Workflow View**: When an author or editor is in the submission dashboard, the context is synced.
+- **User Identity**: Name, Email, User ID, and an HMAC-SHA256 hash to let Chatwoot verify identity.
+- **Rich Attributes**: OJS roles, ORCID iD, institutional affiliation, active-submission count.
+- **Page Context**: Article Title/DOI/Article ID/Section Title on an article page; journal/page context everywhere else.
 
-### 3. Workflow Integration
-- **"Chat with Editor" Button**: In the submission workflow, a button is injected into the header. Clicking it opens the chat and automatically tags the conversation with the Submission ID and Title.
-- **Editor Decision Notifications**: When an editor records a decision (e.g., Accept, Revision Required), the plugin automatically posts a **Private Note** to the author's conversation in Chatwoot. This gives agents immediate context if the author reaches out about the decision.
+### 3. Privacy Mode (Blind Review Protection) (v1)
+If **Privacy Mode** is enabled, any user with the **Reviewer** role is automatically masked (masked name, hashed email, hidden ORCID/affiliation) — preserving double-blind peer review even if a reviewer contacts support. See [`docs/v2/CORE_BRIDGE_GUIDE.md`](docs/v2/CORE_BRIDGE_GUIDE.md) §3.
 
-### 4. Privacy Mode (Blind Review Protection)
-- **Reviewer Masking**: If **Privacy Mode** is enabled, any user with the **Reviewer** role will be automatically masked.
-  - Name: "Reviewer (Masked)"
-  - Email: Hashed/Anonymized
-  - Attributes: ORCID and Affiliation are hidden.
-- This ensures that double-blind peer review is preserved even if a reviewer contacts support.
+### 4. Automation & Efficiency (v1)
+- **Role-Based Visibility**: Configure which roles can see the chat widget.
+- **Macros Sync**: "Sync Templates" pushes OJS Email Templates to Chatwoot as Canned Responses.
+- **Editor Decision Notifications**: When an editor records a decision, a private note is posted to the author's conversation.
 
-### 5. Automation & Efficiency
-- **Role-Based Visibility**: Configure which roles can see the chat widget (e.g., hide from Readers, show only to Authors and Managers).
-- **Macros Sync**: A "Sync Templates" feature fetches all OJS Email Templates and pushes them to Chatwoot as **Canned Responses**. Agents can type `/` to access standard journal responses.
-- **Smart Routing**: Use the `section_title` attribute in Chatwoot Automation Rules to route chats (e.g., "Cardiology" articles -> Medical Editors Team).
+### 5. Support Gateway (v2)
+
+A public REST API, verified-identity system, and generated public knowledge pages, so Chatwoot Captain (or any MCP-capable client) can answer real journal questions without ever seeing private submission/review data:
+
+- **Verified identity**: a short-lived, server-side session binds an OJS user (or a PIN/link-verified external identity) to a Chatwoot conversation — never a client-claimed identifier. See [`docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md`](docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md).
+- **REST Support API**: 14 endpoints (submission status, payment status, required actions, diagnostics, escalation, and more) — see [`docs/v2/REST_API_GUIDE.md`](docs/v2/REST_API_GUIDE.md) and [`docs/v2/openapi.json`](docs/v2/openapi.json).
+- **MCP adapter**: the same Support API exposed as Model Context Protocol tools/resources for MCP-capable agent clients — see [`docs/v2/MCP_SETUP_GUIDE.md`](docs/v2/MCP_SETUP_GUIDE.md).
+- **Public knowledge pages**: generated, always-public pages (fees, submissions, review, publication, policies, and more) at `/<journal>/support-knowledge/<category>`, safe to feed to Chatwoot Captain as a Knowledge Document — see [`docs/v2/KNOWLEDGE_PROVIDER_GUIDE.md`](docs/v2/KNOWLEDGE_PROVIDER_GUIDE.md).
+- **Captain provisioning**: one-click provisioning of a Captain Knowledge Document, Custom Tools, and Scenarios — see [`docs/v2/CAPTAIN_PREREQUISITES_GUIDE.md`](docs/v2/CAPTAIN_PREREQUISITES_GUIDE.md).
+- **Admin console**: a consolidated Support Gateway Health section, manual Captain sync/repair, dead-letter retry, a mail-transport test, and Event Bridge delivery-mode policy — see [`docs/v2/TROUBLESHOOTING_HEALTH_GUIDE.md`](docs/v2/TROUBLESHOOTING_HEALTH_GUIDE.md).
 
 ## Installation
 
-1.  Clone or unzip this plugin into `plugins/generic/chatwootIntegration`.
-2.  Run the OJS upgrade script or enable the plugin via **Website > Plugins > Generic Plugins**.
+See [`docs/v2/INSTALL_CONFIG_GUIDE.md`](docs/v2/INSTALL_CONFIG_GUIDE.md) for the full guide. In short: place the plugin at `plugins/generic/chatwootIntegration/` (the directory name matters — see that guide §2) and enable it from **Website > Plugins > Generic Plugins**.
+
+Upgrading an existing v1 install requires one additional real step beyond replacing files — see [`docs/v2/UPGRADE_FROM_V1.md`](docs/v2/UPGRADE_FROM_V1.md).
 
 ## Configuration
 
-Go to **Website > Plugins > Chatwoot Integration > Settings**.
+Go to **Website > Plugins > Chatwoot Integration > Settings**. See [`docs/v2/INSTALL_CONFIG_GUIDE.md`](docs/v2/INSTALL_CONFIG_GUIDE.md) for a field-by-field walkthrough of the Connection/Support API/MCP sections, and [`docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md`](docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md) for the Event Bridge policy section.
 
-### Required Settings
-- **Chatwoot Base URL**: The URL of your Chatwoot installation (e.g., `https://chat.myjournal.com`).
-- **Website Token**: The unique token for your Inbox (found in Chatwoot: Settings > Inboxes > [Your Inbox] > Settings > Configuration).
+## Requirements
 
-### Optional / Advanced Settings
-- **Identity Validation Secret**: The HMAC secret key (found in Chatwoot: Settings > Inboxes > [Your Inbox] > Settings > Configuration). **Highly Recommended** for security.
-- **API Access Token**: An Agent/Admin API Token (found in Chatwoot: Profile Settings). Required for **Sync Templates** and **Editor Decision Notes**.
-- **Enable Privacy Mode**: Check this to mask Reviewer identities.
-- **Widget Visibility**: Toggle visibility for Guests and specific Roles.
-- **Enable Debug Mode**: Logs payload details to the browser console for troubleshooting.
+OJS 3.5.x, PHP 8.2 or 8.3 (matching OJS 3.5's own real requirement — see [`docs/v2/VERIFICATION_MATRIX.md`](docs/v2/VERIFICATION_MATRIX.md)). No plugin-specific dependencies to install: Guzzle (used by the Chatwoot API client) is already bundled by OJS core.
 
-## Usage
+## Technical notes
 
-### Syncing Email Templates
-1.  Ensure **API Access Token** is configured.
-2.  Go to the Plugins list.
-3.  Click the arrow next to "Chatwoot Integration".
-4.  Click **Sync Templates**.
-5.  Wait for the success message indicating how many templates were synced.
-
-### Technical Notes
-- **Hooks Used**:
-  - `TemplateManager::display`: For widget injection.
-  - `EditorAction::recordDecision`: For posting decision notes.
-- **Dependencies**: Requires Guzzle (included in OJS core).
+- **Real v1 hooks used** (each individually verified against OJS 3.5's own source — see [`docs/v2/V1_INVENTORY.md`](docs/v2/V1_INVENTORY.md)): `TemplateManager::display`/`TemplateManager::fetch`/`Templates::Common::Footer::PageFooter` for widget injection; `Decision::add` for editor decision notes; `Submission::add`, `Submission::updateStatus`, `Publication::publish` for other event notifications.
+- Security model, threat model, and data retention: [`docs/v2/SECURITY_PRIVACY.md`](docs/v2/SECURITY_PRIVACY.md) and [`docs/v2/PRIVACY_DATA_RETENTION_GUIDE.md`](docs/v2/PRIVACY_DATA_RETENTION_GUIDE.md).
