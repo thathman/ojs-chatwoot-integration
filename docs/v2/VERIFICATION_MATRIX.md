@@ -118,6 +118,16 @@ Captain implementation inspected above resides under Chatwoot’s `enterprise/` 
 
 OJS `main` currently reports `3.6.0.0`; v1 claims 3.5+. v2 will **not** publish a blanket “3.5+” compatibility promise. Each Gallery release must list only OJS versions that have passed the compatibility/test matrix. OJS 3.5.x is the initial compatibility baseline to preserve v1 intent; OJS 3.6.x is a separate target gated by tests.
 
+## PHP support matrix (TST-008)
+
+Verified against a real local checkout of `pkp/pkp-lib` at branch `stable-3_5_0` (commit `6d0d04f41a89cba4daabd1e9b9b63eb677a29949`, dated 2026-07-21) — the exact branch behind the OJS 3.5 release this plugin targets, not `main` (which has already moved to 3.6.0.0 per the snapshot above):
+
+- `composer.json`: `"php": "^8.2"` — i.e. PHP >= 8.2.0, < 9.0.0.
+- `classes/core/PKPApplication.php`: `public const PHP_REQUIRED_VERSION = '8.2.0';` — the installer itself refuses to run below this.
+- Real upstream precedent for the exact CI matrix to test against: `pkp/ojs`'s own `.github/workflows/stable-3_5_0.yml` tests PHP `8.2` and `8.3` — never `8.1`.
+
+**Conclusion: PHP 8.1 is not a supported OJS 3.5 target at all** — this plugin's CI matrix previously ran `8.1`/`8.2`, which tested a PHP version OJS 3.5 itself cannot run on. `.forgejo/workflows/ci.yml` and `.github/workflows/ci.yml` are corrected to `8.2`/`8.3`, matching OJS 3.5's own real, verified CI matrix. No PHP version beyond what OJS 3.5's own composer constraint and CI already cover is added.
+
 ## Re-verification policy
 
 Before any stable v2 release:
