@@ -130,7 +130,7 @@ final class SupportApiRequestResolver
 
     private function authorizationHeader(): ?string
     {
-        return $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+        return ServiceTokenAuthenticator::resolveAuthorizationHeader();
     }
 
     /**
