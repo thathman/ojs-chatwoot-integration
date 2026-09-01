@@ -70,6 +70,13 @@
 				alert(JSON.stringify(resp.content || resp, null, 2));
 			{rdelim});
 		{rdelim});
+
+		$('#chatwootSendMailTestBtn').on('click', function(e) {ldelim}
+			e.preventDefault();
+			cwPost('{$sendSupportMailTestUrl|escape:"javascript"}').done(function(resp) {ldelim}
+				alert(resp.content || 'Done');
+			{rdelim});
+		{rdelim});
 	{rdelim});
 </script>
 
@@ -106,6 +113,10 @@
 				</div>
 				{fbvElement type="button" id="chatwootRetryDeadLettersBtn" label="plugins.generic.chatwootIntegration.settings.health.retryDeadLetters"}
 			{/if}
+			<div id="description">
+				{translate key="plugins.generic.chatwootIntegration.settings.health.sendMailTestDescription"}
+			</div>
+			{fbvElement type="button" id="chatwootSendMailTestBtn" label="plugins.generic.chatwootIntegration.settings.health.sendMailTest"}
 		{/if}
 
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.connection"}</h4>

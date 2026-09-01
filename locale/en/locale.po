@@ -46,6 +46,24 @@ msgstr "Retry Dead Letters"
 msgid "plugins.generic.chatwootIntegration.eventQueue.retryFailed"
 msgstr "Dead-letter retry could not be completed."
 
+msgid "plugins.generic.chatwootIntegration.settings.health.sendMailTestDescription"
+msgstr "Sends a test email to your own account (the currently logged-in user) to confirm OJS can hand a message to its configured mail transport. This does not confirm the message actually reaches your inbox."
+
+msgid "plugins.generic.chatwootIntegration.settings.health.sendMailTest"
+msgstr "Send Test Email"
+
+msgid "plugins.generic.chatwootIntegration.mailTest.subject"
+msgstr "Chatwoot Integration: test email from {$journalName}"
+
+msgid "plugins.generic.chatwootIntegration.mailTest.body"
+msgstr "This is a test email from the Chatwoot Integration plugin's Support Gateway Health section for {$journalName}, sent at {$date}. If you received this, OJS successfully handed the message to its configured mail transport."
+
+msgid "plugins.generic.chatwootIntegration.mailTest.success"
+msgstr "OJS successfully handed the test email to its configured mail transport. This does not confirm actual inbox delivery."
+
+msgid "plugins.generic.chatwootIntegration.mailTest.failed"
+msgstr "OJS could not hand the test email to its configured mail transport. Check the mail configuration diagnostic for details."
+
 msgid "plugins.generic.chatwootIntegration.settings.health.syncCaptainDescription"
 msgstr "Captain resources normally sync once daily. Use this to sync/repair this journal's Knowledge Document, Custom Tools, and Scenarios on demand — this only ever creates or updates resources this plugin already owns; it never touches an administrator's own unrelated Captain resources."
 

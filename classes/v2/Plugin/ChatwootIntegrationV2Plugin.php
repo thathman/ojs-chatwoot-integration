@@ -94,6 +94,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportMailTestMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationChallenge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailContentBuilder;
@@ -142,7 +143,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         return $success;
     }
 
-    /** ADM-003/ADM-005: adds the v2-only verbs ahead of v1's own manage() dispatch. */
+    /** ADM-003/ADM-005/ADM-006: adds the v2-only verbs ahead of v1's own manage() dispatch. */
     public function manage($args, $request)
     {
         if ($request->getUserVar('verb') === 'syncCaptainResources') {
@@ -150,6 +151,9 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         }
         if ($request->getUserVar('verb') === 'retryDeadLetterEvents') {
             return $this->retryDeadLetterEvents($request);
+        }
+        if ($request->getUserVar('verb') === 'sendSupportMailTest') {
+            return $this->sendSupportMailTest($request);
         }
         return parent::manage($args, $request);
     }
@@ -2073,6 +2077,38 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             return new JSONMessage(true, ['retried' => $retried]);
         } catch (\Throwable $e) {
             return new JSONMessage(false, __('plugins.generic.chatwootIntegration.eventQueue.retryFailed'));
+        }
+    }
+
+    /**
+     * ADM-006: the admin "Send test email" diagnostic. Deliberately does
+     * not reuse the verification challenge system at all (no
+     * VerificationChallengeService, no pepper, no PIN/link) — a
+     * dedicated `SupportMailTestMailable` sent through the same real
+     * Mailable/Mail::send() transport every other OJS system email uses.
+     * Proves only that OJS handed the message to the configured
+     * transport (success = no exception thrown); never claims actual
+     * inbox delivery, which this codebase has no visibility into.
+     */
+    public function sendSupportMailTest($request): JSONMessage
+    {
+        $context = $request->getContext();
+        $user = $request->getUser();
+        if (!$context) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
+        }
+        if (!$user || !$user->getEmail()) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noUserForTest'));
+        }
+
+        try {
+            $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : '';
+            $subject = __('plugins.generic.chatwootIntegration.mailTest.subject', ['journalName' => $journalName]);
+            $body = __('plugins.generic.chatwootIntegration.mailTest.body', ['journalName' => $journalName, 'date' => date('c')]);
+            Mail::send(new SupportMailTestMailable($context, $user, $subject, $body));
+            return new JSONMessage(true, __('plugins.generic.chatwootIntegration.mailTest.success'));
+        } catch (\Throwable $e) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.mailTest.failed'));
         }
     }
 
