@@ -19,10 +19,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install PHP ${{ matrix.php }}
+        # add-apt-repository calls Launchpad's own API to resolve the PPA,
+        # which has repeatedly (real, observed 504 Gateway Time-out
+        # responses from ppa.launchpad.net, not a local config issue)
+        # failed transiently in this CI. Retry it a few times with a short
+        # backoff rather than failing the whole job on one Launchpad hiccup.
         run: |
           apt-get update -qq
           apt-get install -y -qq software-properties-common ca-certificates
-          add-apt-repository -y ppa:ondrej/php
+          for attempt in 1 2 3; do
+            if add-apt-repository -y ppa:ondrej/php; then
+              break
+            fi
+            echo "add-apt-repository attempt ${attempt} failed, retrying..." >&2
+            if [ "$attempt" = 3 ]; then
+              exit 1
+            fi
+            sleep 10
+          done
           apt-get update -qq
           apt-get install -y -qq php${{ matrix.php }}-cli php${{ matrix.php }}-sqlite3
           update-alternatives --set php /usr/bin/php${{ matrix.php }}
