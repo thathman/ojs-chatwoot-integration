@@ -441,7 +441,10 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
         $request = Application::get()->getRequest();
         $context = app()->get('context')->get($contextId);
-        $paymentPending = $context && $context->getData('paymentsEnabled') && $request->getRequestedPage() === 'payment';
+        // TST-020: same PKPPageRouter-only guard as addChatwootWidget() —
+        // this helper is reachable from that same hook.
+        $isPageRequest = $request->getRouter() instanceof \PKP\core\PKPPageRouter;
+        $paymentPending = $isPageRequest && $context && $context->getData('paymentsEnabled') && $request->getRequestedPage() === 'payment';
 
         return ['priority_overdue_revision' => $overdue, 'priority_payment_pending' => $paymentPending];
     }
@@ -462,8 +465,26 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
         if (!$enabled || $baseUrl === '' || $token === '') return false;
 
-        $excluded = array_filter(array_map('trim', explode(',', (string) $this->getEffectiveSetting($contextId, 'excludedPages', ''))));
-        if (in_array($request->getRequestedPage(), $excluded, true)) return false;
+        // TST-020: this hook fires on every TemplateManager::fetch site-wide,
+        // including component-routed AJAX calls (any plugin's own settings
+        // modal, grid cell renders, etc.) where $request->getRouter() is a
+        // PKPComponentRouter, not a PKPPageRouter — getRequestedPage()/
+        // getRequestedOp() only exist on the page router. Calling either
+        // unconditionally fataled on every such request (confirmed live on
+        // ojs-demo.airixmedia.com: this exact plugin's own settings-form
+        // AJAX fetch recursively triggers this same hook and crashed
+        // rendering its own admin UI). Resolved once, safely, and reused
+        // below instead of calling those two request methods directly —
+        // outside a real page view there is no requested page to check, so
+        // excluded-pages/article-context logic simply does not apply.
+        $isPageRequest = $request->getRouter() instanceof \PKP\core\PKPPageRouter;
+        $requestedPage = $isPageRequest ? $request->getRequestedPage() : '';
+        $requestedOp = $isPageRequest ? $request->getRequestedOp() : '';
+
+        if ($isPageRequest) {
+            $excluded = array_filter(array_map('trim', explode(',', (string) $this->getEffectiveSetting($contextId, 'excludedPages', ''))));
+            if (in_array($requestedPage, $excluded, true)) return false;
+        }
         $user = $request->getUser();
         $isReviewer = false;
         if ($user) {
@@ -475,7 +496,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             if ($this->toBool($this->getSetting($contextId, 'hideForGuests')) === true) return false;
         }
         $chatLocale = substr(Locale::getLocale(), 0, 2);
-        $attrs = ['journal_id' => $contextId, 'journal_name' => $context->getLocalizedName(), 'requested_page' => (string) $request->getRequestedPage(), 'requested_op' => (string) $request->getRequestedOp()];
+        $attrs = ['journal_id' => $contextId, 'journal_name' => $context->getLocalizedName(), 'requested_page' => $requestedPage, 'requested_op' => $requestedOp];
         $identifier = ''; $userHash = ''; $email = ''; $name = '';
         $privacy = $this->toBool($this->getEffectiveSetting($contextId, 'enablePrivacyMode', false)) === true;
 
@@ -500,7 +521,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             $attrs['active_submissions'] = Repo::submission()->getCollector()->filterByContextIds([$contextId])->assignedTo([$user->getId()])->getCount();
         }
 
-        if ($request->getRequestedPage() === 'article' && $request->getRequestedOp() === 'view') {
+        if ($requestedPage === 'article' && $requestedOp === 'view') {
             $article = $templateMgr->getTemplateVars('article');
             if ($article && method_exists($article, 'getCurrentPublication')) {
                 $attrs['context_type'] = 'article';
