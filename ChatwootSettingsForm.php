@@ -108,6 +108,9 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('mcpEndpointUrl', $mcpEndpointUrl);
         $templateMgr->assign('mcpProtocolRevision', '2026-07-28');
 
+        $healthSummary = method_exists($this->plugin, 'supportGatewayHealthSummary') ? $this->plugin->supportGatewayHealthSummary($request) : null;
+        $templateMgr->assign('supportGatewayHealth', $healthSummary?->toArray());
+
         return parent::fetch($request, $template, $display);
     }
 

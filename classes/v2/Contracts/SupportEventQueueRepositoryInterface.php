@@ -25,4 +25,12 @@ interface SupportEventQueueRepositoryInterface
 
     /** @param int $now Used to compute the next run_after via exponential backoff. */
     public function markFailed(int $id, string $errorCode, int $attempts, int $maxAttempts, int $now): void;
+
+    /**
+     * A row's `status` value ('pending'/'delivered'/'failed') — used by
+     * the admin health summary to show whether dead letters (a `failed`
+     * row past `markFailed()`'s `$maxAttempts`) are accumulating, without
+     * exposing any row's actual content.
+     */
+    public function countByStatus(string $status): int;
 }

@@ -7,6 +7,33 @@ msgstr "Integrates Chatwoot live chat with OJS."
 msgid "plugins.generic.chatwootIntegration.settings"
 msgstr "Chatwoot Settings"
 
+msgid "plugins.generic.chatwootIntegration.settings.section.health"
+msgstr "Support Gateway Health"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.overallState"
+msgstr "Overall state:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.chatwootConfigured"
+msgstr "Chatwoot connection configured:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.supportApiConfigured"
+msgstr "Support API configured:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.mcpConfigured"
+msgstr "MCP configured:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.verificationConfigured"
+msgstr "Verification mail delivery configured:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.knowledgeState"
+msgstr "Knowledge health:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.captainState"
+msgstr "Captain provisioning health:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterCount"
+msgstr "Failed event-queue entries (dead letters):"
+
 msgid "plugins.generic.chatwootIntegration.settings.section.connection"
 msgstr "Connection"
 

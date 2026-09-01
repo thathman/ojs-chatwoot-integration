@@ -67,6 +67,22 @@
 	<h3>{translate key="plugins.generic.chatwootIntegration.settings"}</h3>
 
 	{fbvFormArea id="chatwootIntegrationSettingsFormArea"}
+		{if $supportGatewayHealth}
+			<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.health"}</h4>
+			<div id="chatwootSupportGatewayHealth" class="pkp_notification pkp_notification_{if $supportGatewayHealth.overallState == 'healthy'}success{elseif $supportGatewayHealth.overallState == 'degraded'}warning{else}error{/if}">
+				<ul>
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.overallState"} <strong>{$supportGatewayHealth.overallState|escape}</strong></li>
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.chatwootConfigured"} {if $supportGatewayHealth.chatwootConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.supportApiConfigured"} {if $supportGatewayHealth.supportApiConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.mcpConfigured"} {if $supportGatewayHealth.mcpConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.verificationConfigured"} {if $supportGatewayHealth.verificationConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
+					{if $supportGatewayHealth.knowledgeState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.knowledgeState"} {$supportGatewayHealth.knowledgeState|escape}</li>{/if}
+					{if $supportGatewayHealth.captainState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.captainState"} {$supportGatewayHealth.captainState|escape}</li>{/if}
+					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}</li>
+				</ul>
+			</div>
+		{/if}
+
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.connection"}</h4>
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootBaseUrl"}
 			{fbvElement type="text" id="chatwootBaseUrl" value=$chatwootBaseUrl required=true label="plugins.generic.chatwootIntegration.settings.chatwootBaseUrl.description"}
