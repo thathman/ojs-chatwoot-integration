@@ -88,7 +88,7 @@ settingsFormMaskingCheck($legacyExportKeysStart !== false, 'the plugin must decl
 $legacyExportKeysBlock = substr($v2PluginSource, $legacyExportKeysStart, (int) strpos($v2PluginSource, '];', $legacyExportKeysStart) - $legacyExportKeysStart);
 settingsFormMaskingCheck(!str_contains($legacyExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in LEGACY_EXPORT_KEYS — it must be structurally impossible to export or import via the settings backup path, same as the MCP credential design already establishes elsewhere');
 
-$v1PluginSource = (string) file_get_contents($root . '/ChatwootIntegrationPlugin.php');
+$v1PluginSource = (string) file_get_contents($root . '/ChatwootIntegrationBasePlugin.php');
 $v1ExportKeysStart = strpos($v1PluginSource, 'EXPORT_KEYS = [');
 settingsFormMaskingCheck($v1ExportKeysStart !== false, 'v1 must declare its own EXPORT_KEYS');
 $v1ExportKeysBlock = substr($v1PluginSource, $v1ExportKeysStart, (int) strpos($v1PluginSource, '];', $v1ExportKeysStart) - $v1ExportKeysStart);

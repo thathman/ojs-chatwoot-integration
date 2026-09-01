@@ -26,7 +26,7 @@ function widgetCustomAttributeSchemaCheck(bool $condition, string $message): voi
 // buildSubmissionAttributes() (the v1 event-note payload, a completely
 // different surface with its own submission_id/workflow_stage/etc. keys
 // that must not be conflated with the widget's client-side attributes).
-$legacyPluginSource = (string) file_get_contents($root . '/ChatwootIntegrationPlugin.php');
+$legacyPluginSource = (string) file_get_contents($root . '/ChatwootIntegrationBasePlugin.php');
 $widgetMethodStart = strpos($legacyPluginSource, 'function addChatwootWidget(');
 widgetCustomAttributeSchemaCheck($widgetMethodStart !== false, 'must be able to locate addChatwootWidget() in the legacy source');
 $widgetMethodEnd = strpos($legacyPluginSource, 'function addChatwootWidgetFromFooterHook', $widgetMethodStart);
