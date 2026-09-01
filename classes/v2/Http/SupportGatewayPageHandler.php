@@ -2,18 +2,28 @@
 
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Http;
 
+use APP\handler\Handler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiErrorCode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin;
-use PKP\controllers\page\PageHandler;
 use PKP\core\JSONMessage;
 
 /**
  * Same-origin OJS endpoint used only to bind the ephemeral browser bootstrap
  * to the server-verified Chatwoot conversation.
+ *
+ * Extends the plain app `Handler`, not `PKP\controllers\page\PageHandler`:
+ * that class's own `authorize()` only grants anonymous access to its two
+ * built-in ops (`tasks`/`css`), so every real op here — including the
+ * deliberately-anonymous-capable ones — fell through to a login redirect
+ * instead of running this endpoint's own real auth (Bearer service token,
+ * CSRF, and the verified-conversation-tuple checks already inside each
+ * method) (confirmed live on ojs-demo.airixmedia.com; see TST-014).
+ * Matches the same real, proven-working pattern as `contributorUserSync`'s
+ * `ContributorApprovalHandler` on this same box.
  */
-final class SupportGatewayPageHandler extends PageHandler
+final class SupportGatewayPageHandler extends Handler
 {
     public function __construct(private ChatwootIntegrationV2Plugin $plugin)
     {
