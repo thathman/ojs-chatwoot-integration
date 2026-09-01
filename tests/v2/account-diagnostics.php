@@ -22,7 +22,7 @@ namespace PKP\db {
     }
 }
 
-namespace PKP\user {
+namespace APP\facades {
     final class Repo
     {
         /** @var array<int,object> */
@@ -261,8 +261,8 @@ namespace {
     // method itself is not called directly because it exits the process
     // via SupportApiResponse (same convention as the other suites).
     // ================================================================
-    \PKP\user\Repo::$usersById[42] = new FakeUser(42, [65538], disabled: false, dateValidated: '2026-01-01 00:00:00');
-    \PKP\user\Repo::$usersById[43] = new FakeUser(43, [65538], disabled: true, dateValidated: null);
+    \APP\facades\Repo::$usersById[42] = new FakeUser(42, [65538], disabled: false, dateValidated: '2026-01-01 00:00:00');
+    \APP\facades\Repo::$usersById[43] = new FakeUser(43, [65538], disabled: true, dateValidated: null);
 
     final class InMemorySupportSessionRepositoryForAccount implements SupportSessionRepositoryInterface
     {

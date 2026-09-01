@@ -22,7 +22,7 @@ namespace PKP\db {
     }
 }
 
-namespace PKP\user {
+namespace APP\facades {
     final class Repo
     {
         /** @var array<int,object> */
@@ -138,7 +138,7 @@ namespace {
     }
 
     // Author role ID 65538 (Author) per PKP\security\Role::ROLE_ID_AUTHOR.
-    \PKP\user\Repo::$usersById[42] = new FakeUser(42, [65538]);
+    \APP\facades\Repo::$usersById[42] = new FakeUser(42, [65538]);
 
     final class InMemorySupportSessionRepository implements SupportSessionRepositoryInterface
     {
