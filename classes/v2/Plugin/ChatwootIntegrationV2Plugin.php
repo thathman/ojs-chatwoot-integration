@@ -54,6 +54,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHeal
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\McpGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ResponseTimingNormalizer;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ServiceTokenAuthenticator;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
@@ -1187,7 +1188,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         }
 
         $configuredMcpToken = (string) $this->v2EffectiveSetting($contextId, 'mcpServiceToken', '');
-        $authorizationHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+        $authorizationHeader = ServiceTokenAuthenticator::resolveAuthorizationHeader();
         if (!McpAuthenticator::verify($configuredMcpToken, $authorizationHeader)) {
             $this->v2McpRespond(McpResponse::error(null, McpErrorCode::UNAUTHORIZED, 'Request could not be authenticated.'));
         }
