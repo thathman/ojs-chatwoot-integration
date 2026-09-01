@@ -258,8 +258,11 @@
       },
       "VerificationRequestedData": {
         "type": "object",
-        "required": ["verificationRequested"],
-        "properties": { "verificationRequested": { "type": "boolean", "enum": [true] } }
+        "required": ["verificationRequested", "challenge"],
+        "properties": {
+          "verificationRequested": { "type": "boolean", "enum": [true] },
+          "challenge": { "type": "string", "description": "Opaque challenge reference to pass to verificationConfirm. Always present and always the same shape (32 hex characters) whether or not a real challenge was created, so its presence never reveals whether the claimed email matches an account (TST-019)." }
+        }
       },
       "VerificationConfirmData": {
         "type": "object",
