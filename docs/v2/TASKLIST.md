@@ -337,7 +337,7 @@ The remaining ADR-023 tools (`identity.*`/`submission.get_support_status`/`submi
 
 ## DOC — Documentation
 
-- [ ] **DOC-001** User install/config guide.
+- [x] **DOC-001** User install/config guide. — new `docs/v2/INSTALL_CONFIG_GUIDE.md`. Real requirements (cross-checked against `VERIFICATION_MATRIX.md`'s PHP matrix), the real install-directory-name constraint from TST-014's own finding, and a field-by-field Connection-section walkthrough with the exact real label/description text from `locale/en/locale.po`. Cross-references rather than duplicates `UPGRADE_FROM_V1.md`, `REST_API_GUIDE.md`, `MCP_SETUP_GUIDE.md`, `TROUBLESHOOTING_HEALTH_GUIDE.md`, and `VERIFICATION_SECURITY_ADMIN_GUIDE.md`.
 - [ ] **DOC-002** Core Chatwoot Bridge guide.
 - [ ] **DOC-003** Captain Intelligence prerequisites/provisioning guide.
 - [x] **DOC-004** Verification/security admin guide. — new `docs/v2/VERIFICATION_SECURITY_ADMIN_GUIDE.md`. Honestly documents that verification parameters (PIN length, attempts, expiry) have no settings-form UI at all yet — they are fixed in code, not a currently-configurable admin control, despite `SECURITY_PRIVACY.md` §5 stating that as a future design principle — and covers the real, actually-configurable Event Bridge section (default delivery mode, the consent checkbox's real fail-closed behavior, per-event JSON overrides) with the exact real mode-value strings and event-type list, cross-checked against `EventDeliverySettingsResolver`'s real source before writing.
