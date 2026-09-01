@@ -18,15 +18,31 @@ This inventory records the v1 surfaces that v2 must preserve, migrate, harden or
 
 ## Registered hooks in v1
 
-Current registration in `ChatwootIntegrationPlugin::register()`:
+Current registration in `ChatwootIntegrationBasePlugin::register()`
+(renamed from `ChatwootIntegrationPlugin` — see TST-014).
 
-- `TemplateManager::display` → widget injection
-- `TemplateManager::fetch` → widget injection
-- `Templates::Common::Footer::PageFooter` → widget fallback injection
-- `Decision::add` → editor decision event
-- `Submission::add` → submission-created event
-- `Submission::updateStatus` → submission status event
-- `Publication::publish` → publication event
+**FND-005: every hook name below has been verified, individually, against
+a real local `pkp-lib` checkout at `stable-3_5_0`** (the exact OJS 3.5
+branch this release targets — not `main`, which already reports 3.6.0.0)
+— confirming each one is a real, currently-firing hook in that exact OJS
+version, not assumed from a name that merely sounds plausible.
+
+| Hook | Real call site (pkp-lib `stable-3_5_0`) | Fires on |
+|---|---|---|
+| `TemplateManager::display` | `classes/template/PKPTemplateManager.php:1488` | widget injection |
+| `TemplateManager::fetch` | `classes/template/PKPTemplateManager.php:1283` | widget injection (AJAX-fetched templates) |
+| `Templates::Common::Footer::PageFooter` | `templates/frontend/components/footer.tpl:54` (`{call_hook}`) | widget fallback injection |
+| `Decision::add` | `classes/decision/Repository.php:224` | editor decision event |
+| `Submission::add` | `classes/submission/Repository.php:609` | submission-created event |
+| `Submission::updateStatus` | `classes/submission/Repository.php:699` | submission status event |
+| `Publication::publish` | `classes/publication/Repository.php:543` | publication event — note: a *different*, real hook also exists at the same call site, `Publication::publish::before` (line 504); v1 uses the post-publish `Publication::publish` hook only, never the pre-publish one, and that distinction is intentional (v1 acts after the publication state has actually changed) |
+
+All seven fire on exactly the OJS 3.5 target this release supports — no
+hook name here is stale, renamed, or removed in `stable-3_5_0`. This
+verification does not extend to OJS 3.6 (`main`), which remains explicitly
+out of scope for this release (see `docs/v2/TASKLIST.md`'s deferred-items
+list) — a future OJS 3.6 compatibility pass would need to re-run this same
+check against that branch, not assume these names are unchanged.
 
 Phase 0 rule: preserve these while they are tested against the selected OJS 3.5 patch target. A later compatibility adapter/event layer may replace a hook only after an ADR and regression test show equivalent behavior.
 
