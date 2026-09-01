@@ -16,6 +16,7 @@ final class ExportPolicy
         'chatwootApiAccessToken',
         'chatwootIdentityValidationSecret',
         'chatwootSupportApiToken',
+        'mcpServiceToken',
     ];
 
     /**

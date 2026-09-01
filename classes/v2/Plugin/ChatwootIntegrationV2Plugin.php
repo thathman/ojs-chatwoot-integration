@@ -120,6 +120,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
     private const VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS = 0.3;
     private const LEGACY_EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+        'chatwootCaptainAssistantId',
         'chatwootSupportApiToken',
         'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests',
         'hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576',
