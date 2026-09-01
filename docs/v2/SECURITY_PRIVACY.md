@@ -50,6 +50,20 @@ Must explicitly defend against:
 - privilege escalation from public support plane to staff plane;
 - malicious third-party provider returning data outside its declared policy classification.
 
+### 3.1 Threat-model review (SEC-001, post-Admin-Console/Event-Bridge/API-007)
+
+Re-reviewed after the Admin Console (ADM-001–006), Event Bridge policy UI (ADM-004), and trusted-proxy/rate-limit closure (API-007) — surfaces that postdate the original list above:
+
+- **CSRF/authorization on new admin actions** (`syncCaptainResources`, `retryDeadLetterEvents`, `sendSupportMailTest`): all three are dispatched through the exact same `manage($args, $request)` entry point and OJS-native CSRF/Journal-Manager-role gate v1's own pre-existing `healthCheck`/`testMessage`/`exportSettings` verbs already use — no new, independently-reviewed authorization path was introduced. Verified structurally, not just assumed: `manage()` never bypasses `parent::manage()`'s dispatch for its own verbs.
+- **Mail-test action abuse** (`sendSupportMailTest`): could an admin action be misused to spam an arbitrary address? No — the recipient is always `$request->getUser()`, the currently-authenticated admin's own account; there is no recipient parameter anywhere in the request path.
+- **Dead-letter retry abuse**: scoped to the current journal's own `context_id` only (never cross-journal), and exposes only a retried-count in its response, never row content (§17 already covered the underlying repository method).
+- **Manual Captain repair ownership**: `syncCaptainResources()` has no independent Chatwoot access of its own — every ownership/ conflict guarantee still comes from the same three already-reviewed provisioners it orchestrates (ADM-003).
+- **Event Bridge opt-in enforcement**: `EventDeliverySettingsResolver` fails closed on both a missing consent flag and a malformed per-event-overrides JSON field — verified by dedicated tests (`event-delivery-settings-resolver.php`).
+- **Trusted-proxy spoofing** (API-007): closed — `X-Forwarded-Proto` is no longer trusted unconditionally; gated on the real, existing `trust_x_forwarded_for` config flag.
+- **EmailTemplate variable safety**: not yet applicable — the full EmailTemplate migration remains an explicitly deferred, well-specified follow-up (ADM-006); the "Send test email" diagnostic that IS shipped carries no submission/reviewer/session-derived variables at all (only journal name and a server-generated timestamp), so this specific risk does not yet exist in shipped code.
+
+No new unmitigated threat was found in this pass; the additions above are recorded so a future re-review doesn't have to re-derive them.
+
 ## 4. Authentication architecture
 
 ### 4.1 Chatwoot service authentication
