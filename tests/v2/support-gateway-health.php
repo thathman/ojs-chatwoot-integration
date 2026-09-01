@@ -104,6 +104,10 @@ supportGatewayHealthCheck($summary->overallState() === SupportGatewayHealthSumma
 $summary = SupportGatewayHealthAggregator::build(true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), fixtureCaptainHealth(CaptainProvisioningHealthReport::STATE_HEALTHY), ['airix.submission_fee' => ProviderHealth::AVAILABLE], 0);
 supportGatewayHealthCheck($summary->overallState() === SupportGatewayHealthSummary::STATE_HEALTHY, 'every real signal being healthy must resolve to healthy overall');
 supportGatewayHealthCheck($summary->toArray()['deadLetterCount'] === 0, 'toArray() must expose the real dead-letter count');
+
+$summaryWithPending = SupportGatewayHealthAggregator::build(true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), fixtureCaptainHealth(CaptainProvisioningHealthReport::STATE_HEALTHY), ['airix.submission_fee' => ProviderHealth::AVAILABLE], 0, 4);
+supportGatewayHealthCheck($summaryWithPending->pendingEventCount() === 4 && $summaryWithPending->toArray()['pendingEventCount'] === 4, 'the summary must expose the real pending-event-queue count, never a fabricated value');
+supportGatewayHealthCheck($summaryWithPending->overallState() === SupportGatewayHealthSummary::STATE_HEALTHY, 'a nonzero pending count alone must never itself count as degraded — only accumulating dead letters do');
 supportGatewayHealthCheck($summary->toArray()['knowledgeState'] === KnowledgeHealthReport::STATE_HEALTHY, 'toArray() must expose the real underlying knowledge state, never a re-derived guess');
 
 // ================================================================

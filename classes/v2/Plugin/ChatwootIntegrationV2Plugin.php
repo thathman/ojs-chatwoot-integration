@@ -142,11 +142,14 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         return $success;
     }
 
-    /** ADM-003: adds the v2-only syncCaptainResources verb ahead of v1's own manage() dispatch. */
+    /** ADM-003/ADM-005: adds the v2-only verbs ahead of v1's own manage() dispatch. */
     public function manage($args, $request)
     {
         if ($request->getUserVar('verb') === 'syncCaptainResources') {
             return $this->syncCaptainResources($request);
+        }
+        if ($request->getUserVar('verb') === 'retryDeadLetterEvents') {
+            return $this->retryDeadLetterEvents($request);
         }
         return parent::manage($args, $request);
     }
@@ -2049,6 +2052,31 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
     }
 
     /**
+     * EVT-014's remaining admin-action half: a safe "Retry dead letters"
+     * action, scoped to the current journal only. Resets up to 50 real
+     * `failed` event-queue rows for this journal back to `pending` (a
+     * fresh attempts budget, no delivery delay) via the real repository
+     * method — never a bespoke query here. Returns only a count, never
+     * any row's `attributes`/`last_error_code` content, so no raw
+     * exception text or secret-bearing request body is ever exposed
+     * through this action's own response.
+     */
+    public function retryDeadLetterEvents($request): JSONMessage
+    {
+        $context = $request->getContext();
+        if (!$context || !method_exists($context, 'getId')) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
+        }
+
+        try {
+            $retried = (new DatabaseSupportEventQueueRepository())->retryDeadLetters((int) $context->getId(), 50);
+            return new JSONMessage(true, ['retried' => $retried]);
+        } catch (\Throwable $e) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.eventQueue.retryFailed'));
+        }
+    }
+
+    /**
      * Captain provisioning/drift health (CaptainProvisioningHealthService)
      * — a pure local-state read over the same `chatwoot_support_knowledge_sync`
      * records the three provisioners above write, never a Chatwoot API
@@ -2113,10 +2141,14 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
             }
 
             $deadLetterCount = 0;
+            $pendingEventCount = 0;
             try {
-                $deadLetterCount = (new DatabaseSupportEventQueueRepository())->countByStatus('failed');
+                $queueRepo = new DatabaseSupportEventQueueRepository();
+                $deadLetterCount = $queueRepo->countByStatus('failed');
+                $pendingEventCount = $queueRepo->countByStatus('pending');
             } catch (\Throwable $e) {
                 $deadLetterCount = 0;
+                $pendingEventCount = 0;
             }
 
             return SupportGatewayHealthAggregator::build(
@@ -2127,7 +2159,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
                 $knowledgeHealth,
                 $captainHealth,
                 $paymentProviderHealth,
-                $deadLetterCount
+                $deadLetterCount,
+                $pendingEventCount
             );
         } catch (\Throwable $e) {
             return null;

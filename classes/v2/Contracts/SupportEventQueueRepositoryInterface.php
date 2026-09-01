@@ -33,4 +33,16 @@ interface SupportEventQueueRepositoryInterface
      * exposing any row's actual content.
      */
     public function countByStatus(string $status): int;
+
+    /**
+     * The dead-letter retry admin action (EVT-014): resets up to $limit
+     * `failed` rows for one journal back to `pending` with a fresh
+     * attempts budget (0) and no `run_after` delay, so the next real
+     * delivery run picks them up immediately. Never touches a row's
+     * `attributes`/`last_error_code` content — those are internal
+     * bookkeeping, never displayed to an admin by this action.
+     *
+     * @return int the number of rows actually reset
+     */
+    public function retryDeadLetters(int $contextId, int $limit): int;
 }

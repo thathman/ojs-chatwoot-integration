@@ -31,8 +31,20 @@ msgstr "Knowledge health:"
 msgid "plugins.generic.chatwootIntegration.settings.health.captainState"
 msgstr "Captain provisioning health:"
 
+msgid "plugins.generic.chatwootIntegration.settings.health.pendingEventCount"
+msgstr "Pending event-queue entries:"
+
 msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterCount"
 msgstr "Failed event-queue entries (dead letters):"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLettersDescription"
+msgstr "These events exhausted their delivery attempts and are no longer retried automatically. Use this to reset them back to pending for a fresh retry (up to 50 at a time)."
+
+msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLetters"
+msgstr "Retry Dead Letters"
+
+msgid "plugins.generic.chatwootIntegration.eventQueue.retryFailed"
+msgstr "Dead-letter retry could not be completed."
 
 msgid "plugins.generic.chatwootIntegration.settings.health.syncCaptainDescription"
 msgstr "Captain resources normally sync once daily. Use this to sync/repair this journal's Knowledge Document, Custom Tools, and Scenarios on demand — this only ever creates or updates resources this plugin already owns; it never touches an administrator's own unrelated Captain resources."
