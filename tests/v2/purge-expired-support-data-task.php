@@ -6,6 +6,10 @@ namespace PKP\scheduledTask {
     /** Mirrors only the real base class's contract — see a real local checkout of pkp-lib classes/scheduledTask/ScheduledTask.php. */
     abstract class ScheduledTask
     {
+        /** Mirrors the real constructor signature (TST-021) so subclasses calling parent::__construct() work against this mock too. */
+        public function __construct(private array $args = [])
+        {
+        }
         /** @var string[] */
         public array $logEntries = [];
 
