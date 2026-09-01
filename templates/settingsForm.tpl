@@ -56,6 +56,13 @@
 				alert(resp.content || 'Applied');
 			{rdelim});
 		{rdelim});
+
+		$('#chatwootSyncCaptainBtn').on('click', function(e) {ldelim}
+			e.preventDefault();
+			cwPost('{$syncCaptainResourcesUrl|escape:"javascript"}').done(function(resp) {ldelim}
+				alert(JSON.stringify(resp.content || resp, null, 2));
+			{rdelim});
+		{rdelim});
 	{rdelim});
 </script>
 
@@ -81,6 +88,10 @@
 					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}</li>
 				</ul>
 			</div>
+			<div id="description">
+				{translate key="plugins.generic.chatwootIntegration.settings.health.syncCaptainDescription"}
+			</div>
+			{fbvElement type="button" id="chatwootSyncCaptainBtn" label="plugins.generic.chatwootIntegration.settings.health.syncCaptain"}
 		{/if}
 
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.connection"}</h4>

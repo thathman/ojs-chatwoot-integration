@@ -141,6 +141,15 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         return $success;
     }
 
+    /** ADM-003: adds the v2-only syncCaptainResources verb ahead of v1's own manage() dispatch. */
+    public function manage($args, $request)
+    {
+        if ($request->getUserVar('verb') === 'syncCaptainResources') {
+            return $this->syncCaptainResources($request);
+        }
+        return parent::manage($args, $request);
+    }
+
     /**
      * Wires the long-flagged known gap (docs/v2/TASKLIST.md IDN-017:
      * "no scheduled task ever calls purgeExpired() — expired rows are
@@ -1971,6 +1980,63 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /**
+     * ADM-003 (first slice): the manual "Sync/Repair Captain" admin
+     * action, the on-demand fallback the three provisioning entry points
+     * above always documented as missing. Deliberately zero new
+     * provisioning logic — this only orchestrates the exact same three
+     * already-built, already-tested entry points
+     * (provisionCaptainKnowledgeDocument()/provisionCaptainCustomTools()/
+     * provisionCaptainScenarios()), in the same document-then-tools-then-
+     * scenarios order CaptainSyncScheduledTask already uses (a scenario's
+     * instruction can only reference a tool by its real assigned slug),
+     * scoped to the current journal only — never every journal
+     * system-wide, unlike the scheduled task.
+     *
+     * Never deletes or overwrites an admin's own unrelated Captain
+     * resources: that guarantee already lives entirely inside the three
+     * provisioners themselves (ownership proven only by a local
+     * CaptainSyncState record; an unmanaged remote resource is always a
+     * reported conflict, never adopted/duplicated/overwritten) — this
+     * method has no independent access to Chatwoot at all, so it cannot
+     * weaken that guarantee even by accident.
+     */
+    public function syncCaptainResources($request): JSONMessage
+    {
+        $context = $request->getContext();
+        if (!$context) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
+        }
+
+        try {
+            $documentResult = $this->provisionCaptainKnowledgeDocument($request, $context);
+            $toolResults = $this->provisionCaptainCustomTools($request, $context) ?? [];
+            $scenarioResults = $this->provisionCaptainScenarios($request, $context) ?? [];
+
+            return new JSONMessage(true, [
+                'document' => $documentResult ? $documentResult->status() : 'unavailable',
+                'tools' => $this->v2SummarizeCaptainSyncResults($toolResults),
+                'scenarios' => $this->v2SummarizeCaptainSyncResults($scenarioResults),
+            ]);
+        } catch (\Throwable $e) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.captainSync.failed'));
+        }
+    }
+
+    /**
+     * @param array<string,CaptainSyncResult> $results
+     *
+     * @return array<string,int> CaptainSyncResult::STATUS_* => count
+     */
+    private function v2SummarizeCaptainSyncResults(array $results): array
+    {
+        $counts = [];
+        foreach ($results as $result) {
+            $counts[$result->status()] = ($counts[$result->status()] ?? 0) + 1;
+        }
+        return $counts;
     }
 
     /**
