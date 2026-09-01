@@ -14,4 +14,4 @@
 
 require_once __DIR__ . '/classes/v2/bootstrap.php';
 
-return new \APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin();
+return new \APP\plugins\generic\chatwootIntegration\ChatwootIntegrationPlugin();

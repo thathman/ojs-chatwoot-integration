@@ -30,7 +30,7 @@ function customAttributeIndependenceCheck(bool $condition, string $message): voi
 // server-side binding match."
 // ================================================================
 
-$legacyPluginSource = (string) file_get_contents($root . '/ChatwootIntegrationPlugin.php');
+$legacyPluginSource = (string) file_get_contents($root . '/ChatwootIntegrationBasePlugin.php');
 $realCustomAttributeKeys = [];
 // `$attrs['key'] = ...` bracket-assignment style.
 if (preg_match_all("/\\\$attrs\\['([a-z_]+)'\\]/", $legacyPluginSource, $bracketMatches)) {

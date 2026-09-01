@@ -120,7 +120,7 @@ namespace {
 
     $root = dirname(__DIR__, 2);
     require_once $root . '/classes/v2/bootstrap.php';
-    require_once $root . '/ChatwootIntegrationPlugin.php';
+    require_once $root . '/ChatwootIntegrationBasePlugin.php';
 
     use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainSyncResult;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin;

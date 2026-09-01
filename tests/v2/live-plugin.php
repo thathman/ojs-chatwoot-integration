@@ -184,7 +184,7 @@ namespace {
     pluginCheck($method->getDeclaringClass()->getName() === ChatwootIntegrationV2Plugin::class, 'live plugin should intercept widget rendering for v2 context capture');
 
     $index = file_get_contents($root . '/index.php');
-    pluginCheck(str_contains((string) $index, 'ChatwootIntegrationV2Plugin'), 'plugin wrapper should instantiate the transitional v2 shell');
+    pluginCheck(str_contains((string) $index, 'new \\APP\\plugins\\generic\\chatwootIntegration\\ChatwootIntegrationPlugin()'), 'plugin wrapper should instantiate the real, conventionally-named ChatwootIntegrationPlugin (TST-014 fix), not reach for the v2 class directly');
 
     $usable = new \ReflectionMethod($plugin, 'supportGatewayUsable');
     pluginCheck(

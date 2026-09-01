@@ -4,7 +4,7 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Plugin;
 
 use APP\core\Application;
 use APP\plugins\generic\chatwootIntegration\ChatwootApiService;
-use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationPlugin;
+use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationBasePlugin;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\DiagnosticResultSerializer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\PaginationParams;
@@ -110,7 +110,7 @@ use PKP\security\Role;
  * It deliberately inherits the proven v1 behavior and overrides only seams
  * that have a tested v2 implementation. This keeps migration incremental.
  */
-class ChatwootIntegrationV2Plugin extends ChatwootIntegrationPlugin implements \PKP\plugins\interfaces\HasTaskScheduler
+class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implements \PKP\plugins\interfaces\HasTaskScheduler
 {
     private const SUPPORT_GATEWAY_PAGE = 'ojsSupportGateway';
     private const SUPPORT_KNOWLEDGE_PAGE = 'support-knowledge';
