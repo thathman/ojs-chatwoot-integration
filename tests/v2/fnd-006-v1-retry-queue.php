@@ -40,6 +40,7 @@ namespace {
     }
 
     $root = dirname(__DIR__, 2);
+    require_once $root . '/classes/v2/bootstrap.php'; // real production always loads this first (index.php) before any plugin class runs; EVT-017's give-up audit logging now needs it too
     require_once $root . '/ChatwootIntegrationBasePlugin.php';
 
     use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationBasePlugin;
