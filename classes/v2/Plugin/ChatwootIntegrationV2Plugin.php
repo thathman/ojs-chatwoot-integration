@@ -48,6 +48,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionCreatedEv
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionStatusChangedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEvent;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventMessageBuilder;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthAggregator;
@@ -483,29 +484,46 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
 
     /** @param array<string,mixed> $row */
     /**
-     * EVT-016 (CRITICAL): v1's own `dispatchEvent()`/`sendChatwootEvent()`
-     * already delivers every `submission.created`/`*_recorded`/
-     * `*_requested`/`accepted`/`rejected`/`publication.*` event
-     * synchronously and unconditionally the instant its real OJS hook
-     * fires (`Submission::add`/`Decision::add`/`Submission::updateStatus`/
-     * `Publication::publish`) — the exact same real occurrence this
-     * queue independently enqueues via `v2EnqueueEvent()`. Actually
-     * re-delivering these rows here would double-post to the live
-     * Chatwoot API for every one of those four hooks (confirmed real,
-     * not theoretical: both paths run unconditionally on every one of
-     * those hooks today). Until EVT-016/017's full pipeline-ownership
-     * redesign deliberately retires v1's synchronous path — with a safe
-     * upgrade/migration plan for its own queued data — this table
-     * records every event for real audit/correlation value (AUD-002/013)
-     * but must never re-deliver a type v1 already handles live. Only a
-     * genuinely v2-exclusive event type — one with no v1 hook/setting at
-     * all — may be added here, and only once its own EVT-0xx wiring task
-     * (e.g. EVT-019 for `SUBMISSION_REVIEW_SUBMITTED`) confirms v1 never
-     * also handles it.
+     * EVT-016/EVT-017 (CRITICAL): v1's own `dispatchEvent()`/
+     * `sendChatwootEvent()` delivers every `*_recorded`/`*_requested`/
+     * `accepted`/`rejected`/`publication.*` event synchronously and
+     * unconditionally the instant its real OJS hook fires
+     * (`Decision::add`/`Submission::updateStatus`/`Publication::publish`)
+     * — the exact same real occurrence this queue independently enqueues
+     * via `v2EnqueueEvent()`. Actually re-delivering those rows here
+     * would double-post to the live Chatwoot API. Until each remaining
+     * type's own ownership transfer completes (a `isLiveDeliveryOwnedByV2()`
+     * override on the base plugin's per-type switch, atomically paired
+     * with adding it here), this table records those events for real
+     * audit/correlation value (AUD-002/013) but must never re-deliver a
+     * type v1 still handles live.
+     *
+     * `SUBMISSION_CREATED` is the one type transferred so far (EVT-017):
+     * `ChatwootIntegrationV2Plugin::isLiveDeliveryOwnedByV2()` below
+     * returns `true` for `eventSubmissionCreated`, so v1's base
+     * `handleSubmissionCreated()` now skips its own `dispatchEvent()`
+     * call for this type in the same change — v2's durable queue is its
+     * sole live deliverer, never both, never neither.
      *
      * @var string[]
      */
-    private const LIVE_DELIVERY_ALLOWLIST = [];
+    private const LIVE_DELIVERY_ALLOWLIST = [
+        SupportEventType::SUBMISSION_CREATED,
+    ];
+
+    /**
+     * EVT-017: the live-delivery ownership switch itself. Only
+     * `eventSubmissionCreated` has been transferred so far — deliberately
+     * the lowest-risk first transfer, since EVT-021 already proved v1's
+     * synchronous path silently fails to deliver this type on real OJS
+     * 3.5 today (a `currentPublicationId` hook-timing defect in pkp-lib),
+     * so v2 durable delivery is a strict improvement, not a behavior
+     * change users would notice as a regression.
+     */
+    protected function isLiveDeliveryOwnedByV2(string $eventSettingKey): bool
+    {
+        return $eventSettingKey === 'eventSubmissionCreated';
+    }
 
     /** @param array<string,mixed> $row */
     private function v2DeliverQueuedEventRow($bridge, array $row): bool

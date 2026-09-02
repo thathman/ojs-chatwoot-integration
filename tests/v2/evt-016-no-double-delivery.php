@@ -150,12 +150,15 @@ namespace {
     //
     // This test proves, by actually calling the real private
     // v2DeliverQueuedEventRow() via reflection (not just asserting source
-    // strings), that every one of the 8 known SupportEventType values is
-    // currently blocked from live re-delivery — it must return true
-    // (delivered/no-op) WITHOUT ever needing a real $bridge/DB/Chatwoot
-    // call, proven by passing null for $bridge: if the guard didn't
-    // short-circuit before touching $bridge, this would fatal instead of
-    // returning true.
+    // strings), the current real per-type ownership split: every type
+    // still owned by v1 must return true (delivered/no-op) WITHOUT ever
+    // needing a real $bridge/DB/Chatwoot call, proven by passing null for
+    // $bridge — if the guard didn't short-circuit before touching
+    // $bridge, this would fatal instead of returning true. EVT-017
+    // transferred SUBMISSION_CREATED to v2: that one type must now
+    // actually ATTEMPT live delivery (fatal on the null bridge, proving
+    // it passed the allowlist gate and reached real bridge/API code),
+    // while every other type remains blocked exactly as before.
     // ================================================================
 
     $plugin = new ChatwootIntegrationV2Plugin();
@@ -169,6 +172,20 @@ namespace {
             'resource_id' => 101,
         ];
 
+        if ($eventType === SupportEventType::SUBMISSION_CREATED) {
+            $threw = false;
+            try {
+                $method->invoke($plugin, null, $row);
+            } catch (\Throwable $e) {
+                $threw = true;
+            }
+            evt016Check(
+                $threw,
+                "event type '{$eventType}' is the one EVT-017-transferred type — it must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
+            );
+            continue;
+        }
+
         $result = $method->invoke($plugin, null, $row);
         evt016Check(
             $result === true,
@@ -176,17 +193,34 @@ namespace {
         );
     }
 
-    // The allowlist itself must currently be empty — the moment any type
-    // is added, it must be a deliberate, reviewed decision (a real code
-    // change to this constant), never silently reintroduced.
+    // The allowlist must currently contain exactly SUBMISSION_CREATED —
+    // the moment any further type is added, it must be a deliberate,
+    // reviewed decision (a real code change to this constant), never
+    // silently reintroduced.
     $pluginSource = (string) file_get_contents("{$root}/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php");
     $allowlistStart = strpos($pluginSource, 'LIVE_DELIVERY_ALLOWLIST = [');
     evt016Check($allowlistStart !== false, 'the plugin must declare a real LIVE_DELIVERY_ALLOWLIST constant');
     $allowlistBlock = substr($pluginSource, $allowlistStart, (int) strpos($pluginSource, '];', $allowlistStart) - $allowlistStart);
+    $allowlistNormalized = trim(str_replace(['LIVE_DELIVERY_ALLOWLIST = [', "\n", ' ', ','], ['', '', '', ''], $allowlistBlock));
     evt016Check(
-        trim(str_replace(['LIVE_DELIVERY_ALLOWLIST = [', "\n", ' '], '', $allowlistBlock)) === '',
-        'LIVE_DELIVERY_ALLOWLIST must currently be empty — no event type has yet had its v1 duplication deliberately retired'
+        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATED',
+        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly SUBMISSION_CREATED (EVT-017) and nothing else, got: ' . $allowlistNormalized
     );
+
+    // Ownership-switch parity: the base plugin's per-type gate must agree
+    // with the allowlist exactly — SUBMISSION_CREATED transferred, every
+    // other real event-setting key still v1-owned.
+    $ownershipMethod = new \ReflectionMethod($plugin, 'isLiveDeliveryOwnedByV2');
+    evt016Check(
+        $ownershipMethod->invoke($plugin, 'eventSubmissionCreated') === true,
+        'isLiveDeliveryOwnedByV2() must return true for eventSubmissionCreated now that EVT-017 transferred it'
+    );
+    foreach (['eventRevisionRequested', 'eventAccepted', 'eventRejected', 'eventDecisionRecorded', 'eventPublicationScheduled', 'eventPublicationPublished'] as $stillV1Owned) {
+        evt016Check(
+            $ownershipMethod->invoke($plugin, $stillV1Owned) === false,
+            "isLiveDeliveryOwnedByV2() must still return false for '{$stillV1Owned}' — only eventSubmissionCreated has been transferred so far"
+        );
+    }
 
     fwrite(STDOUT, "PASS: evt-016-no-double-delivery\n");
 }

@@ -258,12 +258,27 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         return false;
     }
 
+    /**
+     * EVT-017: per-event-type live-delivery ownership switch. Base v1 is
+     * the live deliverer for every event type by default (`false`); v2
+     * overrides this to return `true` for a type only once that type's
+     * ownership has been atomically transferred — never leaving a window
+     * where both v1 and v2 attempt live delivery, or neither does. Keyed
+     * by the same `event*` setting name each handler already checks via
+     * `isEventEnabled()`, so the transfer point is explicit and auditable
+     * per event family.
+     */
+    protected function isLiveDeliveryOwnedByV2(string $eventSettingKey): bool {
+        return false;
+    }
+
     public function handleSubmissionCreated($hookName, $args) {
         try {
             $submission = $args[0] ?? null;
             if (!$submission) return false;
             $contextId = (int) $submission->getData('contextId');
             if (!$this->isEventEnabled($contextId, 'eventSubmissionCreated')) return false;
+            if ($this->isLiveDeliveryOwnedByV2('eventSubmissionCreated')) return false;
             $author = $this->safeGetPrimaryAuthor($submission);
             if (!$author || !$author->getEmail()) return false;
 
