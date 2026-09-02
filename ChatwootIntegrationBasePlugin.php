@@ -4,6 +4,7 @@ namespace APP\plugins\generic\chatwootIntegration;
 
 use APP\core\Application;
 use APP\facades\Repo;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\ErrorLogSupportApiAuditLogger;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\CurrentSubmissionResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
@@ -402,7 +403,24 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             $ok = $this->executeApiJob($contextId, $job);
             if ($ok) continue;
             $attempts = (int) ($job['attempts'] ?? 0) + 1;
-            if ($attempts >= $max) continue;
+            if ($attempts >= $max) {
+                // EVT-017: a legacy job that exhausts its retries used to
+                // simply vanish with zero trace -- no dead-letter record,
+                // no audit entry, nothing. Record a safe give-up entry
+                // (never the job's real payload -- no email/name/message/
+                // submission content) so an abandoned delivery is at least
+                // observable, matching the real dead-letter visibility the
+                // v2 durable queue already has.
+                (new ErrorLogSupportApiAuditLogger())->record([
+                    'component' => 'legacy_api_queue',
+                    'decision' => 'give_up',
+                    'contextId' => $contextId,
+                    'jobId' => (string) ($job['id'] ?? ''),
+                    'jobType' => (string) ($job['type'] ?? ''),
+                    'attempts' => $attempts,
+                ]);
+                continue;
+            }
             $job['attempts'] = $attempts;
             $job['runAfter'] = $now + min(3600, (int) pow(2, $attempts) * 30);
             $remaining[] = $job;
