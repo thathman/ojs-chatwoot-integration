@@ -200,28 +200,41 @@ final class InstallSupportGatewayMigration extends Migration
      */
     private function upEventQueue(): void
     {
-        if (Schema::hasTable(self::EVENT_QUEUE_TABLE)) {
+        if (!Schema::hasTable(self::EVENT_QUEUE_TABLE)) {
+            Schema::create(self::EVENT_QUEUE_TABLE, function (Blueprint $table): void {
+                $table->comment('Persisted Event Bridge v2 delivery queue.');
+                $table->bigIncrements('id');
+                $table->string('idempotency_key', 64)->unique();
+                $table->string('correlation_id', 64)->nullable()->index();
+                $table->string('event_type', 64)->index();
+                $table->bigInteger('context_id')->index();
+                $table->string('resource_type', 32);
+                $table->bigInteger('resource_id');
+                $table->text('attributes')->nullable();
+                $table->string('delivery_mode', 32);
+                $table->string('status', 16)->default('pending')->index();
+                $table->unsignedSmallInteger('attempts')->default(0);
+                $table->dateTime('occurred_at');
+                $table->dateTime('created_at')->index();
+                $table->dateTime('run_after')->nullable()->index();
+                $table->dateTime('delivered_at')->nullable();
+                $table->string('last_error_code', 64)->nullable();
+            });
             return;
         }
 
-        Schema::create(self::EVENT_QUEUE_TABLE, function (Blueprint $table): void {
-            $table->comment('Persisted Event Bridge v2 delivery queue.');
-            $table->bigIncrements('id');
-            $table->string('idempotency_key', 64)->unique();
-            $table->string('event_type', 64)->index();
-            $table->bigInteger('context_id')->index();
-            $table->string('resource_type', 32);
-            $table->bigInteger('resource_id');
-            $table->text('attributes')->nullable();
-            $table->string('delivery_mode', 32);
-            $table->string('status', 16)->default('pending')->index();
-            $table->unsignedSmallInteger('attempts')->default(0);
-            $table->dateTime('occurred_at');
-            $table->dateTime('created_at')->index();
-            $table->dateTime('run_after')->nullable()->index();
-            $table->dateTime('delivered_at')->nullable();
-            $table->string('last_error_code', 64)->nullable();
-        });
+        // AUD-013: a real journal's queue table from before correlation IDs
+        // existed on this table won't get the new column from Schema::create()
+        // above (it already exists, so that call is a no-op) — this
+        // idempotent add-if-missing step is what actually reaches an
+        // already-installed real table on upgrade, same "may be invoked more
+        // than once, must never fail on a second run" discipline the rest of
+        // this migration already follows for table creation.
+        if (!Schema::hasColumn(self::EVENT_QUEUE_TABLE, 'correlation_id')) {
+            Schema::table(self::EVENT_QUEUE_TABLE, function (Blueprint $table): void {
+                $table->string('correlation_id', 64)->nullable()->index()->after('idempotency_key');
+            });
+        }
     }
 
     public function down(): void

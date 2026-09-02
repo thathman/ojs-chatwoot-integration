@@ -41,7 +41,7 @@ $repo = new DatabaseSupportEventQueueRepository();
 $event = SupportEvent::create(SupportEventType::SUBMISSION_CREATED, 7, 'submission', 900, '');
 
 foreach ([
-    'enqueue' => fn () => $repo->enqueue($event, 'private_note'),
+    'enqueue' => fn () => $repo->enqueue($event, 'private_note', 'corr-test-1'),
     'fetchPendingBatch' => fn () => $repo->fetchPendingBatch(10, time()),
     'markDelivered' => fn () => $repo->markDelivered(1, time()),
     'markFailed' => fn () => $repo->markFailed(1, 'delivery_failed', 1, 5, time()),

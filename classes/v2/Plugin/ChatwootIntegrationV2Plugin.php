@@ -434,7 +434,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         $perEventOverrides = EventDeliverySettingsResolver::parsePerEventOverrides($overridesJson, $consentGiven);
 
         $mode = EventDeliveryPolicy::resolve($event->type(), $globalMode, $perEventOverrides);
-        (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode);
+        (new DatabaseSupportEventQueueRepository())->enqueue($event, $mode, CorrelationId::generate());
     }
 
     /**
@@ -465,18 +465,35 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         foreach ($repo->fetchPendingBatch($limit, $now) as $row) {
             $id = (int) ($row['id'] ?? 0);
             $attempts = (int) ($row['attempts'] ?? 0) + 1;
+            $correlationId = trim((string) ($row['correlation_id'] ?? ''));
+            if ($correlationId === '') {
+                // A row enqueued before AUD-013's correlation_id column
+                // existed has none stored — DatabaseSupportApiAuditLogger
+                // silently drops any record with an empty correlationId
+                // (defense in depth against ever persisting a blank
+                // identity), so a fresh one here still gets this
+                // delivery's outcome on record, rather than losing it.
+                // It cannot retroactively link back to the original hook
+                // fire for such a row, only forward from this delivery.
+                $correlationId = CorrelationId::generate();
+            }
+            $contextId = (int) ($row['context_id'] ?? 0);
+            $eventType = (string) ($row['event_type'] ?? '');
 
             try {
                 $ok = $this->v2DeliverQueuedEventRow($bridge, $row);
                 if ($ok) {
                     $repo->markDelivered($id, time());
+                    $this->v2AuditEventDelivery($correlationId, $contextId, $eventType, 'allow', 'delivered');
                     $delivered++;
                 } else {
                     $repo->markFailed($id, 'delivery_failed', $attempts, 5, time());
+                    $this->v2AuditEventDelivery($correlationId, $contextId, $eventType, 'deny', 'delivery_failed');
                     $failed++;
                 }
             } catch (\Throwable $e) {
                 $repo->markFailed($id, 'internal_error', $attempts, 5, time());
+                $this->v2AuditEventDelivery($correlationId, $contextId, $eventType, 'deny', 'internal_error');
                 $failed++;
             }
         }
@@ -3474,6 +3491,34 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         (new DatabaseSupportApiAuditLogger())->record([
             'correlationId' => $correlationId,
             'endpoint' => $endpoint,
+            'contextId' => $contextId,
+            'decision' => $decision,
+            'reason' => $reason,
+        ]);
+    }
+
+    /**
+     * AUD-013: the "-> Chatwoot delivery -> delivery/audit record" link in
+     * `OJS hook -> normalized SupportEvent -> durable v2 queue -> scheduler
+     * -> Chatwoot`, closing the correlation-ID gap AUD-002 left open (REST
+     * request handling only). Reuses the exact same persisted sink
+     * `v2AuditVerificationEvent()` already uses — never a second,
+     * independently-maintained audit table — with `endpoint` set to the
+     * real event type so a delivery outcome is distinguishable from a
+     * verification outcome in the same log. `$correlationId` is the one
+     * `v2EnqueueEvent()` generated and the repository stored on the row at
+     * enqueue time, so a single real event's full lifecycle (hook fire,
+     * enqueue, every delivery attempt) shares one ID end to end. A queue
+     * row enqueued before this column existed has no stored correlation
+     * ID — the caller generates a fresh one for that case (see
+     * `deliverQueuedSupportEvents()`), since `DatabaseSupportApiAuditLogger`
+     * silently drops any record with a blank one.
+     */
+    private function v2AuditEventDelivery(string $correlationId, int $contextId, string $eventType, string $decision, string $reason): void
+    {
+        (new DatabaseSupportApiAuditLogger())->record([
+            'correlationId' => $correlationId,
+            'endpoint' => 'event_delivery:' . $eventType,
             'contextId' => $contextId,
             'decision' => $decision,
             'reason' => $reason,

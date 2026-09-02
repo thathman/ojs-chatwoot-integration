@@ -15,8 +15,16 @@ interface SupportEventQueueRepositoryInterface
      * row in the queue is a silent no-op (EVT-002's whole point — a
      * retried real occurrence must never enqueue twice). Returns true if a
      * new row was actually inserted, false if it was already queued.
+     *
+     * $correlationId (AUD-013) is the same real `CorrelationId` a REST/MCP
+     * request would carry — generated fresh here for an OJS-hook-driven
+     * enqueue, since there is no inbound request to reuse one from — and
+     * is threaded through to delivery so one real event's full
+     * hook -> queue -> Chatwoot -> audit-record lifecycle can be traced
+     * by a single ID, not just its REST-request half (AUD-002's original
+     * scope).
      */
-    public function enqueue(SupportEvent $event, string $deliveryMode): bool;
+    public function enqueue(SupportEvent $event, string $deliveryMode, string $correlationId): bool;
 
     /** @return array<int,array<string,mixed>> Up to $limit pending rows due for delivery (run_after null or in the past), oldest first. */
     public function fetchPendingBatch(int $limit, int $now): array;
