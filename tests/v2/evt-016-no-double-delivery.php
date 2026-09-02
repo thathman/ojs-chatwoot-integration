@@ -172,7 +172,7 @@ namespace {
             'resource_id' => 101,
         ];
 
-        if (in_array($eventType, [SupportEventType::SUBMISSION_CREATED, SupportEventType::SUBMISSION_REVIEW_SUBMITTED], true)) {
+        if (in_array($eventType, [SupportEventType::SUBMISSION_CREATED, SupportEventType::SUBMISSION_REVIEW_SUBMITTED, SupportEventType::SUBMISSION_DECISION_RECORDED], true)) {
             $threw = false;
             try {
                 $method->invoke($plugin, null, $row);
@@ -181,7 +181,7 @@ namespace {
             }
             evt016Check(
                 $threw,
-                "event type '{$eventType}' is one of the two transferred/allowlisted types — it must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
+                "event type '{$eventType}' is one of the three transferred/allowlisted types — it must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
             );
             continue;
         }
@@ -193,8 +193,8 @@ namespace {
         );
     }
 
-    // The allowlist must currently contain exactly these two types — the
-    // moment any further type is added, it must be a deliberate,
+    // The allowlist must currently contain exactly these three types —
+    // the moment any further type is added, it must be a deliberate,
     // reviewed decision (a real code change to this constant), never
     // silently reintroduced.
     $pluginSource = (string) file_get_contents("{$root}/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php");
@@ -203,24 +203,54 @@ namespace {
     $allowlistBlock = substr($pluginSource, $allowlistStart, (int) strpos($pluginSource, '];', $allowlistStart) - $allowlistStart);
     $allowlistNormalized = trim(str_replace(['LIVE_DELIVERY_ALLOWLIST = [', "\n", ' ', ','], ['', '', '', ''], $allowlistBlock));
     evt016Check(
-        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATEDSupportEventType::SUBMISSION_REVIEW_SUBMITTED',
-        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly SUBMISSION_CREATED (EVT-017) and SUBMISSION_REVIEW_SUBMITTED (EVT-020) and nothing else, got: ' . $allowlistNormalized
+        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATEDSupportEventType::SUBMISSION_REVIEW_SUBMITTEDSupportEventType::SUBMISSION_DECISION_RECORDED',
+        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly SUBMISSION_CREATED (EVT-017), SUBMISSION_REVIEW_SUBMITTED (EVT-020), and SUBMISSION_DECISION_RECORDED (EVT-020) and nothing else, got: ' . $allowlistNormalized
     );
 
     // Ownership-switch parity: the base plugin's per-type gate must agree
-    // with the allowlist exactly — SUBMISSION_CREATED transferred, every
-    // other real event-setting key still v1-owned.
+    // with the allowlist exactly — SUBMISSION_CREATED and
+    // DECISION_RECORDED transferred, every other real event-setting key
+    // still v1-owned.
     $ownershipMethod = new \ReflectionMethod($plugin, 'isLiveDeliveryOwnedByV2');
     evt016Check(
         $ownershipMethod->invoke($plugin, 'eventSubmissionCreated') === true,
         'isLiveDeliveryOwnedByV2() must return true for eventSubmissionCreated now that EVT-017 transferred it'
     );
-    foreach (['eventRevisionRequested', 'eventAccepted', 'eventRejected', 'eventDecisionRecorded', 'eventPublicationScheduled', 'eventPublicationPublished'] as $stillV1Owned) {
+    evt016Check(
+        $ownershipMethod->invoke($plugin, 'eventDecisionRecorded') === true,
+        'isLiveDeliveryOwnedByV2() must return true for eventDecisionRecorded now that EVT-020 transferred it'
+    );
+    foreach (['eventRevisionRequested', 'eventAccepted', 'eventRejected', 'eventPublicationScheduled', 'eventPublicationPublished'] as $stillV1Owned) {
         evt016Check(
             $ownershipMethod->invoke($plugin, $stillV1Owned) === false,
             "isLiveDeliveryOwnedByV2() must still return false for '{$stillV1Owned}' — only eventSubmissionCreated has been transferred so far"
         );
     }
+
+    // ================================================================
+    // EVT-020: handleEditorDecision()'s real ownership-transfer guard,
+    // structurally verified (a behavioral poison-stub test like EVT-017's
+    // is not feasible here — the real method calls Repo::submission()->get()
+    // before this guard is even reachable, which requires a live OJS DB
+    // this environment does not have). The guard must exist and must run
+    // strictly before dispatchEvent(), so a real decision never reaches
+    // v1's live-delivery call once ownership has transferred.
+    // ================================================================
+    $basePluginSource = (string) file_get_contents("{$root}/ChatwootIntegrationBasePlugin.php");
+    $decisionHandlerStart = strpos($basePluginSource, 'public function handleEditorDecision($hookName, $args) {');
+    evt016Check($decisionHandlerStart !== false, 'ChatwootIntegrationBasePlugin::handleEditorDecision() must still exist with its real signature');
+    $decisionHandlerEnd = strpos($basePluginSource, "\n    }\n", $decisionHandlerStart);
+    $decisionHandlerBody = substr($basePluginSource, $decisionHandlerStart, $decisionHandlerEnd - $decisionHandlerStart);
+    evt016Check(
+        str_contains($decisionHandlerBody, "isLiveDeliveryOwnedByV2('eventDecisionRecorded')"),
+        'handleEditorDecision() must check isLiveDeliveryOwnedByV2(\'eventDecisionRecorded\') before doing any v1 live-delivery work'
+    );
+    $decisionOwnershipCheckPos = strpos($decisionHandlerBody, "isLiveDeliveryOwnedByV2('eventDecisionRecorded')");
+    $decisionDispatchPos = strpos($decisionHandlerBody, 'dispatchEvent(');
+    evt016Check(
+        $decisionDispatchPos === false || $decisionOwnershipCheckPos < $decisionDispatchPos,
+        'the ownership-transfer check must run BEFORE dispatchEvent(), not after — otherwise a real decision could still double-deliver'
+    );
 
     fwrite(STDOUT, "PASS: evt-016-no-double-delivery\n");
 }

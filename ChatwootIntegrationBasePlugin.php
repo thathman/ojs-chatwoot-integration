@@ -231,6 +231,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             
             $contextId = (int) $submission->getData('contextId');
             if (!$this->isEventEnabled($contextId, 'eventDecisionRecorded')) return false;
+            if ($this->isLiveDeliveryOwnedByV2('eventDecisionRecorded')) return false;
 
             $decisionCode = (int) $decision->getData('decision');
             $eventKey = $this->mapDecisionEventKey($decisionCode);
