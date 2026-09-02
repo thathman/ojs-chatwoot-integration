@@ -232,9 +232,17 @@ namespace {
     // structurally verified (a behavioral poison-stub test like EVT-017's
     // is not feasible here — the real method calls Repo::submission()->get()
     // before this guard is even reachable, which requires a live OJS DB
-    // this environment does not have). The guard must exist and must run
-    // strictly before dispatchEvent(), so a real decision never reaches
-    // v1's live-delivery call once ownership has transferred.
+    // this environment does not have). The guard must exist, must run
+    // strictly before dispatchEvent(), and — a real regression this exact
+    // gap caused once, live — must key on the SAME specific event type
+    // v2's DecisionRecordedEventAdapter::mapDecisionEventType() would
+    // actually enqueue this decision code as ($eventKey when one exists —
+    // eventAccepted/eventRejected/eventRevisionRequested — falling back
+    // to the bare 'eventDecisionRecorded' only when $eventKey is null),
+    // never the bare key unconditionally. Keying on the bare key
+    // unconditionally silently blocked v1's delivery for every decision
+    // type (including still-v1-owned ones like a real "Accept
+    // Submission"), not only the one type actually transferred.
     // ================================================================
     $basePluginSource = (string) file_get_contents("{$root}/ChatwootIntegrationBasePlugin.php");
     $decisionHandlerStart = strpos($basePluginSource, 'public function handleEditorDecision($hookName, $args) {');
@@ -242,14 +250,23 @@ namespace {
     $decisionHandlerEnd = strpos($basePluginSource, "\n    }\n", $decisionHandlerStart);
     $decisionHandlerBody = substr($basePluginSource, $decisionHandlerStart, $decisionHandlerEnd - $decisionHandlerStart);
     evt016Check(
-        str_contains($decisionHandlerBody, "isLiveDeliveryOwnedByV2('eventDecisionRecorded')"),
-        'handleEditorDecision() must check isLiveDeliveryOwnedByV2(\'eventDecisionRecorded\') before doing any v1 live-delivery work'
+        str_contains($decisionHandlerBody, "isLiveDeliveryOwnedByV2(\$eventKey ?? 'eventDecisionRecorded')"),
+        'handleEditorDecision() must check isLiveDeliveryOwnedByV2($eventKey ?? \'eventDecisionRecorded\') — the SAME specific per-decision-code key v2\'s adapter would enqueue as — never the bare \'eventDecisionRecorded\' key unconditionally, which would wrongly block v1 delivery for still-v1-owned decision types too'
     );
-    $decisionOwnershipCheckPos = strpos($decisionHandlerBody, "isLiveDeliveryOwnedByV2('eventDecisionRecorded')");
+    evt016Check(
+        !preg_match('/isLiveDeliveryOwnedByV2\(\'eventDecisionRecorded\'\)/', $decisionHandlerBody),
+        'the ownership check must never be a bare isLiveDeliveryOwnedByV2(\'eventDecisionRecorded\') call — that unconditionally blocks v1 for every decision code, not only the one type actually transferred'
+    );
+    $decisionOwnershipCheckPos = strpos($decisionHandlerBody, "isLiveDeliveryOwnedByV2(\$eventKey ?? 'eventDecisionRecorded')");
     $decisionDispatchPos = strpos($decisionHandlerBody, 'dispatchEvent(');
+    $decisionEventKeyPos = strpos($decisionHandlerBody, '$eventKey = $this->mapDecisionEventKey(');
     evt016Check(
         $decisionDispatchPos === false || $decisionOwnershipCheckPos < $decisionDispatchPos,
         'the ownership-transfer check must run BEFORE dispatchEvent(), not after — otherwise a real decision could still double-deliver'
+    );
+    evt016Check(
+        $decisionEventKeyPos !== false && $decisionEventKeyPos < $decisionOwnershipCheckPos,
+        'the ownership-transfer check must run AFTER $eventKey is computed, so it can key on the real specific event type, not before'
     );
 
     fwrite(STDOUT, "PASS: evt-016-no-double-delivery\n");

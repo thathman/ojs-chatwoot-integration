@@ -231,11 +231,23 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             
             $contextId = (int) $submission->getData('contextId');
             if (!$this->isEventEnabled($contextId, 'eventDecisionRecorded')) return false;
-            if ($this->isLiveDeliveryOwnedByV2('eventDecisionRecorded')) return false;
 
             $decisionCode = (int) $decision->getData('decision');
             $eventKey = $this->mapDecisionEventKey($decisionCode);
             if ($eventKey && !$this->isEventEnabled($contextId, $eventKey)) return false;
+            // EVT-020: the ownership-transfer check must key on the SAME
+            // specific event type v2's DecisionRecordedEventAdapter::
+            // mapDecisionEventType() would actually enqueue this decision
+            // code as (eventAccepted/eventRejected/eventRevisionRequested
+            // for their respective codes, eventDecisionRecorded only for
+            // the fallback/default case) — never the bare
+            // 'eventDecisionRecorded' key unconditionally. A real
+            // regression this exact bug caused once, live: it blocked
+            // v1's delivery for a real "Accept Submission" decision
+            // (which maps to eventAccepted, still v1-owned) while v2 also
+            // never delivered it (SUBMISSION_ACCEPTED not yet
+            // allowlisted) — a real silent notification gap.
+            if ($this->isLiveDeliveryOwnedByV2($eventKey ?? 'eventDecisionRecorded')) return false;
 
             $author = $this->safeGetPrimaryAuthor($submission);
             if (!$author || !$author->getEmail()) return false;
