@@ -377,6 +377,19 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $this->saveApiQueue($contextId, $q);
     }
 
+    /**
+     * EVT-018: public entry point for the scheduled retry-queue consumer
+     * (ProcessLegacyRetryQueueScheduledTask) — the legacy `apiQueue`'s
+     * only remaining opportunistic drain sites are real event occurrences
+     * (dispatchEvent()) and the explicit "Sync Email Templates" admin
+     * action; this scheduled task is now the reliable, bounded path so
+     * retry delivery does not stall for low-traffic journals between
+     * those events.
+     */
+    public function processQueuedApiJobsForContext(int $contextId, int $limit = 20): void {
+        $this->processApiQueue($contextId, $limit);
+    }
+
     private function processApiQueue(int $contextId, int $limit = 5): void {
         if (!$this->isRetryQueueEnabled($contextId)) return;
         $queue = $this->getApiQueue($contextId);
@@ -475,7 +488,13 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
         $contextId = (int) $context->getId();
         if (!$this->getEnabled($contextId) && !$this->getEnabled()) return false;
-        $this->processApiQueue($contextId, 3);
+        // EVT-018 (CRITICAL): this hook fires on every TemplateManager::
+        // display/fetch site-wide — it must never perform a network/queue
+        // side effect during template rendering. Retry-queue processing
+        // now belongs solely to ProcessLegacyRetryQueueScheduledTask
+        // (scheduler-only), dispatchEvent()'s own opportunistic drain on a
+        // real event occurrence, and the explicit "Sync Email Templates"
+        // admin action — never an arbitrary page render.
 
         $baseUrl = $this->normalizeBaseUrl((string) $this->getEffectiveSetting($contextId, 'chatwootBaseUrl', ''));
         $token = trim((string) $this->getEffectiveSetting($contextId, 'chatwootWebsiteToken', ''));

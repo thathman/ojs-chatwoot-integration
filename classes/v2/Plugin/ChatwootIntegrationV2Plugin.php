@@ -94,6 +94,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMappe
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\ProcessLegacyRetryQueueScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportMailTestMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;
@@ -191,6 +192,14 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         $scheduler->addSchedule(new DeliverQueuedSupportEventsTask($this))
             ->everyFiveMinutes()
             ->name(DeliverQueuedSupportEventsTask::class)
+            ->withoutOverlapping();
+
+        // EVT-018: replaces the removed per-page-render opportunistic
+        // drain inside addChatwootWidget() with a reliable, bounded
+        // scheduler-only consumer for v1's legacy apiQueue.
+        $scheduler->addSchedule(new ProcessLegacyRetryQueueScheduledTask($this))
+            ->everyFiveMinutes()
+            ->name(ProcessLegacyRetryQueueScheduledTask::class)
             ->withoutOverlapping();
     }
 
