@@ -77,6 +77,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\AccountDiagnosti
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\CapabilitiesListTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\EscalateSupportTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\IdentityConfirmVerificationTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\IdentityRequestVerificationTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PaymentStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\PublicationStatusTool;
@@ -1349,6 +1351,105 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
             function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
                 $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.identity.get_support_identity');
                 return SupportIdentityTool::handle($result);
+            }
+        );
+        $registry->register(
+            IdentityRequestVerificationTool::NAME,
+            IdentityRequestVerificationTool::DESCRIPTION,
+            IdentityRequestVerificationTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.identity.request_verification');
+
+                $email = trim((string) ($arguments['email'] ?? ''));
+                $purpose = trim((string) ($arguments['purpose'] ?? ''));
+                if ($email === '' || !in_array($purpose, VerificationChallenge::PURPOSES, true)) {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'email and a valid purpose are required.');
+                }
+                $method = trim((string) ($arguments['method'] ?? ''));
+                $method = $method === VerificationChallenge::METHOD_LINK ? VerificationChallenge::METHOD_LINK : VerificationChallenge::METHOD_PIN;
+                $verifyContextId = $result->identity()->contextId();
+                $chatwootAccountId = trim((string) ($arguments['chatwootAccountId'] ?? ''));
+                $chatwootContactId = trim((string) ($arguments['chatwootContactId'] ?? ''));
+                $chatwootConversationId = trim((string) ($arguments['chatwootConversationId'] ?? ''));
+
+                $auditReason = 'malformed_request';
+                $publicReference = bin2hex(random_bytes(16));
+                $timingStartedAt = microtime(true);
+                try {
+                    if ($chatwootAccountId !== '' && $chatwootContactId !== '' && $chatwootConversationId !== '') {
+                        $auditReason = 'user_not_found';
+                        $bridge = $this->runtimeContextBridge();
+                        $user = $bridge->getUserByEmail($email);
+                        if ($user) {
+                            $auditReason = 'throttled';
+                            $pepper = $this->v2VerificationPepper($verifyContextId);
+                            $prepared = $bridge->requestVerificationChallenge($verifyContextId, (int) $user->getId(), $purpose, $method, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $pepper);
+                            if ($prepared !== null) {
+                                $auditReason = 'mail_not_configured';
+                                $context = $bridge->getContext($request);
+                                if (is_object($context)) {
+                                    $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : '';
+                                    $ttlMinutes = max(1, (int) ceil(($prepared->challenge()->expiresAt() - time()) / 60));
+                                    $subject = VerificationEmailContentBuilder::subject($journalName);
+                                    $body = null;
+                                    if ($prepared->challenge()->method() === VerificationChallenge::METHOD_LINK) {
+                                        $url = $bridge->getVerificationLinkUrl($request, $prepared->challenge()->publicReference(), $prepared->plaintextSecret());
+                                        if ($url !== null) {
+                                            $body = VerificationEmailContentBuilder::linkBody($journalName, $url, $ttlMinutes);
+                                        }
+                                    } else {
+                                        $body = VerificationEmailContentBuilder::pinBody($journalName, $prepared->plaintextSecret(), $ttlMinutes);
+                                    }
+                                    if ($body !== null) {
+                                        Mail::send(new SupportVerificationMailable($context, $user, $subject, $body));
+                                        $auditReason = 'challenge_created';
+                                        $publicReference = $prepared->challenge()->publicReference();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    $auditReason = 'internal_error';
+                }
+                $this->v2AuditVerificationEvent('verificationRequest', $verifyContextId, $auditReason === 'challenge_created' ? 'allow' : 'deny', $auditReason, $result->correlationId());
+                ResponseTimingNormalizer::normalize($timingStartedAt, self::VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS);
+
+                return ['verificationRequested' => true, 'challenge' => $publicReference];
+            }
+        );
+        $registry->register(
+            IdentityConfirmVerificationTool::NAME,
+            IdentityConfirmVerificationTool::DESCRIPTION,
+            IdentityConfirmVerificationTool::inputSchema(),
+            function (array $arguments) use ($identityResolver, $request, $contextId, $configuredMcpToken, $locale): array {
+                $result = $this->v2ResolveMcpIdentity($arguments, $identityResolver, $request, $contextId, $configuredMcpToken, $locale, 'mcp.identity.confirm_verification');
+
+                $challengeReference = trim((string) ($arguments['challenge'] ?? ''));
+                $purpose = trim((string) ($arguments['purpose'] ?? ''));
+                $pin = trim((string) ($arguments['pin'] ?? ''));
+                if ($challengeReference === '' || $purpose === '' || $pin === '') {
+                    throw new McpHandlerError(McpErrorCode::INVALID_PARAMS, 'challenge, purpose, and pin are required.');
+                }
+                $verifyContextId = $result->identity()->contextId();
+                $chatwootAccountId = trim((string) ($arguments['chatwootAccountId'] ?? ''));
+                $chatwootContactId = trim((string) ($arguments['chatwootContactId'] ?? ''));
+                $chatwootConversationId = trim((string) ($arguments['chatwootConversationId'] ?? ''));
+
+                $bridge = $this->runtimeContextBridge();
+                $pepper = $this->v2VerificationPepper($verifyContextId);
+                $outcome = $bridge->confirmVerificationPin($challengeReference, $pin, $verifyContextId, $chatwootAccountId, $chatwootContactId, $chatwootConversationId, $purpose, $pepper);
+
+                if (!$outcome->isConsumed() || !$outcome->challenge()) {
+                    $this->v2AuditVerificationEvent('verificationConfirm', $verifyContextId, 'deny', $outcome->status(), $result->correlationId());
+                    return ['verified' => false];
+                }
+
+                $challenge = $outcome->challenge();
+                $session = $bridge->establishSupportSessionFromExternalVerification($verifyContextId, $challenge->userId(), SupportSessionService::METHOD_EXTERNAL_PIN, $chatwootAccountId, $chatwootContactId, $chatwootConversationId);
+                $this->v2AuditVerificationEvent('verificationConfirm', $verifyContextId, 'allow', $outcome->status(), $result->correlationId());
+
+                return ['verified' => true, 'assurance' => $session ? $session->assuranceLevel() : SupportSessionService::ASSURANCE_AUTHENTICATED_SESSION];
             }
         );
         $registry->register(

@@ -15,6 +15,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpProtocol;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\McpToolRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\FeePolicyTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\IdentityConfirmVerificationTool;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\IdentityRequestVerificationTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\JournalProfileTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 
@@ -193,6 +195,51 @@ mcpToolsCheck(
     !preg_match('/CapabilitiesListTool.*?CONSUMER_CHATWOOT_CAPTAIN_PUBLIC/s', $mcpMethodBody),
     'the capabilities tool must evaluate capabilities under the real MCP consumer plane, never silently falling back to the Chatwoot Captain one'
 );
+
+// ================================================================
+// MCP-011/MCP-012: identity.request_verification /
+// identity.confirm_verification — the MCP equivalents of
+// ojs_request_verification/ojs_confirm_verification. Must reuse the
+// exact same real pipeline REST uses (RuntimeContextBridge's
+// requestVerificationChallenge()/confirmVerificationPin()/
+// establishSupportSessionFromExternalVerification(), the shared audit
+// sink, ResponseTimingNormalizer) — never a second, independently
+// implemented verification engine.
+// ================================================================
+mcpToolsCheck(str_contains($mcpMethodBody, IdentityRequestVerificationTool::class) || str_contains($mcpMethodBody, 'IdentityRequestVerificationTool'), 'mcpRequest() must register the real IdentityRequestVerificationTool');
+mcpToolsCheck(str_contains($mcpMethodBody, IdentityConfirmVerificationTool::class) || str_contains($mcpMethodBody, 'IdentityConfirmVerificationTool'), 'mcpRequest() must register the real IdentityConfirmVerificationTool');
+
+$requestVerificationStart = strpos($mcpMethodBody, 'IdentityRequestVerificationTool::NAME');
+$confirmVerificationStart = strpos($mcpMethodBody, 'IdentityConfirmVerificationTool::NAME');
+mcpToolsCheck($requestVerificationStart !== false && $confirmVerificationStart !== false, 'both verification tools must be registered');
+$requestVerificationBlock = substr($mcpMethodBody, $requestVerificationStart, $confirmVerificationStart - $requestVerificationStart);
+$confirmVerificationEnd = strpos($mcpMethodBody, "\$registry->register(\n            RequiredActionsTool::NAME", $confirmVerificationStart);
+$confirmVerificationBlock = $confirmVerificationEnd !== false
+    ? substr($mcpMethodBody, $confirmVerificationStart, $confirmVerificationEnd - $confirmVerificationStart)
+    : substr($mcpMethodBody, $confirmVerificationStart);
+
+mcpToolsCheck(str_contains($requestVerificationBlock, 'v2ResolveMcpIdentity('), 'identity.request_verification must authenticate the MCP caller through the same shared v2ResolveMcpIdentity() every other MCP tool uses, never a bespoke auth path');
+mcpToolsCheck(str_contains($requestVerificationBlock, 'VerificationChallenge::PURPOSES'), 'identity.request_verification must validate purpose against the real registered purpose list, never a hardcoded copy');
+mcpToolsCheck(str_contains($requestVerificationBlock, '$bridge->requestVerificationChallenge('), 'identity.request_verification must issue the challenge through the real, same bridge method REST uses, never a second verification engine');
+mcpToolsCheck(str_contains($requestVerificationBlock, 'VerificationEmailContentBuilder::'), 'identity.request_verification must build the email content through the real shared builder, same as REST');
+mcpToolsCheck(str_contains($requestVerificationBlock, 'Mail::send(new SupportVerificationMailable('), 'identity.request_verification must send through the real SupportVerificationMailable, same as REST');
+mcpToolsCheck(str_contains($requestVerificationBlock, "'verificationRequest'"), 'identity.request_verification must audit under the real verificationRequest endpoint name, same as REST');
+mcpToolsCheck(str_contains($requestVerificationBlock, 'ResponseTimingNormalizer::normalize('), 'identity.request_verification must apply the real timing-normalization floor, same anti-enumeration discipline as REST');
+mcpToolsCheck(
+    str_contains($requestVerificationBlock, "return ['verificationRequested' => true, 'challenge' => \$publicReference];"),
+    'identity.request_verification must always return the same generic result shape regardless of whether the account exists — the anti-enumeration guarantee must be structural, not conditional'
+);
+mcpToolsCheck(
+    substr_count($requestVerificationBlock, "return ['verificationRequested'") === 1,
+    'identity.request_verification must have exactly one return statement for the success shape — no alternate early-return path may leak a different, distinguishable shape'
+);
+
+mcpToolsCheck(str_contains($confirmVerificationBlock, 'v2ResolveMcpIdentity('), 'identity.confirm_verification must authenticate the MCP caller through the same shared v2ResolveMcpIdentity(), never a bespoke auth path');
+mcpToolsCheck(str_contains($confirmVerificationBlock, '$bridge->confirmVerificationPin('), 'identity.confirm_verification must confirm the PIN through the real, same atomic bridge method REST uses, never a second, independently-implemented check');
+mcpToolsCheck(str_contains($confirmVerificationBlock, '$bridge->establishSupportSessionFromExternalVerification('), 'identity.confirm_verification must establish the session through the real shared bridge method, same as REST');
+mcpToolsCheck(str_contains($confirmVerificationBlock, "'verificationConfirm'"), 'identity.confirm_verification must audit under the real verificationConfirm endpoint name, same as REST');
+mcpToolsCheck(str_contains($confirmVerificationBlock, "return ['verified' => false];"), 'identity.confirm_verification must collapse every failure reason into the same generic {verified: false} result, never a distinguishable per-reason shape');
+mcpToolsCheck(!str_contains($confirmVerificationBlock, 'plaintextSecret'), 'identity.confirm_verification must never return the stored secret/PIN back to the caller');
 
 $handlerSource = (string) file_get_contents($root . '/classes/v2/Http/McpGatewayPageHandler.php');
 mcpToolsCheck(str_contains($handlerSource, 'function index('), 'the MCP page handler must register its index operation');
