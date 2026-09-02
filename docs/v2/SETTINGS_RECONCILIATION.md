@@ -30,17 +30,17 @@ Classification key (per the governing directive):
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `chatwootBaseUrl` | Chatwoot Base URL | per-journal | `''` | `v2EffectiveSetting()`/`getEffectiveSetting()`, ~10 call sites (widget, Captain, support API, MCP, health) | USER CONFIGURABLE | No | required (`FormValidator`) | Yes — Connection section | Yes | Yes | Chatwoot Settings | live: real value `https://support.airixmedia.com` confirmed rendering (ACCEPTANCE_TEST_MATRIX SET-01) |
 | `chatwootWebsiteToken` | Website Token | per-journal | `''` | widget script assembly | USER CONFIGURABLE | No (public, embedded client-side) | required | Yes | Yes | Yes | Chatwoot Settings | live: real token confirmed rendering (public value, not sensitive) |
-| `chatwootIdentityValidationSecret` | Identity Validation Secret (HMAC) | per-journal | `''` | HMAC identity hash for widget `identifier_hash` | SECRET | Yes | none declared | Yes — **was broken**, see TST-023 | Yes (form logic correct) | **Was 500 until TST-023** | Chatwoot Settings | live 500 root-caused and fixed this pass; re-verification pending PR #155 merge + redeploy |
-| `chatwootApiAccessToken` | Chatwoot API Access Token | per-journal | `''` | Chatwoot REST API calls (contacts/conversations) | SECRET | Yes | none declared | Yes — **was broken**, see TST-023 | Yes | **Was 500 until TST-023** | Chatwoot Settings | same as above |
-| `chatwootInboxId` | Chatwoot Inbox ID | per-journal | `0` | Chatwoot API calls scoped to an inbox | USER CONFIGURABLE | No | none declared (no numeric-range/required check) | Yes | Yes | Yes | Chatwoot Settings | live: field renders |
-| `chatwootCaptainAssistantId` | Captain Assistant ID | per-journal | `0` | `provisionCaptainKnowledgeDocument()`/`provisionCaptainCustomTools()` — Sync/Repair Captain hard-requires `> 0`, else silent no-op | USER CONFIGURABLE | No | none declared | Yes — added TST-022 | Yes | Yes (pending live re-verification blocked by TST-023's 500 until now) | Chatwoot Settings | source-tree test tst-022; live render pending TST-023 merge/redeploy |
+| `chatwootIdentityValidationSecret` | Identity Validation Secret (HMAC) | per-journal | `''` | HMAC identity hash for widget `identifier_hash` | SECRET | Yes | none declared | Yes — fixed TST-023 | Yes | **Fixed** — live-verified rendering + masking after PR #155 merge, dell redeploy, and fixing a stale theme-override copy of this template (see cross-cutting finding 2) | Chatwoot Settings | live 500 root-caused, fixed, redeployed, and re-verified rendering correctly end-to-end |
+| `chatwootApiAccessToken` | Chatwoot API Access Token | per-journal | `''` | Chatwoot REST API calls (contacts/conversations) | SECRET | Yes | none declared | Yes — fixed TST-023 | Yes | **Fixed**, live-verified | Chatwoot Settings | same as above |
+| `chatwootInboxId` | Chatwoot Inbox ID | per-journal | `0` | Chatwoot API calls scoped to an inbox | USER CONFIGURABLE | No | none declared (no numeric-range/required check) | Yes | Yes | Yes | Chatwoot Settings | live: field renders with real value `15` |
+| `chatwootCaptainAssistantId` | Captain Assistant ID | per-journal | `0` | `provisionCaptainKnowledgeDocument()`/`provisionCaptainCustomTools()` — Sync/Repair Captain hard-requires `> 0`, else silent no-op | USER CONFIGURABLE | No | none declared | Yes — added TST-022 | Yes | **Live-verified rendering** (empty, matching the real "Captain provisioning health: not_provisioned" status shown in the same modal) | Chatwoot Settings | source-tree test tst-022; live render confirmed via browser screenshot after TST-023 fix + theme-override fix |
 
 ## Support API / MCP
 
 | Setting | Human name | Scope | Default | Consumer | Classification | Secret? | Validation | In UI? | Save/load correct? | Functional? | Intended tab | Acceptance evidence |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `chatwootSupportApiToken` | Support API Token | per-journal | `''` | `ServiceTokenAuthenticator` — bearer auth for the v2 Support API surface | SECRET | Yes | none declared | Yes — **was broken**, see TST-023 | Yes | **Was 500 until TST-023** | Support API | same as above |
-| `mcpServiceToken` | MCP Service Token | per-journal | `''` | `ServiceTokenAuthenticator` for the MCP gateway | SECRET | Yes | none declared | Yes — **was broken**, see TST-023 | Yes | **Was 500 until TST-023** | MCP | same as above; deliberately excluded from both `EXPORT_KEYS`/`LEGACY_EXPORT_KEYS` (ADR-021, tst-022/settings-form-mcp-secret-masking assert this) |
+| `chatwootSupportApiToken` | Support API Token | per-journal | `''` | `ServiceTokenAuthenticator` — bearer auth for the v2 Support API surface | SECRET | Yes | none declared | Yes — fixed TST-023 | Yes | **Fixed**, live-verified | Support API | same as above |
+| `mcpServiceToken` | MCP Service Token | per-journal | `''` | `ServiceTokenAuthenticator` for the MCP gateway | SECRET | Yes | none declared | Yes — fixed TST-023 | Yes | **Fixed**, live-verified | MCP | same as above; deliberately excluded from both `EXPORT_KEYS`/`LEGACY_EXPORT_KEYS` (ADR-021, tst-022/settings-form-mcp-secret-masking assert this) |
 
 ## Widget visibility
 
@@ -108,6 +108,12 @@ Classification key (per the governing directive):
    for this plugin in this environment — only source-tree tests had
    validated the masking logic itself. Fixed via PR #155
    (`type="text" password=true`, the real pkp-lib incantation).
+   Confirmed live: after fixing the theme-override copy below (finding
+   2a), the settings modal renders end-to-end with no 500 — every
+   field including the four secret fields (correctly masked) and the
+   TST-022 Captain Assistant ID field (empty, matching the real
+   "Captain provisioning health: not_provisioned" status shown in the
+   same modal).
 2. **Infra finding (not fixed by this pass, dell-side only, not
    committed to git):** dell's `log_errors` was `Off`, so the above
    500 produced zero trace in Apache/nginx/cloudflared logs at any
@@ -117,6 +123,24 @@ Classification key (per the governing directive):
    enabled as a real observability improvement; this is an
    environment configuration, not a code change, so it does not need
    a PR, but is recorded here so it isn't lost.
+2a. **Theme-override drift (fixed dell-side, same class of bug this
+   session already documented once before):** dell's active theme
+   (`ajdsiproduction`) carries its own vendored copy of this plugin's
+   `settingsForm.tpl` at
+   `plugins/themes/ajdsiproduction/templates/plugins/generic/chatwootIntegration/templates/settingsForm.tpl`
+   — OJS resolves the theme's copy before the plugin's own template.
+   That copy still had the broken `type="password"` fields (so the
+   PR #155 fix alone did not clear the live 500) and was also missing
+   the TST-022 Captain Assistant ID field entirely. Fixed directly on
+   the live container (backed up as `settingsForm.tpl.bak-tst023`
+   first): applied the same `type="text" password=true` fix to all
+   four secret fields and inserted the missing Captain Assistant ID
+   field block, preserving the theme's own intentional CSS-class
+   customizations (`ajdsi-plugin-admin` classes) that the plugin's
+   stock template doesn't have. This is a theme-repo concern, not this
+   plugin's code, so it is not committed here — recorded so it isn't
+   lost, same as the Smarty-cache theme-drift finding earlier this
+   session.
 3. **Export/import gap (not yet fixed):** `LEGACY_EXPORT_KEYS` (v2)
    and `EXPORT_KEYS` (v1) both predate several newer settings —
    `widgetSettingsJson`, `launcherBottomOffset`,
@@ -132,9 +156,15 @@ Classification key (per the governing directive):
 
 ## Next steps
 
-- Re-verify the settings modal live in the browser after PR #155
-  merges and dell redeploys, confirming every field (including the
-  four now-fixed secret fields and the TST-022 Captain Assistant ID
-  field) actually renders end-to-end with no 500.
+- Done: settings modal re-verified live end-to-end with no 500, every
+  field (including the four fixed secret fields and the TST-022
+  Captain Assistant ID field) rendering correctly.
 - Decide and act on `launcherBottomOffset` (remove vs. wire up).
 - Decide and act on the export/import completeness gap (item 3 above).
+- Consider whether the `ajdsiproduction` theme's vendored plugin
+  templates (of which this is one of several — see the `find`
+  results in this pass's investigation) should be re-synced from
+  their real plugin sources on a regular cadence, or the theme should
+  stop vendoring plugin templates it doesn't actively customize beyond
+  a couple of CSS classes — a decision for whoever owns that theme,
+  out of this repo's scope.
