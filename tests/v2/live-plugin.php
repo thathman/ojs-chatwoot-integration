@@ -239,7 +239,7 @@ namespace {
 
     $scheduler = new \PKP\scheduledTask\PKPScheduler();
     $plugin->registerSchedules($scheduler);
-    pluginCheck(count($scheduler->addedTasks) === 3, 'registerSchedules() must register exactly three tasks');
+    pluginCheck(count($scheduler->addedTasks) === 4, 'registerSchedules() must register exactly four tasks');
     pluginCheck(
         $scheduler->addedTasks[0] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask,
         'the first registered task must be the real PurgeExpiredSupportDataTask, not a stand-in'
@@ -251,6 +251,10 @@ namespace {
     pluginCheck(
         $scheduler->addedTasks[2] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask,
         'the third registered task must be the real DeliverQueuedSupportEventsTask, not a stand-in'
+    );
+    pluginCheck(
+        $scheduler->addedTasks[3] instanceof \APP\plugins\generic\chatwootIntegration\classes\v2\Task\ProcessLegacyRetryQueueScheduledTask,
+        'the fourth registered task must be the real ProcessLegacyRetryQueueScheduledTask (EVT-018) — the legacy apiQueue\'s reliable scheduler-only consumer, replacing the removed per-page-render drain'
     );
 
     fwrite(STDOUT, "Live plugin tests passed\n");
