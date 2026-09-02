@@ -944,6 +944,24 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
     /**
      * Safely get primary author with fallback
+     *
+     * EVT-021 (real, confirmed live on dell): when called from
+     * handleSubmissionCreated() during the real Submission::add hook,
+     * $submission->getCurrentPublication() always returns null. Real
+     * pkp-lib's Repository::add() (classes/submission/Repository.php)
+     * fires that hook with a $submission object re-fetched right after
+     * insert but BEFORE currentPublicationId is ever set on it --
+     * edit() builds and saves a separate internal object, never
+     * reassigning the one the hook receives. This means
+     * handleSubmissionCreated() -> dispatchEvent() never even runs for
+     * a real submission created via QuickSubmit or the real REST API
+     * submission-creation endpoint (both call this same
+     * Repo::submission()->add()) -- no delivery, no legacy apiQueue
+     * enqueue, no error, no log line. v2's own
+     * SubmissionCreatedEventAdapter deliberately avoids this by never
+     * resolving the author at enqueue time, only at scheduled delivery
+     * time once the submission has been reloaded from the database.
+     * See tests/v2/evt-021-v1-submission-created-hook-timing.php.
      */
     private function safeGetPrimaryAuthor($submission) {
         if (!is_object($submission)) return null;
