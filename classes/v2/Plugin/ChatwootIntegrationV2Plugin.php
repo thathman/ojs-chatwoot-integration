@@ -517,17 +517,26 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
      * audit/correlation value (AUD-002/013) but must never re-deliver a
      * type v1 still handles live.
      *
-     * `SUBMISSION_CREATED` is the one type transferred so far (EVT-017):
-     * `ChatwootIntegrationV2Plugin::isLiveDeliveryOwnedByV2()` below
-     * returns `true` for `eventSubmissionCreated`, so v1's base
+     * `SUBMISSION_CREATED` is the one v1-owned type transferred so far
+     * (EVT-017): `ChatwootIntegrationV2Plugin::isLiveDeliveryOwnedByV2()`
+     * below returns `true` for `eventSubmissionCreated`, so v1's base
      * `handleSubmissionCreated()` now skips its own `dispatchEvent()`
      * call for this type in the same change — v2's durable queue is its
      * sole live deliverer, never both, never neither.
+     *
+     * `SUBMISSION_REVIEW_SUBMITTED` (EVT-020) needs no ownership-switch
+     * entry at all: v1 never had a review event (EVT-007), so there is
+     * no `dispatchEvent()` call to retire and no double-delivery risk —
+     * v2's queue is definitionally its only possible live deliverer.
+     * Added to this allowlist directly, live-accepted on real OJS 3.5 +
+     * a real Chatwoot conversation, 2026-09-02 (see docs/v2/TASKLIST.md
+     * EVT-016B/EVT-020).
      *
      * @var string[]
      */
     private const LIVE_DELIVERY_ALLOWLIST = [
         SupportEventType::SUBMISSION_CREATED,
+        SupportEventType::SUBMISSION_REVIEW_SUBMITTED,
     ];
 
     /**
