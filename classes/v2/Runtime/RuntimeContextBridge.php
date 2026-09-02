@@ -24,18 +24,42 @@ final class RuntimeContextBridge
         $this->versionResolver = $versionResolver ?? new OjsVersionResolver();
     }
 
-    public function resolve($request, string $locale = ''): ?SupportContext
+    /**
+     * EVT-023 (live Dell finding, 2026-09-02): `$kernel` used to be set
+     * ONLY as a side effect of `resolve($request, ...)` — every other
+     * method on this bridge gated on `!$this->kernel` but had no way to
+     * ever populate it themselves. Every caller that builds a bridge and
+     * calls one of its methods directly WITHOUT first calling
+     * `resolve($request)` — every scheduled task
+     * (`DeliverQueuedSupportEventsTask`, confirmed live: a real queued
+     * `submission.created` event with a real, resolvable author and a
+     * real, valid Chatwoot token still failed at the very first
+     * `loadSubmission()` call, because `$kernel` was null) — silently
+     * got `null`/`false`/`[]` from every method, forever, regardless of
+     * how correct the rest of the pipeline was. `resolve()` itself still
+     * needs the real `$request` for `resolveContext()`, but the
+     * version-detect + kernel-construction half of it needs no request
+     * at all, so it is now extracted into this lazy, idempotent
+     * initializer every other method calls before checking `$kernel`.
+     */
+    private function ensureKernel(): bool
     {
         $version = $this->versionResolver->resolve();
         if ($version === '') {
-            return null;
+            return false;
         }
 
-        if ($version !== $this->resolvedVersion) {
+        if ($version !== $this->resolvedVersion || !$this->kernel) {
             $this->resolvedVersion = $version;
             $this->kernel = SupportGatewayKernel::forOjsVersion($version);
         }
-        if (!$this->kernel) {
+
+        return $this->kernel !== null;
+    }
+
+    public function resolve($request, string $locale = ''): ?SupportContext
+    {
+        if (!$this->ensureKernel()) {
             return null;
         }
 
@@ -48,7 +72,7 @@ final class RuntimeContextBridge
 
     public function bootstrapAuthenticatedSupportSession(SupportContext $context): ?SupportSessionBootstrap
     {
-        if (!$this->kernel || !$context->isAuthenticated()) {
+        if (!$this->ensureKernel() || !$context->isAuthenticated()) {
             return null;
         }
         try {
@@ -66,7 +90,7 @@ final class RuntimeContextBridge
         string $chatwootContactId,
         string $chatwootConversationId
     ): ?SupportSession {
-        if (!$this->kernel || $contextId <= 0 || $userId <= 0) {
+        if (!$this->ensureKernel() || $contextId <= 0 || $userId <= 0) {
             return null;
         }
 
@@ -86,7 +110,7 @@ final class RuntimeContextBridge
 
     public function resolveContextForUser($request, int $userId, string $locale = ''): ?SupportContext
     {
-        if (!$this->kernel || $userId <= 0) {
+        if (!$this->ensureKernel() || $userId <= 0) {
             return null;
         }
         try {
@@ -102,7 +126,7 @@ final class RuntimeContextBridge
         string $chatwootContactId,
         string $chatwootConversationId
     ): ?SupportSession {
-        if (!$this->kernel || $contextId <= 0) {
+        if (!$this->ensureKernel() || $contextId <= 0) {
             return null;
         }
         try {
@@ -119,7 +143,7 @@ final class RuntimeContextBridge
 
     public function evaluateCapabilities(CapabilityRequest $request): ?CapabilityDecision
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -132,7 +156,7 @@ final class RuntimeContextBridge
     /** @return string[] */
     public function availableActions(CapabilityDecision $decision): array
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return [];
         }
         try {
@@ -145,7 +169,7 @@ final class RuntimeContextBridge
     /** @return array<int,array{action:string,reason:string}> */
     public function disabledActions(CapabilityDecision $decision): array
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return [];
         }
         try {
@@ -163,7 +187,7 @@ final class RuntimeContextBridge
      */
     public function loadSubmission(int $submissionId)
     {
-        if (!$this->kernel || $submissionId <= 0) {
+        if (!$this->ensureKernel() || $submissionId <= 0) {
             return null;
         }
         try {
@@ -175,7 +199,7 @@ final class RuntimeContextBridge
 
     public function resolveSubmissionRelationship(SupportContext $context, $submission): ?ResourceRelationship
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -193,7 +217,7 @@ final class RuntimeContextBridge
      */
     public function listCandidateSubmissions(int $contextId, int $userId, int $candidateCap): array
     {
-        if (!$this->kernel || $contextId <= 0 || $userId <= 0 || $candidateCap <= 0) {
+        if (!$this->ensureKernel() || $contextId <= 0 || $userId <= 0 || $candidateCap <= 0) {
             return [];
         }
         try {
@@ -205,7 +229,7 @@ final class RuntimeContextBridge
 
     public function getSubmissionTitle($submission): string
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return '';
         }
         try {
@@ -219,7 +243,7 @@ final class RuntimeContextBridge
     public function getSubmissionStateFields($submission): array
     {
         $fallback = ['status' => null, 'stageId' => null, 'reviewRoundStatus' => null, 'submissionProgress' => null];
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $fallback;
         }
         try {
@@ -232,7 +256,7 @@ final class RuntimeContextBridge
     /** @return int[] */
     public function getReviewAssignmentStatuses(int $submissionId, int $userId): array
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return [];
         }
         try {
@@ -245,7 +269,7 @@ final class RuntimeContextBridge
     /** @return string[] */
     public function getMissingRequiredSubmissionFileGenreNames($context, $submission): array
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return [];
         }
         try {
@@ -259,7 +283,7 @@ final class RuntimeContextBridge
     public function getUploadLimits(): array
     {
         $fallback = ['uploadMaxFilesizeBytes' => 0, 'postMaxSizeBytes' => 0];
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $fallback;
         }
         try {
@@ -273,7 +297,7 @@ final class RuntimeContextBridge
     public function getMailTransportConfiguration(): array
     {
         $fallback = ['driver' => '', 'sandboxForced' => false, 'smtpHostConfigured' => false];
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $fallback;
         }
         try {
@@ -286,7 +310,7 @@ final class RuntimeContextBridge
     /** @return array{email:string,name:string,userId:int}|null */
     public function getPrimarySubmissionAuthor($submission): ?array
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -300,7 +324,7 @@ final class RuntimeContextBridge
     public function getPublicationFields($submission): array
     {
         $fallback = ['doi' => null, 'issueId' => null];
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $fallback;
         }
         try {
@@ -313,7 +337,7 @@ final class RuntimeContextBridge
     /** @return array{volume:?int,number:?int,year:?int,published:bool}|null */
     public function getIssueInfo(int $issueId): ?array
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -325,7 +349,7 @@ final class RuntimeContextBridge
 
     public function getPublicSubmissionUrl($request, $submission): ?string
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -339,7 +363,7 @@ final class RuntimeContextBridge
     public function getPaymentFeeInfo($context): array
     {
         $fallback = ['enabled' => false, 'amount' => null, 'currency' => null];
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $fallback;
         }
         try {
@@ -351,7 +375,7 @@ final class RuntimeContextBridge
 
     public function hasPaidPublicationFee(int $userId, int $submissionId): bool
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return false;
         }
         try {
@@ -363,7 +387,7 @@ final class RuntimeContextBridge
 
     public function getContext($request)
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -377,7 +401,7 @@ final class RuntimeContextBridge
     public function getUserAccountFields(int $userId): array
     {
         $fallback = ['disabled' => null, 'dateValidated' => null];
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $fallback;
         }
         try {
@@ -389,7 +413,7 @@ final class RuntimeContextBridge
 
     public function getUserByEmail(string $email): ?object
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -401,7 +425,7 @@ final class RuntimeContextBridge
 
     public function getVerificationLinkUrl($request, string $publicReference, string $token): ?string
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -413,7 +437,7 @@ final class RuntimeContextBridge
 
     public function getAirixSubmissionFeeProvider($context): ?PaymentSupportProviderInterface
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -425,7 +449,7 @@ final class RuntimeContextBridge
 
     public function compileKnowledge($context, $request, int $contextId, string $locale): ?KnowledgeCompilation
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -437,7 +461,7 @@ final class RuntimeContextBridge
 
     public function buildKnowledgeHealthReport($context, $request, int $contextId, string $locale): ?KnowledgeHealthReport
     {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -457,7 +481,7 @@ final class RuntimeContextBridge
         string $chatwootConversationId,
         string $pepper
     ): ?\APP\plugins\generic\chatwootIntegration\classes\v2\Verification\PreparedChallenge {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {
@@ -489,7 +513,7 @@ final class RuntimeContextBridge
         $failed = \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::failed(
             \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::STATUS_NOT_FOUND
         );
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $failed;
         }
         try {
@@ -516,7 +540,7 @@ final class RuntimeContextBridge
         $failed = \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::failed(
             \APP\plugins\generic\chatwootIntegration\classes\v2\Verification\ChallengeAttemptOutcome::STATUS_NOT_FOUND
         );
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return $failed;
         }
         try {
@@ -534,7 +558,7 @@ final class RuntimeContextBridge
         string $chatwootContactId,
         string $chatwootConversationId
     ): ?SupportSession {
-        if (!$this->kernel) {
+        if (!$this->ensureKernel()) {
             return null;
         }
         try {

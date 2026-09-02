@@ -977,6 +977,16 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
      * resolving the author at enqueue time, only at scheduled delivery
      * time once the submission has been reloaded from the database.
      * See tests/v2/evt-021-v1-submission-created-hook-timing.php.
+     *
+     * EVT-022 (live Dell finding, 2026-09-02): independent of the timing
+     * defect above, the `getData('authors')` fallback below used to gate
+     * on `is_array($authors)`, which is always false on real OJS 3.5 —
+     * it returns an `Illuminate\Support\LazyCollection`, never a plain
+     * array (confirmed live). Fixed via `is_iterable()`. This means the
+     * still-v1-owned event types (decision/status/publication — see
+     * EVT-016B) were also silently failing to resolve a real author on
+     * any publication without an explicit `primaryContactId` set, not
+     * only on the `currentPublicationId` timing case above.
      */
     private function safeGetPrimaryAuthor($submission) {
         if (!is_object($submission)) return null;
@@ -999,10 +1009,12 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         }
         if (method_exists($publication, 'getData')) {
             $authors = $publication->getData('authors');
-            if (is_array($authors) && !empty($authors)) {
-                $candidate = reset($authors);
-                if (is_object($candidate) && method_exists($candidate, 'getEmail')) {
-                    return $candidate;
+            if (is_iterable($authors)) {
+                foreach ($authors as $candidate) {
+                    if (is_object($candidate) && method_exists($candidate, 'getEmail')) {
+                        return $candidate;
+                    }
+                    break;
                 }
             }
         }

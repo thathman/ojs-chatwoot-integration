@@ -921,14 +921,27 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
     }
 
     /**
-     * EVT-011: resolves the delivery-target contact for a queued
+     * EVT-011/EVT-022: resolves the delivery-target contact for a queued
      * SupportEvent at delivery time — deliberately never baked into the
      * event itself at enqueue time (see SubmissionCreatedEventAdapter's
      * own docblock on why author identity is a delivery-target concern,
      * not an event fact). Mirrors v1's `safeGetPrimaryAuthor()` fallback
-     * chain exactly (getCurrentPublication()->getPrimaryAuthor(), falling
-     * back to getPublication()->getData('authors')'s first entry), so
-     * delivery targeting behaves identically to v1's real behavior.
+     * chain (getCurrentPublication()->getPrimaryAuthor(), falling back to
+     * getPublication()->getData('authors')'s first entry).
+     *
+     * EVT-022 (live Dell finding, 2026-09-02): the fallback branch used to
+     * gate on `is_array($authors)`, which is always false on real OJS
+     * 3.5 — `Publication::getData('authors')` returns a real
+     * `Illuminate\Support\LazyCollection`, never a plain array, confirmed
+     * against a real submission on dell (`get_class()` ===
+     * `Illuminate\Support\LazyCollection`, non-empty, correct author).
+     * The array-only check silently discarded a real, present author on
+     * every real submission whose publication had no `primaryContactId`
+     * set (`getPrimaryAuthor()` returns null in that case) — the exact
+     * same bug independently exists in v1's `safeGetPrimaryAuthor()`.
+     * Fixed here via `is_iterable()` + a first-element loop, which
+     * accepts a plain array, a `LazyCollection`, or any other
+     * `Traversable` uniformly.
      *
      * @return array{email:string,name:string,userId:int}|null
      */
@@ -957,10 +970,12 @@ final class Ojs35CompatibilityAdapter implements OjsCompatibilityAdapterInterfac
         }
         if ($author === null && method_exists($publication, 'getData')) {
             $authors = $publication->getData('authors');
-            if (is_array($authors) && $authors !== []) {
-                $candidate = reset($authors);
-                if (is_object($candidate) && method_exists($candidate, 'getEmail')) {
-                    $author = $candidate;
+            if (is_iterable($authors)) {
+                foreach ($authors as $candidate) {
+                    if (is_object($candidate) && method_exists($candidate, 'getEmail')) {
+                        $author = $candidate;
+                    }
+                    break;
                 }
             }
         }
