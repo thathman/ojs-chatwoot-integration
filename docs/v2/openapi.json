@@ -282,7 +282,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "$ref": "#/components/schemas/ConversationTuple" } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/StatusOrActionsData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -293,7 +296,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "$ref": "#/components/schemas/ConversationTuple" } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/IdentityData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -304,7 +310,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "$ref": "#/components/schemas/ConversationTuple" } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/StatusOrActionsData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -315,7 +324,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/SubmissionVerificationData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -326,7 +338,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "properties": { "limit": { "type": "integer" }, "offset": { "type": "integer" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/SubmissionListData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -337,7 +352,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/SubmissionSupportData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -348,7 +366,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/RequiredActionsData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -359,7 +380,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/PublicationStatusData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -370,7 +394,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId"], "properties": { "submissionId": { "type": "integer" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/PaymentStatusData" }, { "$ref": "#/components/schemas/ResourceScopedUnverified" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -381,7 +408,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["scope"], "properties": { "scope": { "type": "string", "description": "One of AccountDiagnosticEngine::SCOPES." } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/DiagnosticData" }, { "$ref": "#/components/schemas/DiagnosticUnverifiedData" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -392,7 +422,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["submissionId", "scope"], "properties": { "submissionId": { "type": "integer" }, "scope": { "type": "string", "description": "One of SubmissionDiagnosticEngine::SCOPES." } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "oneOf": [{ "$ref": "#/components/schemas/DiagnosticData" }, { "$ref": "#/components/schemas/DiagnosticUnverifiedData" }] } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -403,7 +436,11 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["reason"], "properties": { "reason": { "type": "string" }, "submissionId": { "type": "integer" }, "idempotencyKey": { "type": "string" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/EscalateData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "403": { "description": "Error - capability denied", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -414,7 +451,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["email", "purpose"], "properties": { "email": { "type": "string" }, "purpose": { "type": "string" }, "method": { "type": "string", "enum": ["pin", "link"] } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/VerificationRequestedData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
@@ -425,7 +465,10 @@
         "requestBody": { "content": { "application/x-www-form-urlencoded": { "schema": { "allOf": [{ "$ref": "#/components/schemas/ConversationTuple" }, { "type": "object", "required": ["challenge", "purpose", "pin"], "properties": { "challenge": { "type": "string" }, "purpose": { "type": "string" }, "pin": { "type": "string" } } }] } } } },
         "responses": {
           "200": { "description": "OK", "content": { "application/json": { "schema": { "allOf": [{ "$ref": "#/components/schemas/SuccessEnvelope" }, { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/VerificationConfirmData" } } }] } } } },
-          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+          "400": { "description": "Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Error - authentication failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Error - rate limited", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "500": { "description": "Error - internal error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     }
