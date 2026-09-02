@@ -4,6 +4,11 @@ namespace APP\plugins\generic\chatwootIntegration;
 
 use APP\core\Application;
 use APP\facades\Repo;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\CurrentSubmissionResolver;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ReviewerMaskingPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
 use APP\template\TemplateManager;
 use PKP\core\JSONMessage;
 use PKP\decision\Decision;
@@ -500,8 +505,10 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         }
         $user = $request->getUser();
         $isReviewer = false;
+        $roleIds = [];
         if ($user) {
             foreach ($user->getRoles($contextId) as $role) {
+                $roleIds[] = (int) $role->getId();
                 if ((int) $role->getId() === Role::ROLE_ID_REVIEWER) $isReviewer = true;
                 if ($this->toBool($this->getSetting($contextId, 'hideForRole_' . $role->getId())) === true) return false;
             }
@@ -514,7 +521,23 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $privacy = $this->toBool($this->getEffectiveSetting($contextId, 'enablePrivacyMode', false)) === true;
 
         if ($user) {
-            if ($privacy && $isReviewer) {
+            // POL-011/CWO-016: resource-aware masking. $isReviewer alone (any
+            // Reviewer role anywhere in the journal) is the original,
+            // conservative fail-closed signal; ReviewerMaskingPolicy only
+            // relaxes it when the current page resolves to a specific
+            // submission AND real OJS evidence proves a non-reviewer
+            // relationship (author/editorial/manager/site_admin) to THAT
+            // submission specifically — e.g. an author on Submission A who
+            // also reviews Submission B is no longer masked while viewing
+            // Submission A.
+            $shouldMask = $privacy && $isReviewer;
+            if ($shouldMask) {
+                $supportContext = new SupportContext($contextId, (string) $context->getPath(), (int) $user->getId(), $roleIds, $requestedPage, $requestedOp, (string) Locale::getLocale());
+                $currentSubmission = (new CurrentSubmissionResolver())->resolve($request);
+                $maskingPolicy = new ReviewerMaskingPolicy(new SubmissionRelationshipResolver(new OjsSubmissionRelationshipEvidenceProvider()));
+                $shouldMask = $maskingPolicy->shouldMask($supportContext, $isReviewer, $currentSubmission);
+            }
+            if ($shouldMask) {
                 $identifier = 'reviewer_' . hash('sha256', $user->getId() . $contextId);
                 $name = 'Reviewer (Masked)';
                 $email = 'reviewer_' . substr(md5($user->getEmail()), 0, 8) . '@masked.local';
@@ -528,8 +551,6 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             }
             $secret = (string) $this->getEffectiveSetting($contextId, 'chatwootIdentityValidationSecret', '');
             if ($secret !== '') $userHash = hash_hmac('sha256', $identifier, $secret);
-            $roleIds = [];
-            foreach ($user->getRoles($contextId) as $r) $roleIds[] = (int) $r->getId();
             $attrs['roles'] = implode(',', $roleIds);
             $attrs['active_submissions'] = Repo::submission()->getCollector()->filterByContextIds([$contextId])->assignedTo([$user->getId()])->getCount();
         }
