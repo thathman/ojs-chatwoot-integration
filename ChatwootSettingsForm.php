@@ -44,7 +44,7 @@ class ChatwootSettingsForm extends Form
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
-            'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson','launcherBottomOffset',
+            'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson',
             'eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
         ];
         foreach ($keys as $key) {
@@ -69,7 +69,7 @@ class ChatwootSettingsForm extends Form
             'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','enableGlobalDefaults','retryQueueEnabled',
             'maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
             'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger',
-            'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson','launcherBottomOffset',
+            'excludedPages','cspSafeMode','skipBackendPages','widgetSettingsJson',
             'eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
         ];
 
@@ -171,7 +171,6 @@ class ChatwootSettingsForm extends Form
             'cspSafeMode' => 'bool',
             'skipBackendPages' => 'bool',
             'widgetSettingsJson' => 'string',
-            'launcherBottomOffset' => 'int',
             'eventDeliveryGlobalMode' => 'string',
             'eventDeliveryCustomerMessageConsent' => 'bool',
             'eventDeliveryPerEventOverridesJson' => 'string',
