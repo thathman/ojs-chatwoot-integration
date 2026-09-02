@@ -532,25 +532,36 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
      * a real Chatwoot conversation, 2026-09-02 (see docs/v2/TASKLIST.md
      * EVT-016B/EVT-020).
      *
+     * `SUBMISSION_DECISION_RECORDED` (EVT-020) is the first v1-owned
+     * type transferred where v1's own synchronous path was NOT already
+     * proven broken first (unlike `submission.created`/EVT-021) —
+     * `handleEditorDecision()` re-fetches the submission fresh via
+     * `Repo::submission()->get()` rather than reusing the hook's own
+     * potentially-stale object, so it does not share EVT-021's
+     * `currentPublicationId` timing defect. The transfer is still safe
+     * by the exact same atomic-switch construction every other transfer
+     * uses: the allowlist entry and the `isLiveDeliveryOwnedByV2()` flip
+     * are the same code change, so there is never a window where both
+     * v1 and v2 attempt live delivery for this type, or neither does.
+     *
      * @var string[]
      */
     private const LIVE_DELIVERY_ALLOWLIST = [
         SupportEventType::SUBMISSION_CREATED,
         SupportEventType::SUBMISSION_REVIEW_SUBMITTED,
+        SupportEventType::SUBMISSION_DECISION_RECORDED,
     ];
 
     /**
-     * EVT-017: the live-delivery ownership switch itself. Only
-     * `eventSubmissionCreated` has been transferred so far — deliberately
-     * the lowest-risk first transfer, since EVT-021 already proved v1's
-     * synchronous path silently fails to deliver this type on real OJS
-     * 3.5 today (a `currentPublicationId` hook-timing defect in pkp-lib),
-     * so v2 durable delivery is a strict improvement, not a behavior
-     * change users would notice as a regression.
+     * EVT-017/EVT-020: the live-delivery ownership switch itself.
+     * `eventSubmissionCreated` (EVT-017) and `eventDecisionRecorded`
+     * (EVT-020) have been transferred so far; the remaining 5 v1-owned
+     * event-setting keys stay v1-owned until each gets its own
+     * deliberate, reviewed transfer here.
      */
     protected function isLiveDeliveryOwnedByV2(string $eventSettingKey): bool
     {
-        return $eventSettingKey === 'eventSubmissionCreated';
+        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded'], true);
     }
 
     /** @param array<string,mixed> $row */
