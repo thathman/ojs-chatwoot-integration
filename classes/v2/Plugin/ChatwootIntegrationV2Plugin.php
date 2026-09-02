@@ -1828,6 +1828,21 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         );
 
         $dispatcher = new McpDispatcher();
+        // MCP-010: composes the same information tools/list and
+        // resources/list already expose, plus the real supported protocol
+        // revision and method surface (ADR-023's own scope list) — never
+        // a second, independently-maintained capability description that
+        // could drift from what the dispatcher actually allows.
+        $dispatcher->registerHandler(McpProtocol::METHOD_DISCOVER, fn (McpRequest $r): array => [
+            'protocolRevision' => McpProtocol::REVISION,
+            'capabilities' => [
+                'tools' => (object) [],
+                'resources' => (object) [],
+            ],
+            'methods' => McpProtocol::SUPPORTED_METHODS,
+            'tools' => $registry->list(),
+            'resources' => $resourceRegistry->list(),
+        ]);
         $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_LIST, fn (McpRequest $r): array => ['tools' => $registry->list()]);
         $dispatcher->registerHandler(McpProtocol::METHOD_TOOLS_CALL, function (McpRequest $r) use ($registry): array {
             $name = $r->params()['name'] ?? null;
