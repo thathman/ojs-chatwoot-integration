@@ -98,10 +98,18 @@ settingsFormMaskingCheck(!str_contains($v1ExportKeysBlock, "'mcpServiceToken'"),
 // Wiring: the template must render every real secret as a password
 // field (never plaintext-echoed text), and must display the real MCP
 // endpoint/protocol revision, never a placeholder.
+//
+// NOTE (TST-023): `type="password"` is NOT a real pkp-lib FBV element
+// type — FormBuilderVocabulary::smartyFBVElement()'s type switch has
+// no 'password' case and hits `default: assert(false)`, an uncaught
+// AssertionError under PHP 8 that produced a real, reproducible 500
+// on the live settings modal. The correct, real pkp-lib incantation
+// is `type="text" password=true` — _smartyFBVTextInput() reads the
+// 'password' param, not the type, to decide masked rendering.
 // ================================================================
 $templateSource = (string) file_get_contents($root . '/templates/settingsForm.tpl');
 foreach (['chatwootIdentityValidationSecret', 'chatwootApiAccessToken', 'chatwootSupportApiToken', 'mcpServiceToken'] as $secretKey) {
-    settingsFormMaskingCheck(str_contains($templateSource, "type=\"password\" id=\"{$secretKey}\""), "the template must render \"{$secretKey}\" as a real password field, never plaintext text");
+    settingsFormMaskingCheck(str_contains($templateSource, "type=\"text\" password=true id=\"{$secretKey}\""), "the template must render \"{$secretKey}\" as a real masked password field via the real pkp-lib incantation (type=\"text\" password=true), never plaintext text and never the fake type=\"password\" that crashes FormBuilderVocabulary");
 }
 settingsFormMaskingCheck(str_contains($templateSource, 'type="text" id="chatwootBaseUrl"'), 'chatwootBaseUrl must remain a plain text field — it is not a secret');
 settingsFormMaskingCheck(str_contains($templateSource, '$mcpEndpointUrl') && str_contains($templateSource, '$mcpProtocolRevision'), 'the template must display the real MCP endpoint URL and protocol revision, not a static placeholder');

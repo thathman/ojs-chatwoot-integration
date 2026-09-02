@@ -129,11 +129,11 @@
 		{/fbvFormSection}
 
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootIdentityValidationSecret"}
-			{fbvElement type="password" id="chatwootIdentityValidationSecret" value=$chatwootIdentityValidationSecret label="plugins.generic.chatwootIntegration.settings.chatwootIdentityValidationSecret.description"}
+			{fbvElement type="text" password=true id="chatwootIdentityValidationSecret" value=$chatwootIdentityValidationSecret label="plugins.generic.chatwootIntegration.settings.chatwootIdentityValidationSecret.description"}
 		{/fbvFormSection}
 
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken"}
-			{fbvElement type="password" id="chatwootApiAccessToken" value=$chatwootApiAccessToken label="plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken.description"}
+			{fbvElement type="text" password=true id="chatwootApiAccessToken" value=$chatwootApiAccessToken label="plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken.description"}
 		{/fbvFormSection}
 
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootInboxId"}
@@ -146,7 +146,7 @@
 
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.supportApi"}</h4>
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"}
-			{fbvElement type="password" id="chatwootSupportApiToken" value=$chatwootSupportApiToken label="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.description"}
+			{fbvElement type="text" password=true id="chatwootSupportApiToken" value=$chatwootSupportApiToken label="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.description"}
 		{/fbvFormSection}
 
 		<h4>{translate key="plugins.generic.chatwootIntegration.settings.section.mcp"}</h4>
@@ -154,7 +154,7 @@
 			{translate key="plugins.generic.chatwootIntegration.settings.mcpEndpoint.description" endpoint=$mcpEndpointUrl revision=$mcpProtocolRevision}
 		</div>
 		{fbvFormSection title="plugins.generic.chatwootIntegration.settings.mcpServiceToken"}
-			{fbvElement type="password" id="mcpServiceToken" value=$mcpServiceToken label="plugins.generic.chatwootIntegration.settings.mcpServiceToken.description"}
+			{fbvElement type="text" password=true id="mcpServiceToken" value=$mcpServiceToken label="plugins.generic.chatwootIntegration.settings.mcpServiceToken.description"}
 		{/fbvFormSection}
 
 		{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.visibility"}
