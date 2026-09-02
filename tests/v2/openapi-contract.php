@@ -254,6 +254,60 @@ namespace {
     openapiCheckFixture($schema, 'VerificationConfirmData', $verificationConfirmAllowedFixture, ['verified'], 'the real /verificationConfirm response (allowed branch)');
 
     // ================================================================
+    // ACC-001B: error-envelope coverage. SupportApiResponse::error()
+    // calls exit() unconditionally (it is the actual HTTP response
+    // emitter), so it cannot be called in-process without ending this
+    // test — a real subprocess captures its actual JSON output instead
+    // of asserting against a hand-written fixture.
+    // ================================================================
+    $errorSubprocessScript = <<<'PHP'
+        require $argv[1] . '/classes/v2/bootstrap.php';
+        use APP\plugins\generic\chatwootIntegration\classes\v2\Api\SupportApiResponse;
+        SupportApiResponse::error('VALIDATION_ERROR', 'A real test message.', 'corr-error-test', 400);
+        PHP;
+    $errorOutput = shell_exec('php -r ' . escapeshellarg($errorSubprocessScript) . ' ' . escapeshellarg($root));
+    $errorBody = json_decode((string) $errorOutput, true);
+    openapiContractCheck(is_array($errorBody), 'SupportApiResponse::error() must emit valid JSON — got: ' . var_export($errorOutput, true));
+    openapiCheckFixture($schema, 'ErrorEnvelope', $errorBody ?? [], ['ok', 'error', 'meta'], 'the real SupportApiResponse::error() emission (captured via a real subprocess, not a fixture)');
+    openapiContractCheck(($errorBody['ok'] ?? null) === false, 'ErrorEnvelope\'s ok field must be exactly false in a real error response');
+    openapiContractCheck(
+        is_array($errorBody['error'] ?? null) && array_key_exists('code', $errorBody['error']) && array_key_exists('message', $errorBody['error']),
+        'the real error response must carry both code and message under "error", matching ErrorEnvelope\'s declared required fields'
+    );
+
+    // Every real SupportApiErrorCode constant must map to an HTTP status
+    // this schema actually documents somewhere, and vice versa — the
+    // schema must never document a status code no real error path can
+    // ever emit.
+    $errorCodeSource = (string) file_get_contents("{$root}/classes/v2/Api/SupportApiErrorCode.php");
+    preg_match_all('/public const \w+ = \'(\w+)\';/', $errorCodeSource, $errorCodeMatches);
+    $realErrorCodes = $errorCodeMatches[1];
+    openapiContractCheck(count($realErrorCodes) > 0, 'SupportApiErrorCode must declare at least one real error code constant');
+    $errorEnvelopeCodeDescription = $schema['components']['schemas']['ErrorEnvelope']['properties']['error']['properties']['code']['description'] ?? '';
+    foreach ($realErrorCodes as $realCode) {
+        openapiContractCheck(str_contains($errorEnvelopeCodeDescription, $realCode), "SupportApiErrorCode declares a real \"{$realCode}\" constant, but docs/v2/openapi.json's ErrorEnvelope.error.code description does not mention it — the schema is stale");
+    }
+
+    // The real resolver/handler status codes actually emitted (400 from
+    // validation, 401 from auth failure, 429 from rate limiting, 500 from
+    // internal error — shared by every operation via resolveSupportApiRequest()
+    // — plus 403 from capability denial, escalate-only) must each be
+    // documented on every operation that can really emit them.
+    foreach (array_keys($schema['paths']) as $path) {
+        // PHP casts numeric string array keys ("400") to int(400) — cast
+        // back to string so comparisons below are never a silent no-op.
+        $responseCodes = array_map('strval', array_keys($schema['paths'][$path]['post']['responses'] ?? []));
+        foreach (['400', '401', '429', '500'] as $expectedCode) {
+            openapiContractCheck(
+                in_array($expectedCode, $responseCodes, true),
+                "\"{$path}\" must document a real {$expectedCode} ErrorEnvelope response — every operation shares the same resolveSupportApiRequest() failure paths that can emit it"
+            );
+        }
+    }
+    $escalateResponseCodes = array_map('strval', array_keys($schema['paths']['/escalate']['post']['responses'] ?? []));
+    openapiContractCheck(in_array('403', $escalateResponseCodes, true), '"/escalate" must document a real 403 ErrorEnvelope response — it is the one operation that actually emits CAPABILITY_DENIED via SupportApiResponse::error(..., 403)');
+
+    // ================================================================
     // Every path in the schema must correspond to a real, implemented
     // PageHandler operation — never a documented endpoint that doesn't exist.
     // ================================================================
