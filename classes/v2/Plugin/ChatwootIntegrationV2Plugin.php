@@ -43,6 +43,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\PublicationStatusEventAdapter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\ReviewSubmittedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionCreatedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SubmissionStatusChangedEventAdapter;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEvent;
@@ -143,8 +144,55 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         $success = parent::register($category, $path, $mainContextId);
         if ($success) {
             Hook::add('LoadHandler', [$this, 'setSupportGatewayPageHandler']);
+            // EVT-019: v2-native only — v1 has no review event at all, so
+            // this goes directly into the v2 pipeline (queue -> scheduled
+            // delivery), never through v1's dispatchEvent()/apiQueue. See
+            // ReviewSubmittedEventAdapter's own docblock for why this
+            // exact hook/signature is correct.
+            Hook::add('ReviewAssignment::edit', [$this, 'handleReviewAssignmentEdit']);
         }
         return $success;
+    }
+
+    /**
+     * EVT-019: wires ReviewSubmittedEventAdapter (built and unit-tested
+     * under EVT-007, never previously connected to a real hook) to the
+     * real, stable `ReviewAssignment::edit` hook. Fires before the DB
+     * write (confirmed against the real pkp-lib stable_3_5_0 source,
+     * PKP\submission\reviewAssignment\Repository::edit()), giving both
+     * the about-to-be-persisted new state and the current old state.
+     *
+     * Deliberately never touches v1/dispatchEvent()/apiQueue — this is a
+     * pure v2-native addition per the directive's "move new event types
+     * directly to v2" instruction, and per POL-009/010's blind-review
+     * discipline, never resolves or includes reviewer identity.
+     */
+    public function handleReviewAssignmentEdit($hookName, $args)
+    {
+        try {
+            [$newReviewAssignment, $oldReviewAssignment] = $args;
+            if (!is_object($newReviewAssignment) || !method_exists($newReviewAssignment, 'getSubmissionId')) {
+                return false;
+            }
+            $submissionId = (int) $newReviewAssignment->getSubmissionId();
+            if ($submissionId <= 0) {
+                return false;
+            }
+            $submission = $this->runtimeContextBridge()->loadSubmission($submissionId);
+            if (!is_object($submission) || !method_exists($submission, 'getData')) {
+                return false;
+            }
+            $contextId = (int) $submission->getData('contextId');
+            if ($contextId <= 0) {
+                return false;
+            }
+            $title = $this->runtimeContextBridge()->getSubmissionTitle($submission);
+            $this->v2EnqueueEvent(ReviewSubmittedEventAdapter::fromReviewAssignmentEdit($newReviewAssignment, $oldReviewAssignment, $contextId, $title));
+        } catch (\Throwable $e) {
+            // Event Bridge v2 enqueue failure must never break a real
+            // review-assignment edit.
+        }
+        return false;
     }
 
     /** ADM-003/ADM-005/ADM-006: adds the v2-only verbs ahead of v1's own manage() dispatch. */
