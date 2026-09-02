@@ -16,7 +16,7 @@ final class DatabaseSupportEventQueueRepository implements SupportEventQueueRepo
         return InstallSupportGatewayMigration::EVENT_QUEUE_TABLE;
     }
 
-    public function enqueue(SupportEvent $event, string $deliveryMode): bool
+    public function enqueue(SupportEvent $event, string $deliveryMode, string $correlationId): bool
     {
         $exists = DB::table(self::table())
             ->where('idempotency_key', $event->idempotencyKey())
@@ -28,6 +28,7 @@ final class DatabaseSupportEventQueueRepository implements SupportEventQueueRepo
         try {
             DB::table(self::table())->insert([
                 'idempotency_key' => $event->idempotencyKey(),
+                'correlation_id' => $correlationId,
                 'event_type' => $event->type(),
                 'context_id' => $event->contextId(),
                 'resource_type' => $event->resourceType(),
