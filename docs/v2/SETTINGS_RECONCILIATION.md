@@ -141,15 +141,26 @@ Classification key (per the governing directive):
    plugin's code, so it is not committed here — recorded so it isn't
    lost, same as the Smarty-cache theme-drift finding earlier this
    session.
-3. **Export/import gap (not yet fixed — SETTINGS-SMALL-002):**
-   `LEGACY_EXPORT_KEYS` (v2) and `EXPORT_KEYS` (v1) both predate
-   several newer settings — `widgetSettingsJson`,
+3. **Export/import gap — FIXED (SETTINGS-SMALL-002):** the real defect
+   was worse than a simple omission — `exportSettings()` (v2, driven
+   by `LEGACY_EXPORT_KEYS`) and `importSettings()`/`saveGlobalProfile()`/
+   `applyGlobalProfile()` (all three still inherited unchanged from v1,
+   driven by v1's own `EXPORT_KEYS`) used two independently-maintained
+   key lists that had drifted apart. A real export → import round-trip
+   would silently drop `chatwootCaptainAssistantId`,
+   `chatwootSupportApiToken`, `widgetSettingsJson`,
    `eventDeliveryGlobalMode`, `eventDeliveryCustomerMessageConsent`,
-   `eventDeliveryPerEventOverridesJson` are all real, non-secret,
-   UI-configurable settings silently excluded from the Export/Import
-   Settings feature. Not a security issue (nothing sensitive is
-   over-exported) — being closed as SETTINGS-SMALL-002, next in this
-   pass.
+   and `eventDeliveryPerEventOverridesJson` — all real, exported, but
+   never re-importable. Fixed by adding all six to both lists.
+   `mcpServiceToken` remains excluded from both (ADR-021, unchanged).
+   Also added real import-time validation (`isImportValueSafe()`):
+   `eventDeliveryCustomerMessageConsent` now requires a genuine JSON
+   boolean (a naive `(bool)` cast would otherwise let a malformed
+   import silently enable customer-visible message delivery from a
+   truthy string/int), and `eventDeliveryPerEventOverridesJson` is
+   rejected if it isn't valid JSON rather than being stored broken and
+   failing later at read time. See
+   `tests/v2/settings-small-002-export-import-completeness.php`.
 4. **`launcherBottomOffset` — REMOVED (ADM-012):** resolved by removal,
    not wiring — no Product Bible requirement names a launcher
    position/offset control. See the Widget visibility table above.
@@ -160,7 +171,9 @@ Classification key (per the governing directive):
   field (including the four fixed secret fields and the TST-022
   Captain Assistant ID field) rendering correctly.
 - Done: `launcherBottomOffset` removed (ADM-012).
-- Next: close the export/import completeness gap (SETTINGS-SMALL-002).
+- Done: export/import completeness gap closed (SETTINGS-SMALL-002).
+- Next: POL-011/CWO-016 resource-aware reviewer masking (Priority 1
+  of the continuous product-completion directive).
 - Consider whether the `ajdsiproduction` theme's vendored plugin
   templates (of which this is one of several — see the `find`
   results in this pass's investigation) should be re-synced from

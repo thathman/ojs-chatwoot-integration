@@ -17,12 +17,24 @@ use PKP\submission\PKPSubmission;
 
 class ChatwootIntegrationBasePlugin extends GenericPlugin {
     private const QUEUE_KEY = 'apiQueue';
+    // SETTINGS-SMALL-002: this is the canonical key list for import,
+    // Save Global Profile, and Apply Global Profile (importSettings()/
+    // saveGlobalProfile()/applyGlobalProfile() below are inherited by
+    // v2 unchanged). It must stay in sync with the v2 plugin's own
+    // LEGACY_EXPORT_KEYS (which drives the export side, filtered
+    // through ExportPolicy) so an export→import round-trip never
+    // silently drops a real, non-secret setting. mcpServiceToken must
+    // NEVER appear here — tests/v2/settings-form-mcp-secret-masking.php
+    // asserts this (ADR-021: structurally impossible to export or
+    // import via the settings backup path).
     private const EXPORT_KEYS = [
         'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
+        'chatwootCaptainAssistantId','chatwootSupportApiToken',
         'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests',
         'hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576',
         'enableGlobalDefaults','retryQueueEnabled','maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
-        'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger','excludedPages','cspSafeMode','skipBackendPages'
+        'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger','excludedPages','cspSafeMode','skipBackendPages',
+        'widgetSettingsJson','eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
     ];
 
     public function register($category, $path, $mainContextId = null) {
@@ -142,6 +154,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $contextId = (int) $context->getId();
         foreach ($payload['settings'] as $k => $v) {
             if (!in_array($k, self::EXPORT_KEYS, true)) continue;
+            if (!$this->isImportValueSafe((string) $k, $v)) continue;
             $this->updateSetting($contextId, $k, $v, $this->guessSettingType($k));
         }
         return new JSONMessage(true, __('plugins.generic.chatwootIntegration.import.success'));
@@ -906,10 +919,36 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
     }
 
     private function guessSettingType(string $key): string {
-        $bool = ['enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576','enableGlobalDefaults','retryQueueEnabled','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected','eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','cspSafeMode','skipBackendPages'];
+        $bool = ['enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576','enableGlobalDefaults','retryQueueEnabled','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected','eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','cspSafeMode','skipBackendPages','eventDeliveryCustomerMessageConsent'];
         if (in_array($key, $bool, true)) return 'bool';
-        if (in_array($key, ['maxRetryAttempts','chatwootInboxId'], true)) return 'int';
+        if (in_array($key, ['maxRetryAttempts','chatwootInboxId','chatwootCaptainAssistantId'], true)) return 'int';
         return 'string';
+    }
+
+    /**
+     * SETTINGS-SMALL-002: an import payload is untrusted input. A
+     * malformed value must never be silently accepted as if it were
+     * the real, intentional setting — this validates the two keys with
+     * real failure modes (a boolean that gates customer-visible
+     * message delivery, and a JSON blob parsed elsewhere) before
+     * import ever calls updateSetting() for them. Returns true if $v
+     * is safe to import as-is for $key, false if the key must be
+     * skipped (leaving the existing stored value untouched).
+     */
+    private function isImportValueSafe(string $key, $v): bool {
+        if ($key === 'eventDeliveryCustomerMessageConsent') {
+            // Must be a real JSON boolean, never a truthy string/number
+            // coerced by a naive (bool) cast — that would let a
+            // malformed or hand-edited import silently enable
+            // customer-visible message delivery.
+            return is_bool($v);
+        }
+        if ($key === 'eventDeliveryPerEventOverridesJson') {
+            if (!is_string($v) || $v === '') return true; // empty is a safe, valid "no overrides" value
+            json_decode($v);
+            return json_last_error() === JSON_ERROR_NONE;
+        }
+        return true;
     }
 }
 
