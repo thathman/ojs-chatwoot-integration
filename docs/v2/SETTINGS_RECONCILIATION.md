@@ -62,7 +62,7 @@ Classification key (per the governing directive):
 | `lazyLoadWidget` | Lazy-Load Widget | per-journal | `true` | defers widget script load | USER CONFIGURABLE | No | none | Yes | Yes | Yes | Widget Visibility | |
 | `lazyLoadTrigger` | Lazy-Load Trigger | per-journal | `'idle'` | `idle`/`interaction` | USER CONFIGURABLE | No | enum via dropdown (`idle`/`interaction`) | Yes | Yes | Yes | Widget Visibility | |
 | `widgetSettingsJson` | Widget Settings (JSON) | per-journal | `''` | raw JSON passed through to the Chatwoot widget SDK config | ADVANCED | No | none declared (no JSON.parse validation found in form) | Yes | Yes | Yes (assuming valid JSON; malformed JSON's actual runtime behavior not yet re-verified live) | Widget Visibility | |
-| `launcherBottomOffset` | Launcher Bottom Offset | per-journal | (unset) | **none — dead** | DEAD | No | none | Yes | Yes (saves/loads fine) | **No — confirmed dead**, see V1_INVENTORY.md FND-004 | Widget Visibility | source: no reference outside the form/template; REMOVE or WIRE UP still an open decision, not resolved by this pass |
+| `launcherBottomOffset` | *(removed — ADM-012)* | — | — | — | **REMOVED** | — | — | No (removed) | N/A | N/A | — | removed from `ChatwootSettingsForm.php`, `settingsForm.tpl`, and `locale/en/locale.po`; no Product Bible requirement for a launcher offset control; `tests/v2/adm-012-launcher-offset-removed.php` proves removal |
 
 ## Workflow Automation (event bridge)
 
@@ -141,26 +141,39 @@ Classification key (per the governing directive):
    plugin's code, so it is not committed here — recorded so it isn't
    lost, same as the Smarty-cache theme-drift finding earlier this
    session.
-3. **Export/import gap (not yet fixed):** `LEGACY_EXPORT_KEYS` (v2)
-   and `EXPORT_KEYS` (v1) both predate several newer settings —
-   `widgetSettingsJson`, `launcherBottomOffset`,
+3. **Export/import gap — FIXED (SETTINGS-SMALL-002):** the real defect
+   was worse than a simple omission — `exportSettings()` (v2, driven
+   by `LEGACY_EXPORT_KEYS`) and `importSettings()`/`saveGlobalProfile()`/
+   `applyGlobalProfile()` (all three still inherited unchanged from v1,
+   driven by v1's own `EXPORT_KEYS`) used two independently-maintained
+   key lists that had drifted apart. A real export → import round-trip
+   would silently drop `chatwootCaptainAssistantId`,
+   `chatwootSupportApiToken`, `widgetSettingsJson`,
    `eventDeliveryGlobalMode`, `eventDeliveryCustomerMessageConsent`,
-   `eventDeliveryPerEventOverridesJson` are all real, non-secret,
-   UI-configurable settings that are silently excluded from the
-   Export/Import Settings feature. This is a real completeness gap,
-   not a security issue (nothing sensitive is over-exported) — left
-   as an open follow-up.
-4. **`launcherBottomOffset` remains dead** (confirmed again this
-   pass) — REMOVE or WIRE UP is still an open decision per
-   `docs/v2/V1_INVENTORY.md` FND-004; not resolved here.
+   and `eventDeliveryPerEventOverridesJson` — all real, exported, but
+   never re-importable. Fixed by adding all six to both lists.
+   `mcpServiceToken` remains excluded from both (ADR-021, unchanged).
+   Also added real import-time validation (`isImportValueSafe()`):
+   `eventDeliveryCustomerMessageConsent` now requires a genuine JSON
+   boolean (a naive `(bool)` cast would otherwise let a malformed
+   import silently enable customer-visible message delivery from a
+   truthy string/int), and `eventDeliveryPerEventOverridesJson` is
+   rejected if it isn't valid JSON rather than being stored broken and
+   failing later at read time. See
+   `tests/v2/settings-small-002-export-import-completeness.php`.
+4. **`launcherBottomOffset` — REMOVED (ADM-012):** resolved by removal,
+   not wiring — no Product Bible requirement names a launcher
+   position/offset control. See the Widget visibility table above.
 
 ## Next steps
 
 - Done: settings modal re-verified live end-to-end with no 500, every
   field (including the four fixed secret fields and the TST-022
   Captain Assistant ID field) rendering correctly.
-- Decide and act on `launcherBottomOffset` (remove vs. wire up).
-- Decide and act on the export/import completeness gap (item 3 above).
+- Done: `launcherBottomOffset` removed (ADM-012).
+- Done: export/import completeness gap closed (SETTINGS-SMALL-002).
+- Next: POL-011/CWO-016 resource-aware reviewer masking (Priority 1
+  of the continuous product-completion directive).
 - Consider whether the `ajdsiproduction` theme's vendored plugin
   templates (of which this is one of several — see the `find`
   results in this pass's investigation) should be re-synced from

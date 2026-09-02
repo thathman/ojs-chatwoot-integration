@@ -199,7 +199,6 @@
 		{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.performance"}
 			{fbvElement type="checkbox" id="lazyLoadWidget" value="1" checked=$lazyLoadWidget label="plugins.generic.chatwootIntegration.settings.lazyLoadWidget"}
 			{fbvElement type="select" id="lazyLoadTrigger" from=$lazyLoadTriggerOptions selected=$lazyLoadTrigger label="plugins.generic.chatwootIntegration.settings.lazyLoadTrigger" translate=false}
-			{fbvElement type="text" id="launcherBottomOffset" value=$launcherBottomOffset label="plugins.generic.chatwootIntegration.settings.launcherBottomOffset"}
 			{fbvElement type="text" id="excludedPages" value=$excludedPages label="plugins.generic.chatwootIntegration.settings.excludedPages"}
 			{fbvElement type="checkbox" id="skipBackendPages" value="1" checked=$skipBackendPages label="plugins.generic.chatwootIntegration.settings.skipBackendPages"}
 			{fbvElement type="checkbox" id="cspSafeMode" value="1" checked=$cspSafeMode label="plugins.generic.chatwootIntegration.settings.cspSafeMode"}

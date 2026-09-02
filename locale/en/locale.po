@@ -283,9 +283,6 @@ msgstr "Enable CSP-safe Script Mode"
 msgid "plugins.generic.chatwootIntegration.settings.widgetSettingsJson"
 msgstr "Widget Settings JSON (advanced, merged into window.chatwootSettings)"
 
-msgid "plugins.generic.chatwootIntegration.settings.launcherBottomOffset"
-msgstr "Launcher Bottom Offset (px)"
-
 msgid "plugins.generic.chatwootIntegration.settings.adminTools"
 msgstr "Admin Tools & Setup"
 
