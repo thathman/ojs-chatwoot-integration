@@ -80,15 +80,11 @@ Required:
 - component/AJAX/site-level requests with no journal must not invent one;
 - multi-journal acceptance for settings modal, component routes, site admin and frontend.
 
-### HAR-008 — MUST FIX — global defaults must not silently share security credentials across journals
+### HAR-008 — FIXED — global defaults must not silently share security credentials across journals
 
-Inherited `saveGlobalProfile()` copies the base export-key set into context 0, including Chatwoot API access token, Identity Validation secret and Support API token (MCP is already excluded). Effective-setting fallback can therefore make multiple journals share credentials simply because “Use Global Defaults” is enabled.
+Inherited `saveGlobalProfile()` copied the base export-key set into context 0, including Chatwoot API access token, Identity Validation secret and Support API token (MCP was already excluded). Effective-setting fallback could therefore make multiple journals share credentials simply because "Use Global Defaults" was enabled.
 
-Required:
-- classify global-profile-eligible settings explicitly;
-- service/end-user trust-plane credentials must be per-journal by default and must not silently inherit globally;
-- if a shared Chatwoot account credential is intentionally supported, make it an explicit connection profile with clear scope rather than incidental context-0 fallback;
-- prove Journal A credential cannot authorize Journal B by fallback accident.
+Fixed (PR #201, `f777582`): global-profile-eligible settings are now classified explicitly via `SettingsRegistry` (`classes/v2/Settings/SettingsRegistry.php`, UX-024) — `chatwootApiAccessToken`, `chatwootIdentityValidationSecret`, and `chatwootSupportApiToken` are marked `globalEligible: false`. Both `saveGlobalProfile()` and `applyGlobalProfile()` now skip `SettingsRegistry::nonGlobalEligibleKeys()` in addition to `enableGlobalDefaults`, so these three trust-plane credentials are per-journal only and never flow through context-0 fallback. `tests/v2/har-008-global-profile-credential-isolation.php` proves behaviorally: a secret set on journal A never reaches context 0, and a leftover context-0 secret never reaches journal B via `applyGlobalProfile()`, while ordinary non-secret settings still propagate normally. Live-deployed to dell; no shared Chatwoot-account connection-profile concept was needed since this fix makes per-journal the only path for these keys.
 
 ### HAR-009 — MUST FIX/VERIFY — cross-worker abuse controls
 
