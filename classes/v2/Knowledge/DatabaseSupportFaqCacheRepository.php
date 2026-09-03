@@ -3,7 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\SupportFaqCacheRepositoryInterface;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\AddFaqCacheTableMigration;
 use Illuminate\Support\Facades\DB;
 
 final class DatabaseSupportFaqCacheRepository implements SupportFaqCacheRepositoryInterface
@@ -13,7 +13,7 @@ final class DatabaseSupportFaqCacheRepository implements SupportFaqCacheReposito
     // class outside a real OJS runtime.
     private static function table(): string
     {
-        return InstallSupportGatewayMigration::FAQ_CACHE_TABLE;
+        return AddFaqCacheTableMigration::FAQ_CACHE_TABLE;
     }
 
     public function replaceAll(int $contextId, string $locale, array $faqs, int $now): void

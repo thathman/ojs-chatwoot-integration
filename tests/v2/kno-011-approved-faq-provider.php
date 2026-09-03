@@ -21,13 +21,28 @@ namespace {
     }
 
     // ================================================================
-    // Part 1: migration declares the cache table structurally.
+    // Part 1: the FAQ cache table lands as its own additive migration
+    // step, never by editing the immutable 2.0.0.0 install migration
+    // (HAR-016/MIG-003).
     // ================================================================
-    $migrationSource = file_get_contents($root . '/classes/v2/Migration/InstallSupportGatewayMigration.php');
-    kno011Check(str_contains($migrationSource, "FAQ_CACHE_TABLE = 'chatwoot_support_faq_cache'"), 'migration must declare the FAQ cache table name constant');
-    kno011Check(str_contains($migrationSource, 'upFaqCache()'), 'up() must call upFaqCache()');
-    kno011Check(str_contains($migrationSource, 'Schema::dropIfExists(self::FAQ_CACHE_TABLE)'), 'down() must drop the FAQ cache table');
-    kno011Check(str_contains($migrationSource, 'cw_faq_cache_identity'), 'the cache table must have a uniqueness constraint on (context_id, locale, external_id)');
+    $baselineMigrationSource = file_get_contents($root . '/classes/v2/Migration/InstallSupportGatewayMigration.php');
+    kno011Check(!str_contains($baselineMigrationSource, 'FAQ_CACHE_TABLE'), 'the immutable 2.0.0.0 install migration must never be edited to add the new FAQ table');
+
+    $faqMigrationSource = file_get_contents($root . '/classes/v2/Migration/AddFaqCacheTableMigration.php');
+    kno011Check(str_contains($faqMigrationSource, "FAQ_CACHE_TABLE = 'chatwoot_support_faq_cache'"), 'the new migration must declare the FAQ cache table name constant');
+    kno011Check(str_contains($faqMigrationSource, 'Schema::dropIfExists(self::FAQ_CACHE_TABLE)'), 'down() must drop the FAQ cache table');
+    kno011Check(str_contains($faqMigrationSource, 'cw_faq_cache_identity'), 'the cache table must have a uniqueness constraint on (context_id, locale, external_id)');
+
+    $runnerSource = file_get_contents($root . '/classes/v2/Migration/SupportGatewayMigrationRunner.php');
+    kno011Check(str_contains($runnerSource, 'new InstallSupportGatewayMigration()'), 'the runner must still run the real 2.0.0.0 baseline migration');
+    kno011Check(str_contains($runnerSource, 'new AddFaqCacheTableMigration()'), 'the runner must run the new FAQ cache migration');
+    kno011Check(
+        strpos($runnerSource, 'new InstallSupportGatewayMigration()') < strpos($runnerSource, 'new AddFaqCacheTableMigration()'),
+        'the baseline migration must run before the new additive step, in the array order the runner iterates'
+    );
+
+    $pluginSourceForMigration = file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
+    kno011Check(str_contains($pluginSourceForMigration, 'new SupportGatewayMigrationRunner()'), 'getInstallMigration() must return the additive runner, not the baseline migration directly');
 
     // ================================================================
     // Part 2: FaqCacheSyncService — the only place Chatwoot is called live.
@@ -180,6 +195,21 @@ namespace {
     }
     $throwingProvider = new ApprovedFaqKnowledgeProvider(new ThrowingFaqRepository());
     kno011Check($throwingProvider->collect(new FakeFaqContext(1), new \stdClass(), 'en') === [], 'a repository failure must degrade to an empty fact set, never an uncaught exception');
+
+    // ================================================================
+    // Part 3b: ChatwootApiService's real implementation must throw on
+    // failure, never degrade to [] — ChatwootApiService itself cannot
+    // be instantiated in this environment (no Guzzle/vendor, same
+    // constraint TST-002/TST-003 established), so this is a source
+    // assertion against the exact real contract, not a mock.
+    // ================================================================
+    $apiServiceSource = file_get_contents($root . '/ChatwootApiService.php');
+    $listStart = strpos($apiServiceSource, 'function listCaptainAssistantResponses');
+    kno011Check($listStart !== false, 'ChatwootApiService must implement listCaptainAssistantResponses()');
+    $listBody = substr($apiServiceSource, $listStart, 2200);
+    kno011Check(!str_contains($listBody, "if (!\$result['ok']) return []"), 'listCaptainAssistantResponses() must never collapse a request failure to an empty array');
+    kno011Check(str_contains($listBody, 'throw new \RuntimeException'), 'listCaptainAssistantResponses() must throw on a real request failure');
+    kno011Check(str_contains($listBody, 'total_count') && str_contains($listBody, 'count($payload)'), 'listCaptainAssistantResponses() must refuse to treat a partial/paginated page as the complete authoritative set');
 
     // ================================================================
     // Part 4: wiring — kernel registration, plugin entry point, scheduled task.

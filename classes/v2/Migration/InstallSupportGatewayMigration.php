@@ -7,10 +7,25 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Install the v2 Support Gateway session store.
+ * Install the v2 Support Gateway session store — the exact schema
+ * shipped in the immutable `2.0.0.0` release.
  *
  * The migration is intentionally idempotent because PKP may invoke a plugin's
  * install migration during install/upgrade flows more than once.
+ *
+ * HAR-016/MIG-003: once `2.0.0.0` is an installed, immutable baseline,
+ * a genuinely NEW table must never be added by editing this class's
+ * `up()`/`down()` bodies — that erases the distinction between "the
+ * schema this class shipped at 2.0.0.0" and "whatever it happens to
+ * contain today." New tables are added as their own, separate
+ * `Migration` class (see `AddFaqCacheTableMigration` for the first
+ * one) and chained in `SupportGatewayMigrationRunner`, which is what
+ * `ChatwootIntegrationV2Plugin::getInstallMigration()` actually
+ * returns. A column added to an EXISTING table here (see
+ * `upEventQueue()`'s `correlation_id` add-if-missing step) is a
+ * narrower, already-accepted exception — it doesn't change what this
+ * class's own tables are, only makes an already-declared one match a
+ * later revision of the same table.
  */
 final class InstallSupportGatewayMigration extends Migration
 {
@@ -19,7 +34,6 @@ final class InstallSupportGatewayMigration extends Migration
     public const KNOWLEDGE_SYNC_TABLE = 'chatwoot_support_knowledge_sync';
     public const AUDIT_LOG_TABLE = 'chatwoot_support_audit_log';
     public const EVENT_QUEUE_TABLE = 'chatwoot_support_event_queue';
-    public const FAQ_CACHE_TABLE = 'chatwoot_support_faq_cache';
 
     public function up(): void
     {
@@ -28,7 +42,6 @@ final class InstallSupportGatewayMigration extends Migration
         $this->upKnowledgeSync();
         $this->upAuditLog();
         $this->upEventQueue();
-        $this->upFaqCache();
     }
 
     private function upSessions(): void
@@ -239,40 +252,8 @@ final class InstallSupportGatewayMigration extends Migration
         }
     }
 
-    /**
-     * KNO-011: local, journal/locale-scoped cache of approved Chatwoot
-     * Captain FAQ content (`Captain::AssistantResponse` rows — real
-     * Chatwoot source, verified against the real `chatwoot/chatwoot`
-     * `develop` source: every `AssistantResponse` row *is* approved by
-     * construction, `enum status: { approved: 1 }` is the model's only
-     * status). Populated by a periodic sync task, never by a live
-     * request — `ApprovedFaqKnowledgeProvider` only ever reads this
-     * table, so an anonymous knowledge-page load never makes a live
-     * Chatwoot call and never blocks on Chatwoot being reachable.
-     */
-    private function upFaqCache(): void
-    {
-        if (Schema::hasTable(self::FAQ_CACHE_TABLE)) {
-            return;
-        }
-
-        Schema::create(self::FAQ_CACHE_TABLE, function (Blueprint $table): void {
-            $table->comment('Local cache of approved Chatwoot Captain FAQ content, synced periodically — never read live from Chatwoot.');
-            $table->bigIncrements('id');
-            $table->bigInteger('context_id')->index();
-            $table->string('locale', 28);
-            $table->string('external_id', 64);
-            $table->text('question');
-            $table->text('answer');
-            $table->dateTime('synced_at')->index();
-
-            $table->unique(['context_id', 'locale', 'external_id'], 'cw_faq_cache_identity');
-        });
-    }
-
     public function down(): void
     {
-        Schema::dropIfExists(self::FAQ_CACHE_TABLE);
         Schema::dropIfExists(self::EVENT_QUEUE_TABLE);
         Schema::dropIfExists(self::AUDIT_LOG_TABLE);
         Schema::dropIfExists(self::KNOWLEDGE_SYNC_TABLE);

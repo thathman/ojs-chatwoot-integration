@@ -91,7 +91,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionListTo
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\SupportGatewayMigrationRunner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
@@ -286,10 +286,16 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         return false;
     }
 
-    /** PKP 3.5 plugin installation hook for the v2 Support Gateway tables. */
+    /**
+     * PKP 3.5 plugin installation hook for the v2 Support Gateway
+     * tables. Returns the additive migration runner (HAR-016/MIG-003),
+     * not the 2.0.0.0 baseline migration directly — new schema is
+     * added by appending a step to `SupportGatewayMigrationRunner`,
+     * never by editing `InstallSupportGatewayMigration`'s own body.
+     */
     public function getInstallMigration()
     {
-        return new InstallSupportGatewayMigration();
+        return new SupportGatewayMigrationRunner();
     }
 
     public function addChatwootWidget($hookName, $args)

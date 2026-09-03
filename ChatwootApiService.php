@@ -262,13 +262,38 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return (bool) $result['ok'];
     }
 
+    /**
+     * KNO-011 hardening: a real API/HTTP failure must throw, never
+     * degrade to an empty array — the caller (FaqCacheSyncService)
+     * distinguishes "the account genuinely has zero approved FAQs
+     * right now" from "the request failed" specifically so an outage
+     * never clears an already-synced local cache. Every other
+     * list-/get-style method on this class collapses failure to []/null
+     * because those callers only ever add/update, never destructively
+     * replace a whole local dataset — this one is different.
+     */
     public function listCaptainAssistantResponses(int $assistantId): array {
         $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistant_responses", [
             'query' => ['assistant_id' => $assistantId],
         ]);
-        if (!$result['ok']) return [];
+        if (!$result['ok']) {
+            throw new \RuntimeException('Chatwoot Captain assistant_responses request failed: ' . ($result['error'] ?? 'unknown error'));
+        }
         $data = $result['data'] ?? [];
         $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+
+        // Completeness guard: a paginated response with more pages than
+        // were fetched here must never be treated as the whole
+        // authoritative set — that would let FaqCacheSyncService's
+        // replaceAll() delete real, still-approved FAQs simply because
+        // they weren't on this page. Verified against `chatwoot/chatwoot`
+        // `develop`'s `Api::V1::Accounts::Captain::AssistantResponsesController#index`,
+        // which paginates via Kaminari and reports `meta.total_count`.
+        $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
+        if (isset($meta['total_count']) && is_numeric($meta['total_count']) && (int) $meta['total_count'] > count($payload)) {
+            throw new \RuntimeException('Chatwoot Captain assistant_responses returned a partial page (' . count($payload) . ' of ' . (int) $meta['total_count'] . ' total) — refusing to treat it as the complete set');
+        }
+
         return array_values(array_filter($payload, 'is_array'));
     }
 }
