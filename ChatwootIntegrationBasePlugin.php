@@ -618,6 +618,14 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if ($isPageRequest) {
             $excluded = array_filter(array_map('trim', explode(',', (string) $this->getEffectiveSetting($contextId, 'excludedPages', ''))));
             if (in_array($requestedPage, $excluded, true)) return false;
+
+            // HAR-018: skipBackendPages was previously saved but never
+            // read anywhere — a real placebo setting. Wired to the
+            // same isBackendPage() list an admin would otherwise have
+            // to type out by hand into excludedPages above.
+            if ($this->toBool($this->getEffectiveSetting($contextId, 'skipBackendPages', false)) && $this->isBackendPage($requestedPage)) {
+                return false;
+            }
         }
         $user = $request->getUser();
         $isReviewer = false;
@@ -1013,11 +1021,15 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
     }
 
     /**
-     * Check if current page is a backend page
+     * HAR-018: takes the already-resolved requested-page string rather
+     * than $request itself — addChatwootWidget() only knows a real
+     * requested page on a real PKPPageRouter request (see TST-020's
+     * own guard just above its call site); calling
+     * $request->getRequestedPage() directly here would reintroduce
+     * that exact crash outside a page-routed request.
      */
-    private function isBackendPage($request): bool {
+    private function isBackendPage(string $requestedPage): bool {
         $backendPages = ['management', 'admin', 'workflow', 'reviewer', 'submission', 'authorDashboard'];
-        $requestedPage = $request->getRequestedPage();
         return in_array($requestedPage, $backendPages, true);
     }
 
