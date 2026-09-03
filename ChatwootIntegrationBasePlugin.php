@@ -11,6 +11,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\CurrentSubmi
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ReviewerMaskingPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\SubmissionRelationshipResolver;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\template\TemplateManager;
 use PKP\core\JSONMessage;
 use PKP\decision\Decision;
@@ -167,11 +168,23 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         return new JSONMessage(true, __('plugins.generic.chatwootIntegration.import.success'));
     }
 
+    /**
+     * HAR-008: trust-plane credentials (chatwootApiAccessToken,
+     * chatwootIdentityValidationSecret, chatwootSupportApiToken —
+     * SettingsRegistry::nonGlobalEligibleKeys()) must never silently
+     * become shared across journals just because "Use Global Defaults"
+     * is enabled. Journal A's Chatwoot/Support API credential must
+     * never end up authorizing Journal B by global-fallback accident.
+     */
     public function saveGlobalProfile($request): JSONMessage {
         $context = $request->getContext();
         if (!$context) return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
         $contextId = (int) $context->getId();
-        foreach (self::EXPORT_KEYS as $k) { if ($k !== 'enableGlobalDefaults') $this->updateSetting(0, $k, $this->getSetting($contextId, $k), $this->guessSettingType($k)); }
+        $nonGlobalEligible = SettingsRegistry::nonGlobalEligibleKeys();
+        foreach (self::EXPORT_KEYS as $k) {
+            if ($k === 'enableGlobalDefaults' || in_array($k, $nonGlobalEligible, true)) continue;
+            $this->updateSetting(0, $k, $this->getSetting($contextId, $k), $this->guessSettingType($k));
+        }
         return new JSONMessage(true, __('plugins.generic.chatwootIntegration.globalProfile.saved'));
     }
 
@@ -179,8 +192,9 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $context = $request->getContext();
         if (!$context) return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
         $contextId = (int) $context->getId();
+        $nonGlobalEligible = SettingsRegistry::nonGlobalEligibleKeys();
         foreach (self::EXPORT_KEYS as $k) {
-            if ($k === 'enableGlobalDefaults') continue;
+            if ($k === 'enableGlobalDefaults' || in_array($k, $nonGlobalEligible, true)) continue;
             $v = $this->getSetting(0, $k);
             if ($v !== null) $this->updateSetting($contextId, $k, $v, $this->guessSettingType($k));
         }
@@ -1069,11 +1083,9 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         return null;
     }
 
+    /** UX-024: delegates to the canonical SettingsRegistry — tests/v2/settings-registry.php proves this matches every key EXPORT_KEYS declares. */
     private function guessSettingType(string $key): string {
-        $bool = ['enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests','hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576','enableGlobalDefaults','retryQueueEnabled','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected','eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','cspSafeMode','skipBackendPages','eventDeliveryCustomerMessageConsent'];
-        if (in_array($key, $bool, true)) return 'bool';
-        if (in_array($key, ['maxRetryAttempts','chatwootInboxId','chatwootCaptainAssistantId'], true)) return 'int';
-        return 'string';
+        return SettingsRegistry::type($key);
     }
 
     /**
