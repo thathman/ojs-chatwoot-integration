@@ -25,25 +25,27 @@ use PKP\submission\PKPSubmission;
 
 class ChatwootIntegrationBasePlugin extends GenericPlugin {
     private const QUEUE_KEY = 'apiQueue';
-    // SETTINGS-SMALL-002: this is the canonical key list for import,
-    // Save Global Profile, and Apply Global Profile (importSettings()/
-    // saveGlobalProfile()/applyGlobalProfile() below are inherited by
-    // v2 unchanged). It must stay in sync with the v2 plugin's own
-    // LEGACY_EXPORT_KEYS (which drives the export side, filtered
-    // through ExportPolicy) so an export→import round-trip never
-    // silently drops a real, non-secret setting. mcpServiceToken must
-    // NEVER appear here — tests/v2/settings-form-mcp-secret-masking.php
-    // asserts this (ADR-021: structurally impossible to export or
-    // import via the settings backup path).
-    private const EXPORT_KEYS = [
-        'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
-        'chatwootCaptainAssistantId','chatwootSupportApiToken',
-        'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests',
-        'hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576',
-        'enableGlobalDefaults','retryQueueEnabled','maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
-        'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger','excludedPages','cspSafeMode','skipBackendPages',
-        'widgetSettingsJson','eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
-    ];
+
+    /**
+     * SETTINGS-SMALL-002/UX-024: the canonical key list for import,
+     * Save Global Profile, and Apply Global Profile (importSettings()/
+     * saveGlobalProfile()/applyGlobalProfile() below are inherited by
+     * v2 unchanged), sourced from `SettingsRegistry::exportableKeys()`
+     * (a class const can't call a static method, so this is a method,
+     * not a const). It must stay in sync with the v2 plugin's own
+     * `legacyExportKeys()` (which drives the export side, filtered
+     * through `ExportPolicy`) so an export→import round-trip never
+     * silently drops a real, non-secret setting —
+     * `tests/v2/settings-registry.php` is the automated drift guard
+     * for that. `mcpServiceToken` is `exportable: false` in the
+     * registry, so it can never appear here —
+     * `tests/v2/settings-form-mcp-secret-masking.php` asserts this
+     * (ADR-021: structurally impossible to export or import via the
+     * settings backup path).
+     */
+    private static function exportKeys(): array {
+        return SettingsRegistry::exportableKeys();
+    }
 
     public function register($category, $path, $mainContextId = null) {
         $success = parent::register($category, $path, $mainContextId);
@@ -150,7 +152,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if (!$context) return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
         $contextId = (int) $context->getId();
         $out = [];
-        foreach (self::EXPORT_KEYS as $k) $out[$k] = $this->getSetting($contextId, $k);
+        foreach (self::exportKeys() as $k) $out[$k] = $this->getSetting($contextId, $k);
         return new JSONMessage(true, ['contextId' => $contextId, 'exportedAt' => date('c'), 'settings' => $out]);
     }
 
@@ -161,7 +163,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if (!is_array($payload) || !isset($payload['settings']) || !is_array($payload['settings'])) return new JSONMessage(false, __('plugins.generic.chatwootIntegration.import.invalidJson'));
         $contextId = (int) $context->getId();
         foreach ($payload['settings'] as $k => $v) {
-            if (!in_array($k, self::EXPORT_KEYS, true)) continue;
+            if (!in_array($k, self::exportKeys(), true)) continue;
             if (!$this->isImportValueSafe((string) $k, $v)) continue;
             $this->updateSetting($contextId, $k, $v, $this->guessSettingType($k));
         }
@@ -181,7 +183,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if (!$context) return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
         $contextId = (int) $context->getId();
         $nonGlobalEligible = SettingsRegistry::nonGlobalEligibleKeys();
-        foreach (self::EXPORT_KEYS as $k) {
+        foreach (self::exportKeys() as $k) {
             if ($k === 'enableGlobalDefaults' || in_array($k, $nonGlobalEligible, true)) continue;
             $this->updateSetting(0, $k, $this->getSetting($contextId, $k), $this->guessSettingType($k));
         }
@@ -193,7 +195,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if (!$context) return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
         $contextId = (int) $context->getId();
         $nonGlobalEligible = SettingsRegistry::nonGlobalEligibleKeys();
-        foreach (self::EXPORT_KEYS as $k) {
+        foreach (self::exportKeys() as $k) {
             if ($k === 'enableGlobalDefaults' || in_array($k, $nonGlobalEligible, true)) continue;
             $v = $this->getSetting(0, $k);
             if ($v !== null) $this->updateSetting($contextId, $k, $v, $this->guessSettingType($k));

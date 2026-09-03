@@ -97,6 +97,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBri
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
@@ -127,16 +128,17 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
     private const MCP_GATEWAY_PAGE = 'ojsMcpGateway';
     /** IDN-015: response-timing floor for ojs_request_verification, masking the found-vs-not-found timing gap. */
     private const VERIFICATION_REQUEST_TIMING_FLOOR_SECONDS = 0.3;
-    private const LEGACY_EXPORT_KEYS = [
-        'chatwootBaseUrl','chatwootWebsiteToken','chatwootIdentityValidationSecret','chatwootApiAccessToken','chatwootInboxId',
-        'chatwootCaptainAssistantId',
-        'chatwootSupportApiToken',
-        'enableWidget','enableDebugMode','enablePrivacyMode','hideForGuests',
-        'hideForRole_1','hideForRole_16','hideForRole_17','hideForRole_4097','hideForRole_65536','hideForRole_4096','hideForRole_1048576',
-        'enableGlobalDefaults','retryQueueEnabled','maxRetryAttempts','eventSyncMode','eventSubmissionCreated','eventRevisionRequested','eventAccepted','eventRejected',
-        'eventPublicationScheduled','eventPublicationPublished','eventDecisionRecorded','lazyLoadWidget','lazyLoadTrigger','excludedPages','cspSafeMode','skipBackendPages',
-        'widgetSettingsJson','eventDeliveryGlobalMode','eventDeliveryCustomerMessageConsent','eventDeliveryPerEventOverridesJson',
-    ];
+    /**
+     * UX-024: sourced from the canonical SettingsRegistry — a class
+     * const can't call a static method, so this is a method, not a
+     * const, mirroring `ChatwootIntegrationBasePlugin::exportKeys()`.
+     * `tests/v2/settings-registry.php` proves this agrees with the
+     * registry and with `ChatwootIntegrationBasePlugin`'s own list.
+     */
+    private static function legacyExportKeys(): array
+    {
+        return SettingsRegistry::exportableKeys();
+    }
 
     private ?RuntimeContextBridge $runtimeContextBridge = null;
     private ?ChatwootContextProjector $contextProjector = null;
@@ -3351,7 +3353,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
 
         $contextId = (int) $context->getId();
         $settings = [];
-        foreach (self::LEGACY_EXPORT_KEYS as $key) {
+        foreach (self::legacyExportKeys() as $key) {
             $settings[$key] = $this->getSetting($contextId, $key);
         }
 

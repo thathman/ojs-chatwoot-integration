@@ -74,24 +74,18 @@ namespace {
     settingsRegistryCheck(SettingsRegistry::get('mcpServiceToken')?->secret === true, 'mcpServiceToken must be marked secret');
 
     // ================================================================
-    // Part 2: registry must agree with ChatwootIntegrationBasePlugin::EXPORT_KEYS
-    // (drives import/saveGlobalProfile/applyGlobalProfile) and with the
-    // real, executable guessSettingType()/isImportValueSafe() behavior.
+    // Part 2: ChatwootIntegrationBasePlugin::exportKeys() (drives
+    // import/saveGlobalProfile/applyGlobalProfile) must delegate
+    // directly to the registry, and the real, executable
+    // guessSettingType() behavior must agree with it.
     // ================================================================
     $v1Source = (string) file_get_contents("{$root}/ChatwootIntegrationBasePlugin.php");
-    $v1ExportKeysStart = strpos($v1Source, 'private const EXPORT_KEYS');
-    settingsRegistryCheck($v1ExportKeysStart !== false, 'ChatwootIntegrationBasePlugin must still declare EXPORT_KEYS');
-    $v1ExportKeysBlock = substr($v1Source, $v1ExportKeysStart, (int) strpos($v1Source, '];', $v1ExportKeysStart) - $v1ExportKeysStart);
-    preg_match_all("/'([a-zA-Z0-9_]+)'/", $v1ExportKeysBlock, $matches);
-    $v1ExportKeys = $matches[1];
+    settingsRegistryCheck(!str_contains($v1Source, 'private const EXPORT_KEYS'), 'ChatwootIntegrationBasePlugin must no longer maintain its own EXPORT_KEYS list');
+    $v1ExportKeysStart = strpos($v1Source, 'function exportKeys()');
+    settingsRegistryCheck($v1ExportKeysStart !== false, 'ChatwootIntegrationBasePlugin must declare exportKeys()');
+    settingsRegistryCheck(str_contains(substr($v1Source, $v1ExportKeysStart, 150), 'SettingsRegistry::exportableKeys()'), 'exportKeys() must delegate to SettingsRegistry::exportableKeys() — drift');
 
-    settingsRegistryCheck(count($v1ExportKeys) > 0, 'must have parsed at least one key out of EXPORT_KEYS');
-    foreach ($v1ExportKeys as $key) {
-        settingsRegistryCheck(in_array($key, SettingsRegistry::exportableKeys(), true), "EXPORT_KEYS contains '{$key}' but the registry does not mark it exportable — drift");
-    }
-    foreach (SettingsRegistry::exportableKeys() as $key) {
-        settingsRegistryCheck(in_array($key, $v1ExportKeys, true), "the registry marks '{$key}' exportable but EXPORT_KEYS does not contain it — drift");
-    }
+    $v1ExportKeys = SettingsRegistry::exportableKeys();
 
     $plugin = new ChatwootIntegrationBasePlugin();
     $guessSettingType = new \ReflectionMethod($plugin, 'guessSettingType');
@@ -102,24 +96,16 @@ namespace {
     }
 
     // ================================================================
-    // Part 3: registry must agree with ChatwootIntegrationV2Plugin::LEGACY_EXPORT_KEYS
-    // (drives export) — source assertion, matching SETTINGS-SMALL-002's
-    // established technique (the two constants live in different files,
-    // so this can't be a direct reflection comparison).
+    // Part 3: ChatwootIntegrationV2Plugin::legacyExportKeys() (drives
+    // export) must delegate directly to the registry — UX-024 migrated
+    // this off its own independently-maintained key list.
     // ================================================================
     $v2Source = (string) file_get_contents("{$root}/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php");
-    $v2ExportKeysStart = strpos($v2Source, 'LEGACY_EXPORT_KEYS = [');
-    settingsRegistryCheck($v2ExportKeysStart !== false, 'ChatwootIntegrationV2Plugin must still declare LEGACY_EXPORT_KEYS');
-    $v2ExportKeysBlock = substr($v2Source, $v2ExportKeysStart, (int) strpos($v2Source, '];', $v2ExportKeysStart) - $v2ExportKeysStart);
-    preg_match_all("/'([a-zA-Z0-9_]+)'/", $v2ExportKeysBlock, $matches);
-    $v2ExportKeys = $matches[1];
-
-    foreach ($v2ExportKeys as $key) {
-        settingsRegistryCheck(in_array($key, SettingsRegistry::exportableKeys(), true), "LEGACY_EXPORT_KEYS contains '{$key}' but the registry does not mark it exportable — drift");
-    }
-    foreach (SettingsRegistry::exportableKeys() as $key) {
-        settingsRegistryCheck(in_array($key, $v2ExportKeys, true), "the registry marks '{$key}' exportable but LEGACY_EXPORT_KEYS does not contain it — drift");
-    }
+    settingsRegistryCheck(!str_contains($v2Source, 'LEGACY_EXPORT_KEYS'), 'ChatwootIntegrationV2Plugin must no longer maintain its own LEGACY_EXPORT_KEYS list');
+    $legacyExportKeysStart = strpos($v2Source, 'function legacyExportKeys()');
+    settingsRegistryCheck($legacyExportKeysStart !== false, 'ChatwootIntegrationV2Plugin must declare legacyExportKeys()');
+    $legacyExportKeysBody = substr($v2Source, $legacyExportKeysStart, 200);
+    settingsRegistryCheck(str_contains($legacyExportKeysBody, 'SettingsRegistry::exportableKeys()'), 'legacyExportKeys() must delegate to SettingsRegistry::exportableKeys() — drift');
 
     // ================================================================
     // Part 4: registry secret keys must agree with ChatwootSettingsForm::SECRET_KEYS.
