@@ -124,6 +124,45 @@ final class DatabaseSupportEventQueueRepository implements SupportEventQueueRepo
             ->update(['status' => 'pending', 'attempts' => 0, 'run_after' => null]);
     }
 
+    /** @return array{pendingCount:int,retryingCount:int,deadLetterCount:int,oldestPendingAgeSeconds:?int,deadLetterErrorCodes:array<string,int>} */
+    public function queueHealthSnapshot(int $now): array
+    {
+        $pendingCount = (int) DB::table(self::table())
+            ->where('status', 'pending')->where('attempts', 0)->count();
+        $retryingCount = (int) DB::table(self::table())
+            ->where('status', 'pending')->where('attempts', '>', 0)->count();
+        $deadLetterCount = (int) DB::table(self::table())
+            ->where('status', 'failed')->count();
+
+        $oldestPendingCreatedAt = DB::table(self::table())
+            ->where('status', 'pending')
+            ->orderBy('created_at')
+            ->value('created_at');
+        $oldestPendingAgeSeconds = $oldestPendingCreatedAt
+            ? max(0, $now - strtotime((string) $oldestPendingCreatedAt))
+            : null;
+
+        $deadLetterErrorCodes = [];
+        $rows = DB::table(self::table())
+            ->where('status', 'failed')
+            ->whereNotNull('last_error_code')
+            ->select('last_error_code')
+            ->selectRaw('count(*) as code_count')
+            ->groupBy('last_error_code')
+            ->get();
+        foreach ($rows as $row) {
+            $deadLetterErrorCodes[(string) $row->last_error_code] = (int) $row->code_count;
+        }
+
+        return [
+            'pendingCount' => $pendingCount,
+            'retryingCount' => $retryingCount,
+            'deadLetterCount' => $deadLetterCount,
+            'oldestPendingAgeSeconds' => $oldestPendingAgeSeconds,
+            'deadLetterErrorCodes' => $deadLetterErrorCodes,
+        ];
+    }
+
     private function toDatabaseTime(int $timestamp): string
     {
         return gmdate('Y-m-d H:i:s', $timestamp);

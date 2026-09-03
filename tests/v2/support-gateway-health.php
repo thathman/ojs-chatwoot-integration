@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 2);
 require_once $root . '/classes/v2/bootstrap.php';
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Captain\CaptainProvisioningHealthReport;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Health\EventQueueHealthReport;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthAggregator;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthSummary;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthReport;
@@ -141,5 +142,48 @@ supportGatewayHealthCheck(str_contains($repoImplSource, "DB::table(self::table()
 
 $templateSource = (string) file_get_contents($root . '/templates/settingsForm.tpl');
 supportGatewayHealthCheck(str_contains($templateSource, '$supportGatewayHealth'), 'the settings template must actually render the real health summary, not a placeholder');
+
+// ================================================================
+// AUD-008/AUD-011: EventQueueHealthReport — a safe, additive queue
+// detail (retry/dead-letter breakdown, error-code labels, oldest-pending
+// age) built from the repository's real queueHealthSnapshot(). Never a
+// row's attributes/payload, never a raw exception message.
+// ================================================================
+$queueReport = EventQueueHealthReport::fromSnapshot([
+    'pendingCount' => 2,
+    'retryingCount' => 1,
+    'deadLetterCount' => 3,
+    'oldestPendingAgeSeconds' => 120,
+    'deadLetterErrorCodes' => ['delivery_failed' => 2, 'internal_error' => 1],
+]);
+supportGatewayHealthCheck($queueReport->pendingCount() === 2, 'EventQueueHealthReport must expose the real fresh-pending count');
+supportGatewayHealthCheck($queueReport->retryingCount() === 1, 'EventQueueHealthReport must expose the real retrying count, distinct from fresh pending');
+supportGatewayHealthCheck($queueReport->deadLetterCount() === 3, 'EventQueueHealthReport must expose the real dead-letter count');
+supportGatewayHealthCheck($queueReport->oldestPendingAgeSeconds() === 120, 'EventQueueHealthReport must expose the real oldest-pending age in seconds');
+supportGatewayHealthCheck($queueReport->deadLetterErrorCodes() === ['delivery_failed' => 2, 'internal_error' => 1], 'EventQueueHealthReport must expose the real per-error-code dead-letter counts, never a fabricated breakdown');
+
+$queueReportEmpty = EventQueueHealthReport::fromSnapshot(['pendingCount' => 0, 'retryingCount' => 0, 'deadLetterCount' => 0, 'oldestPendingAgeSeconds' => null, 'deadLetterErrorCodes' => []]);
+supportGatewayHealthCheck($queueReportEmpty->oldestPendingAgeSeconds() === null, 'an empty queue must honestly report null age, never a fabricated 0');
+
+$summaryWithQueueHealth = SupportGatewayHealthAggregator::build(true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), null, [], 0, 0, $queueReport);
+supportGatewayHealthCheck($summaryWithQueueHealth->queueHealth() === $queueReport, 'the summary must carry through the real EventQueueHealthReport it was given');
+supportGatewayHealthCheck($summaryWithQueueHealth->toArray()['queueHealth']['deadLetterErrorCodes'] === ['delivery_failed' => 2, 'internal_error' => 1], 'toArray() must expose the real queue health detail, never omit it when present');
+
+$summaryWithoutQueueHealth = SupportGatewayHealthAggregator::build(true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), null, [], 0);
+supportGatewayHealthCheck($summaryWithoutQueueHealth->queueHealth() === null, 'queueHealth() must honestly be null when the gathering method could not build one, never a fabricated report');
+supportGatewayHealthCheck($summaryWithoutQueueHealth->toArray()['queueHealth'] === null, 'toArray() must expose null queueHealth honestly when none was built');
+
+supportGatewayHealthCheck(str_contains($repoInterfaceSource, 'public function queueHealthSnapshot(int $now): array;'), 'the queue repository interface must declare the real queueHealthSnapshot() method AUD-008/AUD-011 depend on');
+supportGatewayHealthCheck(str_contains($repoImplSource, 'function queueHealthSnapshot(int $now): array'), 'the real repository must implement queueHealthSnapshot()');
+supportGatewayHealthCheck(
+    str_contains($repoImplSource, "where('status', 'pending')->where('attempts', 0)->count()")
+    && str_contains($repoImplSource, "where('status', 'pending')->where('attempts', '>', 0)->count()"),
+    'queueHealthSnapshot() must distinguish fresh pending (attempts=0) from retrying (attempts>0) via real, separate count queries, never a single ambiguous count'
+);
+supportGatewayHealthCheck(str_contains($repoImplSource, "groupBy('last_error_code')"), 'queueHealthSnapshot() must aggregate dead-letter error codes via a real GROUP BY, never hardcode a fabricated breakdown');
+
+$pluginQueueHealthMethodStart = strpos($pluginSource, 'function supportGatewayHealthSummary(');
+$pluginQueueHealthMethodBody = substr($pluginSource, $pluginQueueHealthMethodStart, (int) strpos($pluginSource, "\n    }\n", $pluginQueueHealthMethodStart) - $pluginQueueHealthMethodStart);
+supportGatewayHealthCheck(str_contains($pluginQueueHealthMethodBody, 'EventQueueHealthReport::fromSnapshot($queueRepo->queueHealthSnapshot('), 'the gathering method must build the real EventQueueHealthReport from the repository\'s real snapshot, never fabricate one inline');
 
 fwrite(STDOUT, "Support Gateway health tests passed\n");

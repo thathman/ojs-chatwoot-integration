@@ -37,6 +37,15 @@ msgstr "Pending event-queue entries:"
 msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterCount"
 msgstr "Failed event-queue entries (dead letters):"
 
+msgid "plugins.generic.chatwootIntegration.settings.health.retryingEventCount"
+msgstr "Retrying event-queue entries (failed at least once, backing off):"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.oldestPendingAge"
+msgstr "Oldest pending event age:"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode"
+msgstr "Dead letters with error code \"%errorCode%\": %count%"
+
 msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLettersDescription"
 msgstr "These events exhausted their delivery attempts and are no longer retried automatically. Use this to reset them back to pending for a fresh retry (up to 50 at a time)."
 

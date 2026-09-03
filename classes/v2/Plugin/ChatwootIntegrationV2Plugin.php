@@ -51,6 +51,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventMessage
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\EscalationIdempotencyGuard;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Handoff\HandoffSummaryFormatter;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Health\EventQueueHealthReport;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthAggregator;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\SupportGatewayHealthSummary;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\JsonRequestBodyParser;
@@ -2467,13 +2468,16 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
 
             $deadLetterCount = 0;
             $pendingEventCount = 0;
+            $queueHealth = null;
             try {
                 $queueRepo = new DatabaseSupportEventQueueRepository();
                 $deadLetterCount = $queueRepo->countByStatus('failed');
                 $pendingEventCount = $queueRepo->countByStatus('pending');
+                $queueHealth = EventQueueHealthReport::fromSnapshot($queueRepo->queueHealthSnapshot(time()));
             } catch (\Throwable $e) {
                 $deadLetterCount = 0;
                 $pendingEventCount = 0;
+                $queueHealth = null;
             }
 
             return SupportGatewayHealthAggregator::build(
@@ -2485,7 +2489,8 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
                 $captainHealth,
                 $paymentProviderHealth,
                 $deadLetterCount,
-                $pendingEventCount
+                $pendingEventCount,
+                $queueHealth
             );
         } catch (\Throwable $e) {
             return null;
