@@ -137,13 +137,11 @@ namespace {
 
     // --- The limit parameter must cap real per-call processing ---
     // Seeded directly via the real enqueueApiJob() (not dispatchEvent()):
-    // dispatchEvent() itself opportunistically drains the queue on every
-    // call (its own real first line is processApiQueue($contextId, 4)) —
-    // a real, worth-knowing behavior in its own right (every new event
-    // gives already-queued jobs from earlier a free extra retry attempt),
-    // but it would make three separate dispatchEvent() calls interleave
-    // their own queue-draining side effects, which is not what this
-    // specific assertion (the $limit parameter itself) is isolating.
+    // HAR-012 removed dispatchEvent()'s own opportunistic queue drain
+    // (it used to unconditionally call processApiQueue($contextId, 4)
+    // on every call) — ProcessLegacyRetryQueueScheduledTask is now the
+    // sole reliable drain path, so seeding via enqueueApiJob() directly
+    // keeps this assertion isolated to the $limit parameter alone.
     $enqueueApiJob = new \ReflectionMethod($plugin, 'enqueueApiJob');
     $plugin->updateSetting($contextId, 'apiQueue', '', 'string');
     $enqueueApiJob->invoke($plugin, $contextId, 'conversation_event', ['email' => 'a@example.com']);
