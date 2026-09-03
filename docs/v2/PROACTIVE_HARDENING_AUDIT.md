@@ -169,15 +169,13 @@ Required:
 
 ## Product/operational semantics
 
-### HAR-017 — MUST FIX — optional modules must not make the whole product “degraded” merely because unused
+### HAR-017 — PARTIALLY FIXED (PR #221) — optional modules must not make the whole product “degraded” merely because unused
 
-`SupportGatewayHealthAggregator` currently degrades overall state when Support API, MCP or verification is not configured, without first establishing whether that module is intentionally enabled/required. `chatwootConfigured` is also primarily a configuration fact, not proof of live health.
+Original source: `SupportGatewayHealthAggregator` degraded overall state whenever Support API, MCP, or verification was unconfigured — but none of the three has a separate "intended to be used" setting distinct from the credential itself, so an install that simply never opted into an optional module was permanently stuck at "degraded." The exact false-positive Captain's own `not_provisioned`-is-neutral precedent, in this same aggregator, already guards against.
 
-Required:
-- module state: enabled/required vs optional/off;
-- configured vs last verified healthy vs stale/not checked vs failed;
-- health actions/timestamps and safe reason codes;
-- the Overview redesign must not punish intentional feature selection.
+Fixed by removing the three `*Configured` flags from the degraded-state computation; they remain exposed on `SupportGatewayHealthSummary`/`toArray()` so the Overview UI can still show each module's own configuration state. `tests/v2/support-gateway-health.php` proves the three previously-"must degrade" cases now resolve healthy. This is unit-level evidence of the aggregator's pure decision logic (the entire bug and fix), not a live-browser Overview check — live acceptance of the Settings Console Overview tab remains blocked by the pre-existing AJDSI theme override (see AUD-011/PR #195), same limitation already recorded for ADM-008/ADM-009.
+
+Not yet done: `chatwootConfigured`'s own "configuration fact vs proof of live health" gap, and the audit's fuller module-state model (configured vs last-verified-healthy vs stale vs failed, with health actions/timestamps/reason codes) — deferred as separate, larger follow-up work.
 
 ### HAR-018 — MUST FIX (one item closed) — settings semantics must match runtime
 
