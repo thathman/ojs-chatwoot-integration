@@ -61,15 +61,13 @@ Current `requestJson()` collapses Guzzle failures to a message string and many c
 
 ## Identity, privacy and cross-journal safety
 
-### HAR-006 — MUST FIX — resource-aware reviewer masking must be consistent across widget and bind
+### HAR-006 — FIXED (PR #215) — resource-aware reviewer masking must be consistent across widget and bind
 
-The widget path now uses `ReviewerMaskingPolicy`, but `bindSupportSessionRequest()` still computes the expected Chatwoot identifier from `enablePrivacyMode && has Reviewer journal role`. This reintroduces the old role-wide logic in a second security-sensitive path and can make widget identity projection and binding disagree for multi-role users.
+The widget path used `ReviewerMaskingPolicy`, but `bindSupportSessionRequest()` still computed the expected Chatwoot identifier from `enablePrivacyMode && has Reviewer journal role`. This reintroduced the old role-wide logic in a second security-sensitive path and could make widget identity projection and binding disagree for multi-role users.
 
-Required:
-- one shared masking/identity-projection service used by widget and bind;
-- live current-resource relationship evidence where resource-specific masking applies;
-- blind-review protection must not depend on an administrator disabling/enabling a generic “Privacy Mode” toggle;
-- multi-role author-on-A/reviewer-on-B browser + bind acceptance.
+Fixed: both call sites now go through one new shared method, `ChatwootIntegrationBasePlugin::resolveReviewerMasking()` — the widget's own previous inline `ReviewerMaskingPolicy` construction was removed and replaced with a call to it, and bind's `enablePrivacyMode && in_array(Role::ROLE_ID_REVIEWER, ...)` check was replaced with the same call, reusing its own already-resolved `SupportContext` so it can never disagree with what the widget rendered for the same page. `tests/v2/har-006-shared-reviewer-masking.php` proves both real call sites use the shared method and the old role-wide check in bind is gone. Live-verified on dell: the branch was checked out directly, real frontend widget-path requests returned 200 with no new errors, and the shared method was confirmed present in the deployed source.
+
+Still open: the required "blind-review protection must not depend on a generic Privacy Mode toggle" item (a separate, larger product decision — see HAR-018's `enablePrivacyMode` note) and a real multi-role author-on-A/reviewer-on-B browser + bind acceptance walkthrough — the pure decision logic is proven (`tests/v2/pol-011-resource-aware-reviewer-masking.php`) and the two call sites are now provably consistent with each other, but an authenticated real-browser run through both paths for the exact same multi-role fixture has not been performed this session.
 
 ### HAR-007 — FIXED (PR #213) — ambiguous widget context must fail closed, not pick the first enabled journal
 
