@@ -206,10 +206,12 @@ namespace {
     $apiServiceSource = file_get_contents($root . '/ChatwootApiService.php');
     $listStart = strpos($apiServiceSource, 'function listCaptainAssistantResponses');
     kno011Check($listStart !== false, 'ChatwootApiService must implement listCaptainAssistantResponses()');
-    $listBody = substr($apiServiceSource, $listStart, 2200);
+    $listBody = substr($apiServiceSource, $listStart, 3200);
     kno011Check(!str_contains($listBody, "if (!\$result['ok']) return []"), 'listCaptainAssistantResponses() must never collapse a request failure to an empty array');
     kno011Check(str_contains($listBody, 'throw new \RuntimeException'), 'listCaptainAssistantResponses() must throw on a real request failure');
-    kno011Check(str_contains($listBody, 'total_count') && str_contains($listBody, 'count($payload)'), 'listCaptainAssistantResponses() must refuse to treat a partial/paginated page as the complete authoritative set');
+    kno011Check(str_contains($listBody, "'page' => \$page"), 'listCaptainAssistantResponses() must page through every page, not fetch page 1 only — confirmed live against support.airixmedia.com, whose real Captain assistant paginates 25-per-page across 209 total rows');
+    kno011Check(str_contains($listBody, 'total_count') && str_contains($listBody, 'count($all) < $totalCount'), 'listCaptainAssistantResponses() must keep fetching until the accumulated count reaches the real total, never stopping at the first page');
+    kno011Check(str_contains($listBody, 'maxPages') && str_contains($listBody, 'refusing to treat it as the complete set'), 'an incomplete pagination walk (hit the page cap before reaching total_count) must throw rather than silently return a truncated set');
 
     // ================================================================
     // Part 4: wiring — kernel registration, plugin entry point, scheduled task.
