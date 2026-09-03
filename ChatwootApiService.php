@@ -12,6 +12,14 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
     private string $baseUrl;
     private string $apiAccessToken;
     private int $accountId;
+    /**
+     * HAR-001: whether $accountId reflects a real, confirmed account
+     * (resolved from a real /profile response, or explicitly set by a
+     * caller) rather than the unconfirmed default. Every account-scoped
+     * request (accounts/{id}/...) refuses to run while this is false —
+     * see requestJson()'s own guard — rather than silently guessing.
+     */
+    private bool $accountResolved = false;
 
     public function __construct($baseUrl, $apiAccessToken) {
         $this->baseUrl = rtrim($baseUrl, '/');
@@ -31,8 +39,10 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
     }
 
     public function getBaseUrl(): string { return $this->baseUrl; }
-    public function setAccountId($id): void { $this->accountId = (int) $id; }
+    public function setAccountId($id): void { $this->accountId = (int) $id; $this->accountResolved = true; }
     public function getAccountId(): int { return $this->accountId; }
+    /** HAR-001: true only once $accountId reflects a real, confirmed account. */
+    public function isAccountResolved(): bool { return $this->accountResolved; }
 
     public function checkSdkReachable(): bool {
         $sdkClient = new Client(['timeout' => 8, 'connect_timeout' => 4]);
@@ -71,13 +81,22 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
     private function resolveAccountId(): void {
         try {
             $profile = $this->getProfile();
-            if (!empty($profile['account_id'])) $this->accountId = (int) $profile['account_id'];
+            if (!empty($profile['account_id'])) {
+                $this->accountId = (int) $profile['account_id'];
+                $this->accountResolved = true;
+            }
         } catch (\Throwable $e) {
-            // Keep default account ID fallback.
+            // HAR-001: account resolution failed — $accountResolved stays
+            // false. Do not fall through and silently operate against the
+            // unconfirmed default account ID; requestJson() below refuses
+            // every accounts/{id}/... call until an account is confirmed.
         }
     }
 
     private function requestJson(string $method, string $uri, array $options = []): array {
+        if (!$this->accountResolved && str_starts_with($uri, 'accounts/')) {
+            return ['ok' => false, 'error' => 'Chatwoot account could not be confirmed; refusing to operate against an unresolved account ID (HAR-001).'];
+        }
         try {
             $response = $this->client->request($method, $uri, $options);
             $body = (string) $response->getBody();
