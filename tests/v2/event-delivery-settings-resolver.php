@@ -9,6 +9,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 
 function eventDeliverySettingsResolverCheck(bool $condition, string $message): void
 {
@@ -102,8 +103,14 @@ $methodBody = substr($pluginSource, $methodStart, (int) strpos($pluginSource, "\
 eventDeliverySettingsResolverCheck(str_contains($methodBody, "'eventDeliveryGlobalMode'") && str_contains($methodBody, "'eventDeliveryCustomerMessageConsent'") && str_contains($methodBody, "'eventDeliveryPerEventOverridesJson'"), 'v2EnqueueEvent() must read all three real new settings');
 eventDeliverySettingsResolverCheck(str_contains($methodBody, 'EventDeliverySettingsResolver::resolveGlobalMode(') && str_contains($methodBody, 'EventDeliverySettingsResolver::parsePerEventOverrides('), 'v2EnqueueEvent() must resolve both the global mode and the per-event overrides through the real resolver, never bypass the consent gate');
 
+// UX-024: ChatwootSettingsForm no longer hardcodes any key list — it
+// iterates SettingsRegistry::keys() directly, so "the form reads/saves
+// this key" is now proven by the key being a real registry entry.
 $formSource = (string) file_get_contents($root . '/ChatwootSettingsForm.php');
-eventDeliverySettingsResolverCheck(str_contains($formSource, "'eventDeliveryGlobalMode'") && str_contains($formSource, "'eventDeliveryCustomerMessageConsent'") && str_contains($formSource, "'eventDeliveryPerEventOverridesJson'"), 'the settings form must read/save all three real new settings');
+eventDeliverySettingsResolverCheck(substr_count($formSource, 'SettingsRegistry::keys()') >= 3, 'the settings form must iterate SettingsRegistry::keys() in initData()/readInputData()/execute()');
+foreach (['eventDeliveryGlobalMode', 'eventDeliveryCustomerMessageConsent', 'eventDeliveryPerEventOverridesJson'] as $key) {
+    eventDeliverySettingsResolverCheck(in_array($key, SettingsRegistry::keys(), true), "SettingsRegistry must declare the real new setting '{$key}' — otherwise the settings form has no way to read/save it");
+}
 
 $templateSource = (string) file_get_contents($root . '/templates/settingsForm.tpl');
 eventDeliverySettingsResolverCheck(str_contains($templateSource, 'id="eventDeliveryGlobalMode"') && str_contains($templateSource, 'id="eventDeliveryCustomerMessageConsent"') && str_contains($templateSource, 'id="eventDeliveryPerEventOverridesJson"'), 'the template must render real form fields for all three new settings');

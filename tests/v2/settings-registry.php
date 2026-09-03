@@ -108,19 +108,19 @@ namespace {
     settingsRegistryCheck(str_contains($legacyExportKeysBody, 'SettingsRegistry::exportableKeys()'), 'legacyExportKeys() must delegate to SettingsRegistry::exportableKeys() — drift');
 
     // ================================================================
-    // Part 4: registry secret keys must agree with ChatwootSettingsForm::SECRET_KEYS.
+    // Part 4: ChatwootSettingsForm::secretKeys() must delegate directly
+    // to the registry, and initData()/readInputData()/execute() must
+    // all be driven by SettingsRegistry::keys() (no separate hand-
+    // maintained key lists or role loops left).
     // ================================================================
     $formSource = (string) file_get_contents("{$root}/ChatwootSettingsForm.php");
-    $secretKeysStart = strpos($formSource, 'SECRET_KEYS = [');
-    settingsRegistryCheck($secretKeysStart !== false, 'ChatwootSettingsForm must still declare SECRET_KEYS');
-    $secretKeysBlock = substr($formSource, $secretKeysStart, (int) strpos($formSource, '];', $secretKeysStart) - $secretKeysStart);
-    preg_match_all("/'([a-zA-Z0-9_]+)'/", $secretKeysBlock, $matches);
-    $formSecretKeys = $matches[1];
+    settingsRegistryCheck(!str_contains($formSource, 'private const SECRET_KEYS'), 'ChatwootSettingsForm must no longer maintain its own SECRET_KEYS list');
+    $formSecretKeysStart = strpos($formSource, 'function secretKeys()');
+    settingsRegistryCheck($formSecretKeysStart !== false, 'ChatwootSettingsForm must declare secretKeys()');
+    settingsRegistryCheck(str_contains(substr($formSource, $formSecretKeysStart, 150), 'SettingsRegistry::secretKeys()'), 'ChatwootSettingsForm::secretKeys() must delegate to SettingsRegistry::secretKeys() — drift');
 
-    sort($formSecretKeys);
-    $registrySecretKeys = SettingsRegistry::secretKeys();
-    sort($registrySecretKeys);
-    settingsRegistryCheck($formSecretKeys === $registrySecretKeys, 'ChatwootSettingsForm::SECRET_KEYS and SettingsRegistry::secretKeys() must be exactly the same set — drift');
+    settingsRegistryCheck(substr_count($formSource, 'SettingsRegistry::keys()') >= 3, 'initData()/readInputData()/execute() must all iterate SettingsRegistry::keys() directly, not a separately-maintained list');
+    settingsRegistryCheck(!str_contains($formSource, 'ROLE_ID_MANAGER'), 'ChatwootSettingsForm must no longer loop over Role::ROLE_ID_* separately — those keys are already in SettingsRegistry::keys()');
 
     // ================================================================
     // Part 4b: ExportPolicy::sensitiveKeys() now IS SettingsRegistry::secretKeys()

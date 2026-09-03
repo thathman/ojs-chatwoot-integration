@@ -33,22 +33,26 @@ $root = dirname(__DIR__, 2);
 require_once "{$root}/classes/v2/Settings/SettingDefinition.php";
 require_once "{$root}/classes/v2/Settings/SettingsRegistry.php";
 
+// UX-024: ChatwootSettingsForm's initData()/readInputData()/execute()
+// no longer hardcode any key list — they all iterate
+// SettingsRegistry::keys()/::type() directly, so chatwootCaptainAssistantId
+// being wired through the form lifecycle is now proven by it being a
+// real registry entry with the right type/secret classification.
 $formSource = (string) file_get_contents("{$root}/ChatwootSettingsForm.php");
+tst022Check(!str_contains($formSource, 'private const SECRET_KEYS'), 'ChatwootSettingsForm must no longer maintain its own SECRET_KEYS list');
+tst022Check(substr_count($formSource, 'SettingsRegistry::keys()') >= 3, 'initData()/readInputData()/execute() must all iterate SettingsRegistry::keys() directly');
+
 tst022Check(
-    substr_count($formSource, "'chatwootCaptainAssistantId'") >= 3,
-    'chatwootCaptainAssistantId must appear in initData(), readInputData(), and the execute() settings-type map (at least 3 real occurrences)'
+    in_array('chatwootCaptainAssistantId', \APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry::keys(), true),
+    'chatwootCaptainAssistantId must be a real registry key, wired through the form lifecycle'
 );
 tst022Check(
-    str_contains($formSource, "'chatwootCaptainAssistantId' => 'int'"),
+    \APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry::type('chatwootCaptainAssistantId') === 'int',
     'chatwootCaptainAssistantId must be saved as an int, matching how the plugin reads it via (int) v2EffectiveSetting(...)'
 );
-$secretKeysStart = strpos($formSource, 'private const SECRET_KEYS');
-tst022Check($secretKeysStart !== false, 'ChatwootSettingsForm must declare SECRET_KEYS');
-$secretKeysEnd = strpos($formSource, '];', $secretKeysStart);
-$secretKeysBlock = substr($formSource, $secretKeysStart, $secretKeysEnd - $secretKeysStart);
 tst022Check(
-    !str_contains($secretKeysBlock, "'chatwootCaptainAssistantId'"),
-    'chatwootCaptainAssistantId is a public numeric ID, not a secret — must never be added to SECRET_KEYS (which would needlessly force re-entry on every save)'
+    !in_array('chatwootCaptainAssistantId', \APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry::secretKeys(), true),
+    'chatwootCaptainAssistantId is a public numeric ID, not a secret — must never be marked secret (which would needlessly force re-entry on every save)'
 );
 
 $templateSource = (string) file_get_contents("{$root}/templates/settingsForm.tpl");
