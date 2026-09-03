@@ -180,10 +180,10 @@ Required:
 - health actions/timestamps and safe reason codes;
 - the Overview redesign must not punish intentional feature selection.
 
-### HAR-018 — MUST FIX — settings semantics must match runtime
+### HAR-018 — MUST FIX (one item closed) — settings semantics must match runtime
 
 Confirmed/suspect examples to close during Settings Console work:
-- `skipBackendPages` is saved/exposed but the inspected widget injection path does not check it; prove/wire or remove it.
+- ~~`skipBackendPages` is saved/exposed but the inspected widget injection path does not check it; prove/wire or remove it.~~ **Fixed (PR #211).** Confirmed it was a genuine placebo — saved by the form, never read anywhere, and its companion `isBackendPage()` helper existed but was never called either. `addChatwootWidget()` now consults it via `getEffectiveSetting()` and calls `isBackendPage($requestedPage)` (the already-safely-resolved page string, not `$request` directly — avoids reintroducing TST-020's `PKPComponentRouter` crash), gated behind the same `$isPageRequest` guard `excludedPages` already uses. `tests/v2/har-018-skip-backend-pages.php` covers the real classification behavior and the wiring. Live-deployed to dell; the public frontend widget still injects normally (confirmed via a real page fetch), and backend pages are outside this session's live-browser reach (blocked by the same AJDSI theme constraint noted elsewhere) so the negative case (widget suppressed on a real `workflow`/`management` page) is structural/source-verified only, not yet browser-confirmed.
 - `enablePrivacyMode` is not a truthful label for general privacy and must not make blind-review safety optional.
 - Base URL + Website Token validation is unconditional despite the product now having non-widget modules.
 - `widgetSettingsJson` and per-event JSON are implementation details, not normal UX.
