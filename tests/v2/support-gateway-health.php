@@ -72,23 +72,41 @@ foreach ([ProviderHealth::DISABLED, ProviderHealth::NOT_INSTALLED, ProviderHealt
 }
 
 // ================================================================
-// Degraded signals: Knowledge degraded/empty, Captain degraded, a
-// missing (but not itself failed) credential, or accumulating dead
-// letters must each independently resolve to degraded, never healthy
-// and never a false failed.
+// Degraded signals: Knowledge degraded/empty, Captain degraded, or
+// accumulating dead letters must each independently resolve to
+// degraded, never healthy and never a false failed.
 // ================================================================
 $degradedCases = [
     'Knowledge degraded' => [true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_DEGRADED), null, [], 0],
     'Knowledge empty' => [true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_EMPTY), null, [], 0],
     'Captain degraded' => [true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), fixtureCaptainHealth(CaptainProvisioningHealthReport::STATE_DEGRADED), [], 0],
-    'Support API not configured' => [true, false, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), null, [], 0],
-    'MCP not configured' => [true, true, false, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), null, [], 0],
-    'verification not configured' => [true, true, true, false, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), null, [], 0],
     'dead letters accumulating' => [true, true, true, true, fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), null, [], 3],
 ];
 foreach ($degradedCases as $label => $args) {
     $summary = SupportGatewayHealthAggregator::build(...$args);
     supportGatewayHealthCheck($summary->overallState() === SupportGatewayHealthSummary::STATE_DEGRADED, "case \"{$label}\" must resolve to degraded overall, never healthy and never failed");
+}
+
+// ================================================================
+// HAR-017: Support API, MCP, and verification are optional add-on
+// modules with no separate "intended to be used" setting distinct
+// from the credential itself. An install that simply never opted
+// into one of them must stay healthy overall, exactly like Captain's
+// not_provisioned precedent below — not_configured is not evidence
+// of a problem for an optional module.
+// ================================================================
+$optionalModuleCases = [
+    'Support API not configured' => [true, false, true, true],
+    'MCP not configured' => [true, true, false, true],
+    'verification not configured' => [true, true, true, false],
+    'all three not configured' => [true, false, false, false],
+];
+foreach ($optionalModuleCases as $label => $flags) {
+    $summary = SupportGatewayHealthAggregator::build(
+        ...$flags,
+        ...[fixtureKnowledgeHealth(KnowledgeHealthReport::STATE_HEALTHY), fixtureCaptainHealth(CaptainProvisioningHealthReport::STATE_HEALTHY), [], 0]
+    );
+    supportGatewayHealthCheck($summary->overallState() === SupportGatewayHealthSummary::STATE_HEALTHY, "case \"{$label}\" must never drag overall state down — an optional, never-opted-into module is not a problem");
 }
 
 // ================================================================
