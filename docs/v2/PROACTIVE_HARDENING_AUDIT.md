@@ -115,19 +115,17 @@ Required:
 
 ## Legacy architecture retirement
 
-### HAR-012 — MUST FIX — finish retiring `apiQueue` and its incidental drain points
+### HAR-012 — PARTIALLY FIXED (PR #223) — finish retiring `apiQueue` and its incidental drain points
 
-All eight known Event Bridge event types are now live-owned by v2, but the legacy `apiQueue` remains scheduled through `ProcessLegacyRetryQueueScheduledTask`. Source comments confirm additional drain points still exist in `dispatchEvent()` and `syncEmailTemplates()`.
+Original source: all eight known Event Bridge event types are now live-owned by v2, but the legacy `apiQueue` remained scheduled through `ProcessLegacyRetryQueueScheduledTask`, and additional opportunistic drain points existed in `dispatchEvent()` and `syncEmailTemplates()`.
 
-Also, normal settings still expose `retryQueueEnabled`/`maxRetryAttempts`, while v2 event delivery currently hardcodes its own attempt ceiling. An administrator can reasonably believe those fields tune the current queue when they mostly tune the legacy path.
+**Closed by PR #223** (one of five required items — "remove opportunistic drains"): confirmed via `isLiveDeliveryOwnedByV2()` that all 8 real event-setting keys now return `true`, meaning every `dispatchEvent()` call site inside the four v1 event handlers (`handleSubmissionCreated`, `handleEditorDecision`, `handleSubmissionStatusUpdated`, `handlePublicationPublished`) is unreachable dead code — `dispatchEvent()`'s only live caller left is the deliberate, rare "Send Test Message" admin action. Removed its unconditional `processApiQueue($contextId, 4)` opportunistic drain accordingly; `ProcessLegacyRetryQueueScheduledTask` is now the sole reliable drain path. `tests/v2/har-012-no-opportunistic-drain-in-dispatch.php` proves the call is gone and that a queued job is untouched by a second, unrelated `dispatchEvent()` call.
 
-Required:
-- inventory remaining legitimate producers (notably legacy Test Message / canned-response sync);
-- migrate or replace them with explicit v2 operations;
-- remove opportunistic drains;
-- drain/retire old rows safely;
-- remove/deprecate legacy queue settings and scheduled task once no producer remains;
-- preserve a bounded compatibility drain only as long as required by real upgrade evidence.
+**Still open** (the other four required items):
+- inventory/migrate the two remaining legitimate producers (Send Test Message, `syncEmailTemplates()`'s canned-response sync) to explicit v2 operations — both still use the legacy `apiQueue`/`enqueueApiJob()` path;
+- `syncEmailTemplates()`'s own `processApiQueue($contextId, 8)` drain is a second opportunistic drain site, not yet addressed (kept for now since it is at least tied to a deliberate admin action, same reasoning as Send Test Message, but not itself required infrastructure);
+- drain/retire old rows safely and remove/deprecate the legacy queue settings (`retryQueueEnabled`/`maxRetryAttempts`) and scheduled task once no producer remains — requires the producer migration above first;
+- the settings-semantics ambiguity HAR-012 names (administrators reasonably believing `retryQueueEnabled`/`maxRetryAttempts` tune the current, not legacy, queue) is unresolved.
 
 ### HAR-013 — MUST FIX — “Sync Email Templates” is too broad and misleading
 
