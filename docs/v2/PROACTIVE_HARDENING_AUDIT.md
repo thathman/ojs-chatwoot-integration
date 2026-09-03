@@ -38,14 +38,13 @@ Required:
 - no create/delete/replace decisions from partial or failed lists;
 - tests for zero rows vs failure vs second/later page.
 
-### HAR-003 — MUST FIX — scope existing-conversation selection to the configured OJS inbox
+### HAR-003 — FIXED (PR #219) — scope existing-conversation selection to the configured OJS inbox
 
-Current event delivery calls `getContactConversations()` and then uses `conversations[0]` without proving the conversation belongs to `chatwootInboxId`. A Chatwoot contact may have conversations in multiple inboxes/channels. OJS events/private notes/customer-visible messages must never land in an unrelated WhatsApp/email/other Website inbox merely because it is first in the returned array.
+Original source: event delivery (`sendChatwootEvent()` and the v2 event-delivery path) called `getContactConversations()` and then used `conversations[0]` without proving the conversation belonged to `chatwootInboxId`. A Chatwoot contact may have conversations in multiple inboxes/channels (WhatsApp, email, another website) — an OJS event/private note/customer-visible message could silently land in an unrelated one.
 
-Required:
-- deterministic configured-inbox selection;
-- fail closed when no matching conversation exists unless the selected delivery mode explicitly permits creating one;
-- real multi-inbox/contact acceptance.
+Fixed via a shared `ChatwootIntegrationBasePlugin::selectConversationForInbox(array $conversations, int $inboxId): ?array` used by both call sites: requires `inbox_id === $inboxId` before a conversation is used; returns `null` (fail closed, no fallback to `conversations[0]`) when the inbox is unconfigured or no conversation matches, letting callers fall through to their existing create-new-conversation branch where the delivery mode permits it. `tests/v2/har-003-conversation-inbox-scoping.php` proves the selector's behavior against multi-inbox conversation arrays and that both real call sites now use it — no remaining `conversations[0]` reference in either file.
+
+Not yet done: the audit's "real multi-inbox/contact acceptance" against Chatwoot's real API remains unexercised beyond this unit-level proof (a real contact with conversations in two real distinct inboxes) — deferred as lower priority since the fail-closed behavior itself already removes the cross-inbox leak regardless of live acceptance.
 
 ### HAR-004 — MUST FIX — external side-effect idempotency under uncertain HTTP outcomes
 
