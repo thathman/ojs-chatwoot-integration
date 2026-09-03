@@ -11,25 +11,21 @@ namespace APP\plugins\generic\chatwootIntegration\classes\v2\Settings;
  */
 final class ExportPolicy
 {
-    /** @var string[] */
-    private const SENSITIVE_KEYS = [
-        'chatwootApiAccessToken',
-        'chatwootIdentityValidationSecret',
-        'chatwootSupportApiToken',
-        'mcpServiceToken',
-    ];
-
     /**
+     * UX-024: sourced from the canonical SettingsRegistry instead of its
+     * own independently-maintained key list — tests/v2/settings-registry.php
+     * proves this agrees with every other secret-key list in the plugin.
+     *
      * @return string[]
      */
     public static function sensitiveKeys(): array
     {
-        return self::SENSITIVE_KEYS;
+        return SettingsRegistry::secretKeys();
     }
 
     public static function isSensitive(string $key): bool
     {
-        return in_array($key, self::SENSITIVE_KEYS, true);
+        return in_array($key, self::sensitiveKeys(), true);
     }
 
     /**
