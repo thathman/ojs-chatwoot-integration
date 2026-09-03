@@ -76,4 +76,18 @@ interface ChatwootCaptainClientInterface
 
     /** @param array<string,mixed> $definition Same shape as createCaptainScenario(). */
     public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool;
+
+    /**
+     * KNO-011: real, filterable `GET .../captain/assistant_responses?assistant_id=X`
+     * endpoint (verified against `chatwoot/chatwoot` `develop`,
+     * `config/routes.rb`'s `namespace :captain do resources
+     * :assistant_responses ... end`). Every `Captain::AssistantResponse`
+     * row *is* an approved FAQ by construction — the model has no other
+     * status (`enum status: { approved: 1 }`); the open/dismissed review
+     * lifecycle lives entirely on the separate `Captain::FaqSuggestion`,
+     * never returned here.
+     *
+     * @return array<int,array{id:int|string,question:string,answer:string}>
+     */
+    public function listCaptainAssistantResponses(int $assistantId): array;
 }

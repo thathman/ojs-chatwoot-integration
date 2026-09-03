@@ -152,6 +152,11 @@ final class RealHttpCaptainClient implements ChatwootCaptainClientInterface
     {
         return $this->post("/assistants/{$assistantId}/scenarios/{$scenarioId}", $definition) !== null;
     }
+
+    public function listCaptainAssistantResponses(int $assistantId): array
+    {
+        return $this->get("/assistant_responses?assistant_id={$assistantId}") ?? [];
+    }
 }
 
 function tst016Compilation(int $contextId, string $locale, string $fingerprint): KnowledgeCompilation

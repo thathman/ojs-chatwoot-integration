@@ -261,4 +261,14 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         ]);
         return (bool) $result['ok'];
     }
+
+    public function listCaptainAssistantResponses(int $assistantId): array {
+        $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistant_responses", [
+            'query' => ['assistant_id' => $assistantId],
+        ]);
+        if (!$result['ok']) return [];
+        $data = $result['data'] ?? [];
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        return array_values(array_filter($payload, 'is_array'));
+    }
 }

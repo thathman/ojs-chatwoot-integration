@@ -8,6 +8,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\OjsCompatibilityAdapterInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\AccountsKnowledgeProvider;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\ApprovedFaqKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePaymentKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePublicationKnowledgeProvider;
@@ -15,6 +16,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompil
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthReport;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthService;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\DatabaseSupportFaqCacheRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\OfficialPageKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\AvailableActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;
@@ -62,6 +64,7 @@ final class SupportGatewayKernel
         $knowledgeCompiler->registerProvider(new CorePublicationKnowledgeProvider());
         $knowledgeCompiler->registerProvider(new OfficialPageKnowledgeProvider($adapter));
         $knowledgeCompiler->registerProvider(new AccountsKnowledgeProvider($adapter));
+        $knowledgeCompiler->registerProvider(new ApprovedFaqKnowledgeProvider(new DatabaseSupportFaqCacheRepository()));
 
         return new self(
             $ojsVersion,

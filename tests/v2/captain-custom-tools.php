@@ -89,6 +89,11 @@ final class FakeToolClient implements ChatwootCaptainClientInterface
     {
         return false;
     }
+
+    public function listCaptainAssistantResponses(int $assistantId): array
+    {
+        return [];
+    }
 }
 
 function operationUrlsFor(): array
