@@ -57,7 +57,7 @@ queuedEventDeliveryWiringCheck(str_contains($rowBody, "\$baseUrl === '' || \$api
 
 // EVT-013: opt-in customer message delivery.
 queuedEventDeliveryWiringCheck(str_contains($rowBody, 'EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE'), 'must handle the opt-in customer message delivery mode, not just private note/open-update');
-queuedEventDeliveryWiringCheck(str_contains($rowBody, 'createConversationMessage'), 'opt-in customer message delivery must use the real, distinct Chatwoot messages endpoint, never the private-only notes endpoint');
+queuedEventDeliveryWiringCheck(str_contains($rowBody, 'createConversationMessage'), 'opt-in customer message delivery must use the real Chatwoot messages endpoint with private=false, never createConversationNote()\'s private=true call');
 queuedEventDeliveryWiringCheck(
     (bool) preg_match('/createConversationMessage\(.*,\s*false\)/s', $rowBody),
     'opt-in customer message delivery must explicitly pass private=false — otherwise it would silently become just another private note'
@@ -69,7 +69,8 @@ queuedEventDeliveryWiringCheck(
 
 $chatwootApiServiceSource = (string) file_get_contents($root . '/ChatwootApiService.php');
 queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, 'function createConversationMessage'), 'ChatwootApiService must implement the real messages-endpoint method');
-queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, '/messages"'), 'createConversationMessage() must post to the real /messages endpoint, distinct from the /notes shortcut');
+queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, '/messages"'), 'createConversationMessage() must post to the real /messages endpoint');
+queuedEventDeliveryWiringCheck(!str_contains($chatwootApiServiceSource, '/notes"'), 'ChatwootApiService must never post to a /notes path — confirmed live against the real Chatwoot API that no such endpoint exists (real 404); private notes are /messages with private:true');
 queuedEventDeliveryWiringCheck(str_contains($chatwootApiServiceSource, "'private' => \$private"), 'createConversationMessage() must actually forward the private flag to Chatwoot, not hardcode it');
 
 // ================================================================

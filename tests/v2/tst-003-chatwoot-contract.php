@@ -50,7 +50,7 @@ $apiSource = (string) file_get_contents($root . '/ChatwootApiService.php');
 foreach ([
     "requestJson('GET', 'profile')",
     'accounts/{$this->accountId}/conversations/{$conversationDisplayId}',
-    'accounts/{$this->accountId}/conversations/{$conversationId}/notes',
+    "'json' => ['content' => \$content, 'private' => true]",
     "'api_access_token' => \$this->apiAccessToken",
     "'Content-Type' => 'application/json'",
 ] as $expected) {
@@ -126,8 +126,9 @@ if ($path === "/api/v1/profile") {
     echo json_encode(["account_id" => 99]);
 } elseif ($path === "/api/v1/accounts/99/conversations/456") {
     echo json_encode(["id" => 456, "meta" => ["hmac_verified" => true]]);
-} elseif ($path === "/api/v1/accounts/99/conversations/456/notes" && $_SERVER["REQUEST_METHOD"] === "POST") {
-    echo json_encode(["id" => 1, "content" => json_decode($body, true)["content"] ?? null]);
+} elseif ($path === "/api/v1/accounts/99/conversations/456/messages" && $_SERVER["REQUEST_METHOD"] === "POST") {
+    $decodedBody = json_decode($body, true);
+    echo json_encode(["id" => 1, "content" => $decodedBody["content"] ?? null, "private" => $decodedBody["private"] ?? null]);
 } else {
     http_response_code(404);
     echo json_encode(["error" => "not_found"]);
@@ -178,15 +179,19 @@ try {
     // ============================================================
     // POST conversation note — exactly ChatwootApiService::
     // createConversationNote()'s call shape (used by the real
-    // support.escalate handoff).
+    // support.escalate handoff). A "private note" is not a distinct
+    // Chatwoot resource — confirmed live against
+    // https://support.airixmedia.com that /notes 404s for real; the
+    // real endpoint is /messages with private:true, same as any other
+    // message.
     // ============================================================
-    $noteResult = tst003Request($baseUrl . 'accounts/99/conversations/456/notes', 'POST', ['api_access_token' => 'test-token'], ['content' => 'A safe handoff summary.']);
+    $noteResult = tst003Request($baseUrl . 'accounts/99/conversations/456/messages', 'POST', ['api_access_token' => 'test-token'], ['content' => 'A safe handoff summary.', 'private' => true]);
     tst003Check($noteResult['ok'] === true, 'a real POST note request must succeed against the real mock server, mirroring createConversationNote()\'s own (bool) $result[\'ok\'] contract');
 
     $noteLogged = json_decode((string) file_get_contents($logFile), true);
-    tst003Check($noteLogged['method'] === 'POST' && str_contains((string) $noteLogged['uri'], '/notes'), 'the real server must have actually received a real POST to the /notes path');
+    tst003Check($noteLogged['method'] === 'POST' && str_contains((string) $noteLogged['uri'], '/messages'), 'the real server must have actually received a real POST to the /messages path — there is no real /notes endpoint');
     $noteBody = json_decode((string) $noteLogged['body'], true);
-    tst003Check(($noteBody['content'] ?? null) === 'A safe handoff summary.', 'the real server must have received exactly the JSON body shape createConversationNote() sends ({"content": ...}), on the real wire');
+    tst003Check(($noteBody['content'] ?? null) === 'A safe handoff summary.' && ($noteBody['private'] ?? null) === true, 'the real server must have received exactly the JSON body shape createConversationNote() sends ({"content": ..., "private": true}), on the real wire');
 } finally {
     proc_terminate($process);
     proc_close($process);
