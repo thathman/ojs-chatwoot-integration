@@ -550,18 +550,25 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         SupportEventType::SUBMISSION_CREATED,
         SupportEventType::SUBMISSION_REVIEW_SUBMITTED,
         SupportEventType::SUBMISSION_DECISION_RECORDED,
+        SupportEventType::SUBMISSION_REVISION_REQUESTED,
     ];
 
     /**
      * EVT-017/EVT-020: the live-delivery ownership switch itself.
-     * `eventSubmissionCreated` (EVT-017) and `eventDecisionRecorded`
-     * (EVT-020) have been transferred so far; the remaining 5 v1-owned
-     * event-setting keys stay v1-owned until each gets its own
-     * deliberate, reviewed transfer here.
+     * `eventSubmissionCreated` (EVT-017), `eventDecisionRecorded` and
+     * `eventRevisionRequested` (EVT-020) have been transferred so far;
+     * the remaining 4 v1-owned event-setting keys stay v1-owned until
+     * each gets its own deliberate, reviewed transfer here.
+     * `eventRevisionRequested` needed no new guard code — it flows
+     * through the same `handleEditorDecision()` check the #179 fix
+     * already keys on `$eventKey` (`mapDecisionEventKey()` returns
+     * `'eventRevisionRequested'` for the real revision-decision codes),
+     * so adding it here and to `LIVE_DELIVERY_ALLOWLIST` is the entire
+     * change.
      */
     protected function isLiveDeliveryOwnedByV2(string $eventSettingKey): bool
     {
-        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded'], true);
+        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested'], true);
     }
 
     /** @param array<string,mixed> $row */

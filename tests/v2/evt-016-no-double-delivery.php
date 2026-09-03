@@ -172,7 +172,7 @@ namespace {
             'resource_id' => 101,
         ];
 
-        if (in_array($eventType, [SupportEventType::SUBMISSION_CREATED, SupportEventType::SUBMISSION_REVIEW_SUBMITTED, SupportEventType::SUBMISSION_DECISION_RECORDED], true)) {
+        if (in_array($eventType, [SupportEventType::SUBMISSION_CREATED, SupportEventType::SUBMISSION_REVIEW_SUBMITTED, SupportEventType::SUBMISSION_DECISION_RECORDED, SupportEventType::SUBMISSION_REVISION_REQUESTED], true)) {
             $threw = false;
             try {
                 $method->invoke($plugin, null, $row);
@@ -181,7 +181,7 @@ namespace {
             }
             evt016Check(
                 $threw,
-                "event type '{$eventType}' is one of the three transferred/allowlisted types — it must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
+                "event type '{$eventType}' is one of the four transferred/allowlisted types — it must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
             );
             continue;
         }
@@ -193,7 +193,7 @@ namespace {
         );
     }
 
-    // The allowlist must currently contain exactly these three types —
+    // The allowlist must currently contain exactly these four types —
     // the moment any further type is added, it must be a deliberate,
     // reviewed decision (a real code change to this constant), never
     // silently reintroduced.
@@ -203,27 +203,25 @@ namespace {
     $allowlistBlock = substr($pluginSource, $allowlistStart, (int) strpos($pluginSource, '];', $allowlistStart) - $allowlistStart);
     $allowlistNormalized = trim(str_replace(['LIVE_DELIVERY_ALLOWLIST = [', "\n", ' ', ','], ['', '', '', ''], $allowlistBlock));
     evt016Check(
-        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATEDSupportEventType::SUBMISSION_REVIEW_SUBMITTEDSupportEventType::SUBMISSION_DECISION_RECORDED',
-        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly SUBMISSION_CREATED (EVT-017), SUBMISSION_REVIEW_SUBMITTED (EVT-020), and SUBMISSION_DECISION_RECORDED (EVT-020) and nothing else, got: ' . $allowlistNormalized
+        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATEDSupportEventType::SUBMISSION_REVIEW_SUBMITTEDSupportEventType::SUBMISSION_DECISION_RECORDEDSupportEventType::SUBMISSION_REVISION_REQUESTED',
+        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly SUBMISSION_CREATED (EVT-017), SUBMISSION_REVIEW_SUBMITTED, SUBMISSION_DECISION_RECORDED and SUBMISSION_REVISION_REQUESTED (EVT-020) and nothing else, got: ' . $allowlistNormalized
     );
 
     // Ownership-switch parity: the base plugin's per-type gate must agree
-    // with the allowlist exactly — SUBMISSION_CREATED and
-    // DECISION_RECORDED transferred, every other real event-setting key
-    // still v1-owned.
+    // with the allowlist exactly — SUBMISSION_CREATED, DECISION_RECORDED
+    // and REVISION_REQUESTED transferred, every other real event-setting
+    // key still v1-owned.
     $ownershipMethod = new \ReflectionMethod($plugin, 'isLiveDeliveryOwnedByV2');
-    evt016Check(
-        $ownershipMethod->invoke($plugin, 'eventSubmissionCreated') === true,
-        'isLiveDeliveryOwnedByV2() must return true for eventSubmissionCreated now that EVT-017 transferred it'
-    );
-    evt016Check(
-        $ownershipMethod->invoke($plugin, 'eventDecisionRecorded') === true,
-        'isLiveDeliveryOwnedByV2() must return true for eventDecisionRecorded now that EVT-020 transferred it'
-    );
-    foreach (['eventRevisionRequested', 'eventAccepted', 'eventRejected', 'eventPublicationScheduled', 'eventPublicationPublished'] as $stillV1Owned) {
+    foreach (['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested'] as $transferred) {
+        evt016Check(
+            $ownershipMethod->invoke($plugin, $transferred) === true,
+            "isLiveDeliveryOwnedByV2() must return true for '{$transferred}' now that it has been transferred"
+        );
+    }
+    foreach (['eventAccepted', 'eventRejected', 'eventPublicationScheduled', 'eventPublicationPublished'] as $stillV1Owned) {
         evt016Check(
             $ownershipMethod->invoke($plugin, $stillV1Owned) === false,
-            "isLiveDeliveryOwnedByV2() must still return false for '{$stillV1Owned}' — only eventSubmissionCreated has been transferred so far"
+            "isLiveDeliveryOwnedByV2() must still return false for '{$stillV1Owned}' — not yet transferred"
         );
     }
 
