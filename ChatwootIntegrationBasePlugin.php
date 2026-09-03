@@ -405,8 +405,20 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         return null;
     }
 
+    /**
+     * HAR-012: all eight real event types are now live-owned by v2
+     * (ChatwootIntegrationV2Plugin::isLiveDeliveryOwnedByV2() returns
+     * true for every one of them), so this method's only remaining
+     * live caller is sendTestMessage() — a deliberate, rare admin
+     * action, never a real event occurrence. It used to also
+     * opportunistically drain the legacy queue on every call
+     * (`processApiQueue($contextId, 4)`), which the audit named as one
+     * of exactly two sanctioned drain sites; since real events no
+     * longer reach this method at all, that drain no longer belongs
+     * here — ProcessLegacyRetryQueueScheduledTask is now the sole
+     * reliable drain path for anything this enqueues.
+     */
     private function dispatchEvent(int $contextId, array $payload, bool $forceQueue = false): bool {
-        $this->processApiQueue($contextId, 4);
         if (!$forceQueue && $this->sendChatwootEvent($contextId, $payload)) return true;
         if ($this->isRetryQueueEnabled($contextId)) { $this->enqueueApiJob($contextId, 'conversation_event', $payload); return true; }
         return false;
@@ -467,13 +479,16 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
     }
 
     /**
-     * EVT-018: public entry point for the scheduled retry-queue consumer
-     * (ProcessLegacyRetryQueueScheduledTask) — the legacy `apiQueue`'s
-     * only remaining opportunistic drain sites are real event occurrences
-     * (dispatchEvent()) and the explicit "Sync Email Templates" admin
-     * action; this scheduled task is now the reliable, bounded path so
-     * retry delivery does not stall for low-traffic journals between
-     * those events.
+     * EVT-018/HAR-012: public entry point for the scheduled retry-queue
+     * consumer (ProcessLegacyRetryQueueScheduledTask) — this is now the
+     * legacy `apiQueue`'s sole reliable drain path. dispatchEvent() no
+     * longer opportunistically drains on every call (removed, HAR-012:
+     * all real event occurrences are v2-owned, so dispatchEvent() is
+     * only ever reached via the deliberate, rare Send Test Message
+     * admin action); the explicit "Sync Email Templates" admin action
+     * still drains a small batch itself, which remains acceptable
+     * since it is an equally deliberate admin-initiated action, not an
+     * incidental side effect of unrelated work.
      */
     public function processQueuedApiJobsForContext(int $contextId, int $limit = 20): void {
         $this->processApiQueue($contextId, $limit);
@@ -607,13 +622,14 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
         $contextId = (int) $context->getId();
         if (!$this->getEnabled($contextId) && !$this->getEnabled()) return false;
-        // EVT-018 (CRITICAL): this hook fires on every TemplateManager::
-        // display/fetch site-wide — it must never perform a network/queue
-        // side effect during template rendering. Retry-queue processing
-        // now belongs solely to ProcessLegacyRetryQueueScheduledTask
-        // (scheduler-only), dispatchEvent()'s own opportunistic drain on a
-        // real event occurrence, and the explicit "Sync Email Templates"
-        // admin action — never an arbitrary page render.
+        // EVT-018/HAR-012 (CRITICAL): this hook fires on every
+        // TemplateManager::display/fetch site-wide — it must never
+        // perform a network/queue side effect during template
+        // rendering. Retry-queue processing belongs solely to
+        // ProcessLegacyRetryQueueScheduledTask (scheduler-only), the
+        // deliberate Send Test Message admin action (dispatchEvent()'s
+        // only remaining live caller), and the explicit "Sync Email
+        // Templates" admin action — never an arbitrary page render.
 
         $baseUrl = $this->normalizeBaseUrl((string) $this->getEffectiveSetting($contextId, 'chatwootBaseUrl', ''));
         $token = trim((string) $this->getEffectiveSetting($contextId, 'chatwootWebsiteToken', ''));
