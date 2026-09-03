@@ -7,8 +7,38 @@ msgstr "Integrates Chatwoot live chat with OJS."
 msgid "plugins.generic.chatwootIntegration.settings"
 msgstr "Chatwoot Settings"
 
-msgid "plugins.generic.chatwootIntegration.settings.section.health"
-msgstr "Support Gateway Health"
+msgid "plugins.generic.chatwootIntegration.settings.tab.overview"
+msgstr "Overview"
+
+msgid "plugins.generic.chatwootIntegration.settings.tab.chatwoot"
+msgstr "Chatwoot"
+
+msgid "plugins.generic.chatwootIntegration.settings.tab.widget"
+msgstr "Widget"
+
+msgid "plugins.generic.chatwootIntegration.settings.tab.automation"
+msgstr "Automation"
+
+msgid "plugins.generic.chatwootIntegration.settings.tab.aiKnowledge"
+msgstr "AI & Knowledge"
+
+msgid "plugins.generic.chatwootIntegration.settings.tab.apiMcp"
+msgstr "API & MCP"
+
+msgid "plugins.generic.chatwootIntegration.settings.tab.advanced"
+msgstr "Advanced"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.notChecked"
+msgstr "Health has not been checked yet in this session. Use the check below."
+
+msgid "plugins.generic.chatwootIntegration.settings.healthCheck.description"
+msgstr "Verify the Chatwoot connection and identity-validation secret are reachable and valid."
+
+msgid "plugins.generic.chatwootIntegration.settings.testMessage.description"
+msgstr "Send a real test conversation to Chatwoot using your own account."
+
+msgid "plugins.generic.chatwootIntegration.settings.troubleshooting"
+msgstr "Troubleshooting"
 
 msgid "plugins.generic.chatwootIntegration.settings.health.overallState"
 msgstr "Overall state:"
@@ -120,18 +150,6 @@ msgstr "Per-Event Overrides"
 
 msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson.description"
 msgstr "Optional JSON object mapping an event type to a delivery mode, overriding the default above for just that event, e.g. {\"publication.published\": \"audit_only\"}. Recognized event types: submission.created, submission.decision_recorded, submission.revision_requested, submission.accepted, submission.rejected, publication.scheduled, publication.published, submission.review_submitted. An unrecognized event type or mode is silently ignored."
-
-msgid "plugins.generic.chatwootIntegration.settings.section.connection"
-msgstr "Connection"
-
-msgid "plugins.generic.chatwootIntegration.settings.section.supportApi"
-msgstr "Support API"
-
-msgid "plugins.generic.chatwootIntegration.settings.section.mcp"
-msgstr "MCP (Model Context Protocol)"
-
-msgid "plugins.generic.chatwootIntegration.settings.section.eventBridge"
-msgstr "Event Bridge"
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrl"
 msgstr "Chatwoot Base URL"
