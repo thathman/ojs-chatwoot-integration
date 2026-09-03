@@ -3552,6 +3552,31 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         ]);
     }
 
+    /**
+     * AUD-013: Captain sync (`CaptainSyncScheduledTask`) is an admin/
+     * scheduled action entirely outside the event/queue/delivery chain
+     * AUD-013 originally covered — it never enqueues a `SupportEvent` and
+     * so never gets a correlation ID any other way. There is no natural
+     * per-document/tool/scenario request to key on (the three provision
+     * calls are each idempotent, no-request-context batch operations), so
+     * this records one audit entry per journal per real scheduled run —
+     * the same granularity the task's own execution-log line already
+     * uses — giving each journal's Captain sync a real, queryable,
+     * correlatable record in the same shared audit table event delivery
+     * and REST/MCP requests already use, rather than only the scheduled
+     * task's own transient execution log.
+     */
+    public function v2AuditCaptainSync(int $contextId, int $documentsSynced, int $toolsSynced, int $scenariosSynced): void
+    {
+        (new DatabaseSupportApiAuditLogger())->record([
+            'correlationId' => CorrelationId::generate(),
+            'endpoint' => 'captain_sync',
+            'contextId' => $contextId,
+            'decision' => 'allow',
+            'reason' => sprintf('documents=%d:tools=%d:scenarios=%d', $documentsSynced, $toolsSynced, $scenariosSynced),
+        ]);
+    }
+
     private function v2EffectiveSetting(int $contextId, string $key, mixed $default = null): mixed
     {
         $local = $this->getSetting($contextId, $key);

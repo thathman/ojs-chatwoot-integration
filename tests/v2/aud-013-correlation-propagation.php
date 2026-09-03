@@ -90,6 +90,30 @@ aud013Check(str_contains($auditHelperBody, 'new DatabaseSupportApiAuditLogger()'
 aud013Check(str_contains($auditHelperBody, "'event_delivery:' . \$eventType"), 'v2AuditEventDelivery() must record a real, distinguishable endpoint name per event type, so a delivery outcome is never confused with a verification-endpoint outcome in the same shared log');
 
 // ================================================================
+// AUD-013 follow-up: propagation across Captain/admin actions OUTSIDE
+// the event-delivery chain — dead-letter give-up (legacy apiQueue) and
+// Captain sync. Both previously had no correlation ID at all, and the
+// dead-letter path wrote only to the AUD-001 placeholder error_log()
+// sink, never the real persisted table every other outcome already
+// uses.
+// ================================================================
+
+$v1Source = (string) file_get_contents("{$root}/ChatwootIntegrationBasePlugin.php");
+$processApiQueueBody = extractMethodBodyAud013($v1Source, 'private function processApiQueue(');
+aud013Check(str_contains($processApiQueueBody, 'new DatabaseSupportApiAuditLogger()'), 'the legacy dead-letter give-up path must use the real, persisted DatabaseSupportApiAuditLogger sink, not the AUD-001 error_log() placeholder every other call site already retired');
+aud013Check(!str_contains($processApiQueueBody, 'new ErrorLogSupportApiAuditLogger()'), 'the legacy dead-letter give-up path must never construct/use the placeholder error_log() sink');
+aud013Check(str_contains($processApiQueueBody, "'correlationId' => CorrelationId::generate()"), 'a dead-lettered legacy job never had a correlation ID (v1\'s apiQueue predates AUD-013) — one must be generated fresh at give-up time, the same pattern deliverQueuedSupportEvents() uses for a legacy queue row with none stored');
+aud013Check(str_contains($processApiQueueBody, "'endpoint' => 'legacy_queue:'"), 'the dead-letter audit entry must carry a real, distinguishable endpoint name, mirroring event_delivery:{type}\'s convention');
+
+$captainTaskSource = (string) file_get_contents("{$root}/classes/v2/Task/CaptainSyncScheduledTask.php");
+aud013Check(str_contains($captainTaskSource, 'v2AuditCaptainSync('), 'CaptainSyncScheduledTask must record a real audit entry for each journal it syncs — Captain sync runs entirely outside the event/queue/delivery chain and previously had no correlation ID at all');
+
+$auditCaptainSyncBody = extractMethodBodyAud013($pluginSource, 'public function v2AuditCaptainSync(');
+aud013Check(str_contains($auditCaptainSyncBody, 'new DatabaseSupportApiAuditLogger()'), 'v2AuditCaptainSync() must reuse the real, same DatabaseSupportApiAuditLogger sink, never a bespoke one');
+aud013Check(str_contains($auditCaptainSyncBody, 'CorrelationId::generate()'), 'v2AuditCaptainSync() must generate a real correlation ID per real sync run, since Captain sync has no inbound request/queue row to inherit one from');
+aud013Check(str_contains($auditCaptainSyncBody, "'endpoint' => 'captain_sync'"), 'v2AuditCaptainSync() must record a real, distinguishable endpoint name');
+
+// ================================================================
 // Real SQLite proof: a correlation ID actually round-trips through the
 // exact schema shape the real migration/repository use — insert with
 // one, fetch it back unchanged through a pending-batch-equivalent
