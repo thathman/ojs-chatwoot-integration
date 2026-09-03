@@ -721,8 +721,15 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
                 return $this->bindingFailure();
             }
 
+            // HAR-006: the exact same shared masking decision
+            // addChatwootWidget() uses — see resolveReviewerMasking()'s
+            // own docblock. $supportContext here is the real, already
+            // resolved SupportContext for this exact request, so this
+            // can never disagree with what the widget rendered for the
+            // same page.
             $privacy = $this->v2Bool($this->v2EffectiveSetting($contextId, 'enablePrivacyMode', false));
-            $maskedReviewer = $privacy && in_array(Role::ROLE_ID_REVIEWER, $supportContext->roleIds(), true);
+            $hasJournalWideReviewerRole = in_array(Role::ROLE_ID_REVIEWER, $supportContext->roleIds(), true);
+            $maskedReviewer = $privacy && $this->resolveReviewerMasking($request, $supportContext, $hasJournalWideReviewerRole);
             $expectedIdentifier = (new LegacyWidgetIdentifierResolver())->resolve($userId, $contextId, $maskedReviewer);
             if ($expectedIdentifier === '') {
                 return $this->bindingFailure();

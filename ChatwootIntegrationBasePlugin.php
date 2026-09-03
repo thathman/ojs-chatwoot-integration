@@ -645,22 +645,13 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $privacy = $this->toBool($this->getEffectiveSetting($contextId, 'enablePrivacyMode', false)) === true;
 
         if ($user) {
-            // POL-011/CWO-016: resource-aware masking. $isReviewer alone (any
-            // Reviewer role anywhere in the journal) is the original,
-            // conservative fail-closed signal; ReviewerMaskingPolicy only
-            // relaxes it when the current page resolves to a specific
-            // submission AND real OJS evidence proves a non-reviewer
-            // relationship (author/editorial/manager/site_admin) to THAT
-            // submission specifically — e.g. an author on Submission A who
-            // also reviews Submission B is no longer masked while viewing
-            // Submission A.
-            $shouldMask = $privacy && $isReviewer;
-            if ($shouldMask) {
-                $supportContext = new SupportContext($contextId, (string) $context->getPath(), (int) $user->getId(), $roleIds, $requestedPage, $requestedOp, (string) Locale::getLocale());
-                $currentSubmission = (new CurrentSubmissionResolver())->resolve($request);
-                $maskingPolicy = new ReviewerMaskingPolicy(new SubmissionRelationshipResolver(new OjsSubmissionRelationshipEvidenceProvider()));
-                $shouldMask = $maskingPolicy->shouldMask($supportContext, $isReviewer, $currentSubmission);
-            }
+            // HAR-006: shared resource-aware masking — see
+            // resolveReviewerMasking()'s own docblock. Never masks
+            // someone who isn't a reviewer anywhere in the journal;
+            // fails closed (stays masked) whenever no specific
+            // submission relationship evidence is available.
+            $supportContext = new SupportContext($contextId, (string) $context->getPath(), (int) $user->getId(), $roleIds, $requestedPage, $requestedOp, (string) Locale::getLocale());
+            $shouldMask = $privacy && $this->resolveReviewerMasking($request, $supportContext, $isReviewer);
             if ($shouldMask) {
                 $identifier = 'reviewer_' . hash('sha256', $user->getId() . $contextId);
                 $name = 'Reviewer (Masked)';
@@ -1022,6 +1013,38 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
     private function isBackendPage(string $requestedPage): bool {
         $backendPages = ['management', 'admin', 'workflow', 'reviewer', 'submission', 'authorDashboard'];
         return in_array($requestedPage, $backendPages, true);
+    }
+
+    /**
+     * HAR-006: the single shared masking decision — used by both the
+     * widget injection path (addChatwootWidget()) and the v2 bind
+     * handshake (ChatwootIntegrationV2Plugin::bindSupportSessionRequest())
+     * — so the two can never disagree about whether a given user's
+     * identity is masked for a given request. Before this, bind
+     * computed its expected identifier from $hasJournalWideReviewerRole
+     * alone (any Reviewer role anywhere in the journal), a second,
+     * independently-maintained copy of the widget's old conservative
+     * logic; the widget had already moved to resource-aware masking
+     * (POL-011/CWO-016), so a multi-role user (e.g. an Author on
+     * Submission A who also Reviews Submission B) could see an
+     * unmasked widget while viewing A but have bind compute a masked
+     * expected identifier for that same real request — a real
+     * identity-projection mismatch, not just a style inconsistency.
+     *
+     * Never masks someone who isn't a reviewer anywhere in the
+     * journal; relaxes masking only when CurrentSubmissionResolver
+     * resolves a specific submission from the real request AND
+     * SubmissionRelationshipResolver finds real OJS evidence of a
+     * non-reviewer relationship to that exact submission — fails
+     * closed (stays masked) whenever either is unavailable.
+     */
+    protected function resolveReviewerMasking($request, SupportContext $supportContext, bool $hasJournalWideReviewerRole): bool {
+        if (!$hasJournalWideReviewerRole) {
+            return false;
+        }
+        $currentSubmission = (new CurrentSubmissionResolver())->resolve($request);
+        $maskingPolicy = new ReviewerMaskingPolicy(new SubmissionRelationshipResolver(new OjsSubmissionRelationshipEvidenceProvider()));
+        return $maskingPolicy->shouldMask($supportContext, $hasJournalWideReviewerRole, $currentSubmission);
     }
 
     /**
