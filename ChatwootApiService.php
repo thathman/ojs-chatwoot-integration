@@ -124,9 +124,20 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return $result['data']['payload']['contact'] ?? ($result['data']['payload'] ?? null);
     }
 
+    /**
+     * A "private note" is not a distinct Chatwoot resource — there is no
+     * real `/conversations/{id}/notes` endpoint. Confirmed live against
+     * https://support.airixmedia.com: POSTing there returns a real HTTP
+     * 404, meaning this method silently returned false on every call
+     * since it was written, and every 'private_note'-mode delivery (the
+     * real production default `eventSyncMode`) has been failing in
+     * production without ever throwing. The real API creates a private
+     * note the same way as any message, via `/messages` with
+     * `private: true` — verified live to return HTTP 200.
+     */
     public function createConversationNote($conversationId, $content) {
-        $result = $this->requestJson('POST', "accounts/{$this->accountId}/conversations/{$conversationId}/notes", [
-            'json' => ['content' => $content]
+        $result = $this->requestJson('POST', "accounts/{$this->accountId}/conversations/{$conversationId}/messages", [
+            'json' => ['content' => $content, 'private' => true]
         ]);
         return (bool) $result['ok'];
     }
@@ -137,10 +148,9 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
      * (`app/controllers/api/v1/accounts/conversations/messages_controller.rb`
      * + `app/builders/messages/message_builder.rb`, which reads
      * `params[:private]` (default `false`) and `params[:message_type]`
-     * (default `'outgoing'`)). Distinct from `createConversationNote()`'s
-     * `/notes` shortcut, which is always private and never customer-visible
-     * — `private: false` here is what actually makes a message visible to
-     * the contact, which `/notes` structurally cannot do.
+     * (default `'outgoing'`)). `createConversationNote()` posts to this
+     * exact same endpoint with `private` hardcoded `true`; `private: false`
+     * here is what actually makes a message visible to the contact.
      */
     public function createConversationMessage($conversationId, $content, bool $private = true) {
         $result = $this->requestJson('POST', "accounts/{$this->accountId}/conversations/{$conversationId}/messages", [
