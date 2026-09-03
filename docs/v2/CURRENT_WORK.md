@@ -2,7 +2,7 @@
 
 This file is the short authoritative continuation pointer for active v2 development. Read it before `TASKLIST.md`, `AIRIX360_TASKLIST.md`, or older phase summaries.
 
-Last reconciled: 2026-09-03.
+Last reconciled: 2026-09-03 (PR #196/#198 resolved and live-verified).
 
 ## Owner goal
 
@@ -10,7 +10,7 @@ Prepare the plugin completely. **Do not publish it.** Do not modify/replace the 
 
 ## Immediate execution order
 
-1. **Do not merge PR #196 as-is.** Its review comment records blocking findings: it continues Priority 2 despite the current redirect, adds a new FAQ table through the original 2.0 install migration, and its API failure semantics can clear the stale FAQ cache during an outage. Correct/park that work without losing it.
+1. ~~Do not merge PR #196 as-is.~~ **Done.** All three blocking findings fixed (PR #196, then #198 for a live-discovered pagination gap) and merged into `v2-dev`. Live-verified on dell: `SupportGatewayMigrationRunner` upgraded the real 2.0.0.0 database in place (new `chatwoot_support_faq_cache` table, existing five tables untouched), and `syncFaqCache()` synced all 209 real approved FAQs from the real Chatwoot account (real account ID 2, resolved dynamically — not the naively-assumed 1) into it. See `docs/v2/TASKLIST.md` KNO-011/KNO-021/MIG-003 for full evidence. Not yet done: a browser check that the anonymous `/support-knowledge/` page actually renders these facts end-to-end.
 2. **Start the Settings Console Redesign now.** `docs/v2/SETTINGS_UI_REDESIGN.md` is the authoritative product/UX brief. Console foundation comes before further Knowledge/Staff/Provider/Payment UI expansion.
 3. While implementing the console, close the cross-cutting hardening items that directly affect the same surfaces, especially HAR-001, HAR-003, HAR-006, HAR-007, HAR-008, HAR-012, HAR-013, HAR-017 and HAR-018 in `docs/v2/PROACTIVE_HARDENING_AUDIT.md`.
 4. After the console foundation is live-accepted on Dell, return to the remaining Product Bible backlog in `COMPLETION_RECONCILIATION.md`, but treat the proactive hardening audit as a candidate gate: unresolved MUST-FIX items cannot be hidden by older checked boxes.
