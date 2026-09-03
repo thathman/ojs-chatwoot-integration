@@ -60,6 +60,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ResponseTimingNormal
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\ServiceTokenAuthenticator;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportGatewayPageHandler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Http\SupportKnowledgePageHandler;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\DatabaseSupportFaqCacheRepository;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\FaqCacheSyncService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHtmlRenderer;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeRouteCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSitemapRenderer;
@@ -89,7 +91,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionListTo
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionPolicyTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SubmissionSupportStatusTool;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\SupportIdentityTool;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\SupportGatewayMigrationRunner;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityRequest;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBridge;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
@@ -99,6 +101,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMappe
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\FaqCacheSyncScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\ProcessLegacyRetryQueueScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportMailTestMailable;
@@ -238,6 +241,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
             ->name(CaptainSyncScheduledTask::class)
             ->withoutOverlapping();
 
+        $scheduler->addSchedule(new FaqCacheSyncScheduledTask($this))
+            ->daily()
+            ->name(FaqCacheSyncScheduledTask::class)
+            ->withoutOverlapping();
+
         // Deliberately more frequent than purge/Captain sync: a queued
         // support event sitting unsent for up to a day would defeat the
         // point of near-real-time editorial notifications.
@@ -278,10 +286,16 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         return false;
     }
 
-    /** PKP 3.5 plugin installation hook for the v2 Support Gateway tables. */
+    /**
+     * PKP 3.5 plugin installation hook for the v2 Support Gateway
+     * tables. Returns the additive migration runner (HAR-016/MIG-003),
+     * not the 2.0.0.0 baseline migration directly — new schema is
+     * added by appending a step to `SupportGatewayMigrationRunner`,
+     * never by editing `InstallSupportGatewayMigration`'s own body.
+     */
     public function getInstallMigration()
     {
-        return new InstallSupportGatewayMigration();
+        return new SupportGatewayMigrationRunner();
     }
 
     public function addChatwootWidget($hookName, $args)
@@ -2283,6 +2297,44 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
             $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
             $provisioner = new CaptainScenarioProvisioner($chatwoot, new DatabaseSupportKnowledgeSyncRepository());
             return $provisioner->provisionAll($contextId, $locale, $assistantId, time());
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * KNO-011: the one place this whole feature ever calls the live
+     * Chatwoot API — pulls this journal's currently-approved Captain
+     * AssistantResponse set and replaces the local FAQ cache with it.
+     * ApprovedFaqKnowledgeProvider (registered in SupportGatewayKernel)
+     * only ever reads what this writes; it never calls Chatwoot itself.
+     * Driven daily by FaqCacheSyncScheduledTask, same shape as the other
+     * Captain provisioning entry points above.
+     *
+     * @return int|null Number of FAQ facts synced, null if this journal
+     * isn't configured for it, -1 if the sync ran but failed (existing
+     * cache left untouched).
+     */
+    public function syncFaqCache($request, $context): ?int
+    {
+        if (!$context || !method_exists($context, 'getId')) {
+            return null;
+        }
+        $contextId = (int) $context->getId();
+
+        $baseUrl = $this->v2NormalizeBaseUrl((string) $this->v2EffectiveSetting($contextId, 'chatwootBaseUrl', ''));
+        $apiToken = trim((string) $this->v2EffectiveSetting($contextId, 'chatwootApiAccessToken', ''));
+        $assistantId = (int) $this->v2EffectiveSetting($contextId, 'chatwootCaptainAssistantId', 0);
+        if ($baseUrl === '' || $apiToken === '' || $assistantId <= 0) {
+            return null;
+        }
+
+        $locale = (string) Locale::getLocale();
+
+        try {
+            $chatwoot = new ChatwootApiService($baseUrl, $apiToken);
+            $service = new FaqCacheSyncService($chatwoot, new DatabaseSupportFaqCacheRepository());
+            return $service->sync($contextId, $locale, $assistantId, time());
         } catch (\Throwable $e) {
             return null;
         }

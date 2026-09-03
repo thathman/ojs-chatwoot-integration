@@ -94,6 +94,11 @@ final class FakeCaptainClient implements ChatwootCaptainClientInterface
     {
         return false;
     }
+
+    public function listCaptainAssistantResponses(int $assistantId): array
+    {
+        return [];
+    }
 }
 
 function makeCompilation(int $contextId, string $locale, string $fingerprint): KnowledgeCompilation

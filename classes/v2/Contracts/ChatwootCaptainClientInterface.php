@@ -76,4 +76,28 @@ interface ChatwootCaptainClientInterface
 
     /** @param array<string,mixed> $definition Same shape as createCaptainScenario(). */
     public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool;
+
+    /**
+     * KNO-011: real, filterable `GET .../captain/assistant_responses?assistant_id=X`
+     * endpoint (verified against `chatwoot/chatwoot` `develop`,
+     * `config/routes.rb`'s `namespace :captain do resources
+     * :assistant_responses ... end`). Every `Captain::AssistantResponse`
+     * row *is* an approved FAQ by construction — the model has no other
+     * status (`enum status: { approved: 1 }`); the open/dismissed review
+     * lifecycle lives entirely on the separate `Captain::FaqSuggestion`,
+     * never returned here.
+     *
+     * Unlike every other method on this interface, a request/HTTP
+     * failure here MUST throw rather than degrade to `[]` — the sole
+     * caller (`FaqCacheSyncService`) destructively replaces its entire
+     * local cache with this result, so "the account has zero approved
+     * FAQs right now" and "the request failed" must never be
+     * indistinguishable. Implementations must also throw rather than
+     * return a partial page as if it were the complete set.
+     *
+     * @throws \Throwable on any request failure or incomplete pagination.
+     *
+     * @return array<int,array{id:int|string,question:string,answer:string}>
+     */
+    public function listCaptainAssistantResponses(int $assistantId): array;
 }

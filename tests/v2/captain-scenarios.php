@@ -88,6 +88,11 @@ final class FakeScenarioClient implements ChatwootCaptainClientInterface
         $this->updatedDefinitions[$scenarioId] = $definition;
         return $this->updateResult;
     }
+
+    public function listCaptainAssistantResponses(int $assistantId): array
+    {
+        return [];
+    }
 }
 
 /** Every canonical tool "already provisioned" with a deterministic fake slug, so scenario resolution can succeed. */
