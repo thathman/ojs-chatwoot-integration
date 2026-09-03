@@ -91,8 +91,16 @@ namespace {
     $logged = (string) @file_get_contents($tmpLog);
     @unlink($tmpLog);
 
-    evt017Check(str_contains($logged, '"decision":"give_up"'), 'a legacy job that exhausts its retries must now produce a real give-up audit entry, not vanish with zero trace');
-    evt017Check(str_contains($logged, '"component":"legacy_api_queue"'), 'the give-up audit entry must identify the legacy queue as its component');
+    // AUD-013 follow-up: this now goes through the real
+    // DatabaseSupportApiAuditLogger sink (endpoint/decision/reason/
+    // correlationId schema), which falls back to this same error_log()
+    // line only when no real DB is available — exactly this bare test
+    // harness's situation — so the real fallback path is what's being
+    // exercised here, not a hypothetical.
+    evt017Check(str_contains($logged, '"decision":"deny"'), 'a legacy job that exhausts its retries must now produce a real give-up audit entry, not vanish with zero trace');
+    evt017Check(str_contains($logged, '"reason":"give_up:job='), 'the give-up audit entry must record the real give-up reason and job id');
+    evt017Check(str_contains($logged, '"endpoint":"legacy_queue:conversation_event"'), 'the give-up audit entry must identify the legacy queue and job type via a real, distinguishable endpoint name');
+    evt017Check(str_contains($logged, '"correlation_id":"'), 'the give-up audit entry must carry a real, freshly-generated correlation ID (AUD-013) — a legacy job never had one to begin with');
     evt017Check(!str_contains($logged, 'real-author@example.com'), 'the give-up audit entry must NEVER contain the real job payload email — safe fields only');
     evt017Check(!str_contains($logged, 'Real Author Name'), 'the give-up audit entry must NEVER contain the real job payload name — safe fields only');
     evt017Check(!str_contains($logged, 'a real submission note'), 'the give-up audit entry must NEVER contain the real job payload message — safe fields only');

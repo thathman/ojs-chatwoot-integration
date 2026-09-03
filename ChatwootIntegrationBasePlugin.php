@@ -4,7 +4,8 @@ namespace APP\plugins\generic\chatwootIntegration;
 
 use APP\core\Application;
 use APP\facades\Repo;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\ErrorLogSupportApiAuditLogger;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\DatabaseSupportApiAuditLogger;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\CurrentSubmissionResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
@@ -439,13 +440,26 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
                 // submission content) so an abandoned delivery is at least
                 // observable, matching the real dead-letter visibility the
                 // v2 durable queue already has.
-                (new ErrorLogSupportApiAuditLogger())->record([
-                    'component' => 'legacy_api_queue',
-                    'decision' => 'give_up',
+                //
+                // AUD-013: this used to go only to error_log() via
+                // ErrorLogSupportApiAuditLogger, the AUD-001 placeholder
+                // sink every other call site retired once the real
+                // persisted audit table landed -- this legacy dead-letter
+                // path was the one caller left behind, so it never showed
+                // up in the same queryable audit trail as every other
+                // delivery outcome (event queue, REST, MCP). Switched to
+                // the real DatabaseSupportApiAuditLogger, and a legacy job
+                // never had a correlation ID to begin with (v1's apiQueue
+                // predates AUD-013), so one is generated fresh here --
+                // the same "no prior ID to reuse" pattern
+                // v2AuditEventDelivery() already uses for pre-AUD-013
+                // queue rows.
+                (new DatabaseSupportApiAuditLogger())->record([
+                    'correlationId' => CorrelationId::generate(),
                     'contextId' => $contextId,
-                    'jobId' => (string) ($job['id'] ?? ''),
-                    'jobType' => (string) ($job['type'] ?? ''),
-                    'attempts' => $attempts,
+                    'endpoint' => 'legacy_queue:' . (string) ($job['type'] ?? ''),
+                    'decision' => 'deny',
+                    'reason' => sprintf('give_up:job=%s:attempts=%d', (string) ($job['id'] ?? ''), $attempts),
                 ]);
                 continue;
             }

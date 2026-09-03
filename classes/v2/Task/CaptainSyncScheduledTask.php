@@ -54,19 +54,22 @@ final class CaptainSyncScheduledTask extends ScheduledTask
             $scenariosSynced = 0;
 
             while ($context = $journals->next()) {
-                if ($this->plugin->provisionCaptainKnowledgeDocument($request, $context)) {
-                    $documentsSynced++;
-                }
+                $journalDocuments = $this->plugin->provisionCaptainKnowledgeDocument($request, $context) ? 1 : 0;
+                $documentsSynced += $journalDocuments;
 
                 $tools = $this->plugin->provisionCaptainCustomTools($request, $context);
-                if ($tools) {
-                    $toolsSynced += count($tools);
-                }
+                $journalTools = $tools ? count($tools) : 0;
+                $toolsSynced += $journalTools;
 
                 $scenarios = $this->plugin->provisionCaptainScenarios($request, $context);
-                if ($scenarios) {
-                    $scenariosSynced += count($scenarios);
-                }
+                $journalScenarios = $scenarios ? count($scenarios) : 0;
+                $scenariosSynced += $journalScenarios;
+
+                // AUD-013: a real, queryable, correlatable audit record for
+                // this journal's sync — Captain sync runs entirely outside
+                // the event/queue/delivery chain, so without this it never
+                // gets a correlation ID any other way.
+                $this->plugin->v2AuditCaptainSync((int) $context->getId(), $journalDocuments, $journalTools, $journalScenarios);
             }
 
             $this->addExecutionLogEntry(sprintf(
