@@ -27,7 +27,8 @@ final class SupportGatewayHealthSummary
         private array $paymentProviderHealth,
         private int $deadLetterCount,
         private int $pendingEventCount,
-        private string $overallState
+        private string $overallState,
+        private ?EventQueueHealthReport $queueHealth = null
     ) {
     }
 
@@ -77,6 +78,12 @@ final class SupportGatewayHealthSummary
         return $this->pendingEventCount;
     }
 
+    /** AUD-008/AUD-011: safe queue detail (retry/dead-letter breakdown, error codes) — null if the queue repository could not be read. */
+    public function queueHealth(): ?EventQueueHealthReport
+    {
+        return $this->queueHealth;
+    }
+
     public function overallState(): string
     {
         return $this->overallState;
@@ -96,6 +103,7 @@ final class SupportGatewayHealthSummary
             'paymentProviderHealth' => $this->paymentProviderHealth,
             'deadLetterCount' => $this->deadLetterCount,
             'pendingEventCount' => $this->pendingEventCount,
+            'queueHealth' => $this->queueHealth?->toArray(),
         ];
     }
 }

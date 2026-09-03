@@ -101,6 +101,15 @@
 					{if $supportGatewayHealth.captainState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.captainState"} {$supportGatewayHealth.captainState|escape}</li>{/if}
 					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.pendingEventCount"} {$supportGatewayHealth.pendingEventCount|escape}</li>
 					<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}</li>
+					{if $supportGatewayHealth.queueHealth}
+						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.retryingEventCount"} {$supportGatewayHealth.queueHealth.retryingCount|escape}</li>
+						{if $supportGatewayHealth.queueHealth.oldestPendingAgeSeconds !== null}
+							<li>{translate key="plugins.generic.chatwootIntegration.settings.health.oldestPendingAge"} {$supportGatewayHealth.queueHealth.oldestPendingAgeSeconds|escape}s</li>
+						{/if}
+						{foreach from=$supportGatewayHealth.queueHealth.deadLetterErrorCodes key=errorCode item=errorCodeCount}
+							<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode" errorCode=$errorCode|escape count=$errorCodeCount|escape}</li>
+						{/foreach}
+					{/if}
 				</ul>
 			</div>
 			<div id="description">

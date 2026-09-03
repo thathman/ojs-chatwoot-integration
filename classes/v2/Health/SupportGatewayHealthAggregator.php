@@ -47,7 +47,8 @@ final class SupportGatewayHealthAggregator
         ?CaptainProvisioningHealthReport $captainHealth,
         array $paymentProviderHealth,
         int $deadLetterCount,
-        int $pendingEventCount = 0
+        int $pendingEventCount = 0,
+        ?EventQueueHealthReport $queueHealth = null
     ): SupportGatewayHealthSummary {
         $genuinelyFailedProviders = array_filter(
             $paymentProviderHealth,
@@ -79,7 +80,8 @@ final class SupportGatewayHealthAggregator
             $paymentProviderHealth,
             $deadLetterCount,
             $pendingEventCount,
-            $overallState
+            $overallState,
+            $queueHealth
         );
     }
 }

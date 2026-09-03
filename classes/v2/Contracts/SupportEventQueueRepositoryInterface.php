@@ -53,4 +53,20 @@ interface SupportEventQueueRepositoryInterface
      * @return int the number of rows actually reset
      */
     public function retryDeadLetters(int $contextId, int $limit): int;
+
+    /**
+     * AUD-008/AUD-011: a safe operational snapshot of the queue for the
+     * admin health section — counts and error-code labels only, never a
+     * row's `attributes`/payload content. `retryingCount` (pending rows
+     * with `attempts > 0`) is kept distinct from a genuinely fresh
+     * `pendingCount` (`attempts = 0`) so an admin can tell "just enqueued,
+     * about to be tried" apart from "already failed at least once and is
+     * backing off" without exposing anything about which real event it
+     * is. `deadLetterErrorCodes` counts each already-defined internal
+     * error-code label (`delivery_failed`/`internal_error`/etc. — never a
+     * raw exception message) across `failed` rows.
+     *
+     * @return array{pendingCount:int,retryingCount:int,deadLetterCount:int,oldestPendingAgeSeconds:?int,deadLetterErrorCodes:array<string,int>}
+     */
+    public function queueHealthSnapshot(int $now): array;
 }
