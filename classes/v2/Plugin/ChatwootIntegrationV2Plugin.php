@@ -658,10 +658,11 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         }
 
         $conversations = $api->getContactConversations((int) $contact['id']);
-        if (!empty($conversations) && !empty($conversations[0]['id'])) {
+        $conversation = $this->selectConversationForInbox($conversations, $inboxId);
+        if ($conversation !== null) {
             return $mode === EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE
-                ? (bool) $api->createConversationMessage((int) $conversations[0]['id'], $message, false)
-                : (bool) $api->createConversationNote((int) $conversations[0]['id'], $message);
+                ? (bool) $api->createConversationMessage((int) $conversation['id'], $message, false)
+                : (bool) $api->createConversationNote((int) $conversation['id'], $message);
         }
         if ($mayCreateContactOrConversation && $inboxId > 0) {
             return (bool) $api->createConversation((int) $contact['id'], $inboxId, $message);
