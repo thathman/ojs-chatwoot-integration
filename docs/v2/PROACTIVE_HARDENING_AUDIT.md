@@ -71,14 +71,13 @@ Required:
 - blind-review protection must not depend on an administrator disabling/enabling a generic “Privacy Mode” toggle;
 - multi-role author-on-A/reviewer-on-B browser + bind acceptance.
 
-### HAR-007 — MUST FIX — ambiguous widget context must fail closed, not pick the first enabled journal
+### HAR-007 — FIXED (PR #213) — ambiguous widget context must fail closed, not pick the first enabled journal
 
-`resolveWidgetContext()` currently falls back to `fallbackWidgetContextFromSettings()`, which iterates journals and returns the first enabled/configured one when a request has no trustworthy journal context. Component/site/admin routes can therefore inherit another journal’s widget/settings.
+`resolveWidgetContext()` fell back to `fallbackWidgetContextFromSettings()`, which iterated journals and returned the first enabled/configured one when a request had no trustworthy journal context. Component/site/admin routes could therefore inherit another journal's widget/settings.
 
-Required:
-- remove ambiguous first-enabled-journal fallback or constrain it to evidence that uniquely identifies the journal;
-- component/AJAX/site-level requests with no journal must not invent one;
-- multi-journal acceptance for settings modal, component routes, site admin and frontend.
+Investigating this also found a real, currently-shipping, high-volume bug: `fallbackWidgetContextFromSettings()` and two other call sites in the same method called `Repo::context()`, which does not exist as a real method on either `APP\facades\Repo` or `PKP\facades\Repo` (confirmed against a real local OJS checkout — no `context()` method on either class). Every call threw a real `\Error`, silently logged and swallowed by `PKP\plugins\Hook::run()`'s own plugin-exception handling — **confirmed live on dell: 3,081 real occurrences of this exact error in the prior 24 hours of production traffic**, dropping to 0 in the minute immediately after the fix deployed. The widget was silently failing to render on this path on essentially every relevant request.
+
+Fixed: both real path-based lookups now use the real `Application::getContextDAO()->getByPath()`. The ambiguous fallback method is removed entirely — `resolveWidgetContext()` now fails closed (returns `null`) on an ambiguous request. `tests/v2/har-007-widget-context-fail-closed.php` covers the structural fix; the real Smarty compile-check technique from AUD-011/PR #195 confirmed the fatal error is gone. Not yet separately done: real multi-journal browser acceptance for the settings modal/component routes/site admin (the negative case — widget correctly absent on an ambiguous route — remains structural/log-based evidence only, not a live browser walkthrough).
 
 ### HAR-008 — FIXED (PR #200/#201) — global defaults must not silently share security credentials across journals
 
