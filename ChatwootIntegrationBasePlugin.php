@@ -429,9 +429,31 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if (is_array($attrs) && !empty($attrs)) $message .= "\n\nContext:\n" . json_encode($attrs);
 
         $conversations = $api->getContactConversations((int) $contact['id']);
-        if (!empty($conversations) && !empty($conversations[0]['id'])) return $api->createConversationNote((int) $conversations[0]['id'], $message);
+        $conversation = $this->selectConversationForInbox($conversations, $inboxId);
+        if ($conversation !== null) return $api->createConversationNote((int) $conversation['id'], $message);
         if ($mode === 'open_update' && $inboxId > 0) return (bool) $api->createConversation((int) $contact['id'], $inboxId, $message);
         return false;
+    }
+
+    /**
+     * HAR-003: a contact can have conversations in unrelated
+     * inboxes/channels (WhatsApp, email, other websites) — the first
+     * entry Chatwoot returns is not necessarily one the configured OJS
+     * inbox owns. Never post an OJS-originated note/message into a
+     * conversation without first proving inbox_id === the configured
+     * chatwootInboxId; if $inboxId is unconfigured (<= 0) there is
+     * nothing to prove membership against, so no conversation ever
+     * matches — fail closed rather than trusting whichever entry the
+     * API happened to return first.
+     */
+    protected function selectConversationForInbox(array $conversations, int $inboxId): ?array {
+        if ($inboxId <= 0) return null;
+        foreach ($conversations as $conversation) {
+            if (is_array($conversation) && !empty($conversation['id']) && (int) ($conversation['inbox_id'] ?? 0) === $inboxId) {
+                return $conversation;
+            }
+        }
+        return null;
     }
 
     private function isRetryQueueEnabled(int $contextId): bool { return $this->toBool($this->getEffectiveSetting($contextId, 'retryQueueEnabled', true)) !== false; }
