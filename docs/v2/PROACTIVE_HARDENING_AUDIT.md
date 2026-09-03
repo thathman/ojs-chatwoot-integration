@@ -80,15 +80,15 @@ Required:
 - component/AJAX/site-level requests with no journal must not invent one;
 - multi-journal acceptance for settings modal, component routes, site admin and frontend.
 
-### HAR-008 — MUST FIX — global defaults must not silently share security credentials across journals
+### HAR-008 — FIXED (PR #200/#201) — global defaults must not silently share security credentials across journals
 
 Inherited `saveGlobalProfile()` copies the base export-key set into context 0, including Chatwoot API access token, Identity Validation secret and Support API token (MCP is already excluded). Effective-setting fallback can therefore make multiple journals share credentials simply because “Use Global Defaults” is enabled.
 
 Required:
-- classify global-profile-eligible settings explicitly;
-- service/end-user trust-plane credentials must be per-journal by default and must not silently inherit globally;
-- if a shared Chatwoot account credential is intentionally supported, make it an explicit connection profile with clear scope rather than incidental context-0 fallback;
-- prove Journal A credential cannot authorize Journal B by fallback accident.
+- classify global-profile-eligible settings explicitly; — done: `SettingsRegistry` (PR #200) declares `globalEligible: false` on `chatwootApiAccessToken`, `chatwootIdentityValidationSecret`, `chatwootSupportApiToken`.
+- service/end-user trust-plane credentials must be per-journal by default and must not silently inherit globally; — done: `saveGlobalProfile()`/`applyGlobalProfile()` (PR #201) now skip `SettingsRegistry::nonGlobalEligibleKeys()` in addition to `enableGlobalDefaults`.
+- if a shared Chatwoot account credential is intentionally supported, make it an explicit connection profile with clear scope rather than incidental context-0 fallback; — not needed: no shared-credential feature is intentionally supported today, so the fix is simply to stop the accidental sharing.
+- prove Journal A credential cannot authorize Journal B by fallback accident. — done: `tests/v2/har-008-global-profile-credential-isolation.php` proves this against the real, unmocked public methods (a secret set on journal A never reaches context 0; a leftover context-0 secret never reaches journal B; ordinary settings still propagate normally). Live-deployed to dell (site served normally afterward, no errors); the actual admin-UI "Save/Apply Global Profile" buttons have not yet been exercised through a real authenticated browser session — only the underlying methods are live-verified as deployed and unit-behaviorally proven.
 
 ### HAR-009 — MUST FIX/VERIFY — cross-worker abuse controls
 
