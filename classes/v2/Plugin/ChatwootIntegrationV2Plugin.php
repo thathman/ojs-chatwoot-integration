@@ -551,24 +551,28 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         SupportEventType::SUBMISSION_REVIEW_SUBMITTED,
         SupportEventType::SUBMISSION_DECISION_RECORDED,
         SupportEventType::SUBMISSION_REVISION_REQUESTED,
+        SupportEventType::SUBMISSION_ACCEPTED,
+        SupportEventType::SUBMISSION_REJECTED,
     ];
 
     /**
      * EVT-017/EVT-020: the live-delivery ownership switch itself.
-     * `eventSubmissionCreated` (EVT-017), `eventDecisionRecorded` and
-     * `eventRevisionRequested` (EVT-020) have been transferred so far;
-     * the remaining 4 v1-owned event-setting keys stay v1-owned until
-     * each gets its own deliberate, reviewed transfer here.
-     * `eventRevisionRequested` needed no new guard code — it flows
-     * through the same `handleEditorDecision()` check the #179 fix
-     * already keys on `$eventKey` (`mapDecisionEventKey()` returns
-     * `'eventRevisionRequested'` for the real revision-decision codes),
-     * so adding it here and to `LIVE_DELIVERY_ALLOWLIST` is the entire
-     * change.
+     * `eventSubmissionCreated` (EVT-017), `eventDecisionRecorded`,
+     * `eventRevisionRequested`, `eventAccepted` and `eventRejected`
+     * (EVT-020) have been transferred so far; the remaining 2 v1-owned
+     * event-setting keys (`eventPublicationScheduled`/
+     * `eventPublicationPublished`, driven by different v1 handlers) stay
+     * v1-owned until each gets its own deliberate, reviewed transfer
+     * here. `eventRevisionRequested`/`eventAccepted`/`eventRejected`
+     * needed no new guard code — all three flow through the same
+     * `handleEditorDecision()` check the #179 fix already keys on
+     * `$eventKey` (`mapDecisionEventKey()` returns the matching key for
+     * each real decision-code group), so adding them here and to
+     * `LIVE_DELIVERY_ALLOWLIST` is the entire change per type.
      */
     protected function isLiveDeliveryOwnedByV2(string $eventSettingKey): bool
     {
-        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested'], true);
+        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested', 'eventAccepted', 'eventRejected'], true);
     }
 
     /** @param array<string,mixed> $row */
