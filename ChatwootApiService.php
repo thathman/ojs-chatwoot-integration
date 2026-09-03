@@ -271,29 +271,51 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
      * list-/get-style method on this class collapses failure to []/null
      * because those callers only ever add/update, never destructively
      * replace a whole local dataset — this one is different.
+     *
+     * Real pagination, confirmed live against `support.airixmedia.com`:
+     * the endpoint is Kaminari-paginated (`meta.total_count`/`meta.page`),
+     * 25 rows per page in production, and a real assistant returned 209
+     * rows (9 pages) — a single unpaginated fetch silently returning 25
+     * of 209 rows would have made `FaqCacheSyncService::sync()`'s
+     * `replaceAll()` delete 184 real, still-approved FAQs. This walks
+     * every page until the accumulated count reaches `total_count`,
+     * capped at 200 pages as a hard backstop against a malformed/looping
+     * response, and still throws — never silently truncates — if the
+     * cap is hit before completion.
      */
     public function listCaptainAssistantResponses(int $assistantId): array {
-        $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistant_responses", [
-            'query' => ['assistant_id' => $assistantId],
-        ]);
-        if (!$result['ok']) {
-            throw new \RuntimeException('Chatwoot Captain assistant_responses request failed: ' . ($result['error'] ?? 'unknown error'));
-        }
-        $data = $result['data'] ?? [];
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        $all = [];
+        $page = 1;
+        $totalCount = null;
+        $maxPages = 200;
 
-        // Completeness guard: a paginated response with more pages than
-        // were fetched here must never be treated as the whole
-        // authoritative set — that would let FaqCacheSyncService's
-        // replaceAll() delete real, still-approved FAQs simply because
-        // they weren't on this page. Verified against `chatwoot/chatwoot`
-        // `develop`'s `Api::V1::Accounts::Captain::AssistantResponsesController#index`,
-        // which paginates via Kaminari and reports `meta.total_count`.
-        $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
-        if (isset($meta['total_count']) && is_numeric($meta['total_count']) && (int) $meta['total_count'] > count($payload)) {
-            throw new \RuntimeException('Chatwoot Captain assistant_responses returned a partial page (' . count($payload) . ' of ' . (int) $meta['total_count'] . ' total) — refusing to treat it as the complete set');
+        do {
+            $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistant_responses", [
+                'query' => ['assistant_id' => $assistantId, 'page' => $page],
+            ]);
+            if (!$result['ok']) {
+                throw new \RuntimeException('Chatwoot Captain assistant_responses request failed: ' . ($result['error'] ?? 'unknown error'));
+            }
+            $data = $result['data'] ?? [];
+            $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+            $meta = is_array($data['meta'] ?? null) ? $data['meta'] : [];
+
+            if (isset($meta['total_count']) && is_numeric($meta['total_count'])) {
+                $totalCount = (int) $meta['total_count'];
+            }
+
+            if ($payload === []) {
+                break;
+            }
+
+            $all = array_merge($all, $payload);
+            $page++;
+        } while ($totalCount !== null && count($all) < $totalCount && $page <= $maxPages);
+
+        if ($totalCount !== null && count($all) < $totalCount) {
+            throw new \RuntimeException('Chatwoot Captain assistant_responses pagination did not complete (' . count($all) . ' of ' . $totalCount . ' total after ' . $maxPages . ' pages) — refusing to treat it as the complete set');
         }
 
-        return array_values(array_filter($payload, 'is_array'));
+        return array_values(array_filter($all, 'is_array'));
     }
 }
