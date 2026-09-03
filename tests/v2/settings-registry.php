@@ -36,6 +36,7 @@ namespace {
     require_once $root . '/ChatwootIntegrationBasePlugin.php';
 
     use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationBasePlugin;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 
     function settingsRegistryCheck(bool $condition, string $message): void
@@ -134,6 +135,16 @@ namespace {
     $registrySecretKeys = SettingsRegistry::secretKeys();
     sort($registrySecretKeys);
     settingsRegistryCheck($formSecretKeys === $registrySecretKeys, 'ChatwootSettingsForm::SECRET_KEYS and SettingsRegistry::secretKeys() must be exactly the same set — drift');
+
+    // ================================================================
+    // Part 4b: ExportPolicy::sensitiveKeys() now IS SettingsRegistry::secretKeys()
+    // — a real consumer migration, not just a drift guard.
+    // ================================================================
+    $exportPolicySensitive = ExportPolicy::sensitiveKeys();
+    sort($exportPolicySensitive);
+    $registrySecretKeysAgain = SettingsRegistry::secretKeys();
+    sort($registrySecretKeysAgain);
+    settingsRegistryCheck($exportPolicySensitive === $registrySecretKeysAgain, 'ExportPolicy::sensitiveKeys() must be exactly SettingsRegistry::secretKeys()');
 
     // ================================================================
     // Part 5: HAR-008 fact recorded, not yet enforced — every
