@@ -61,22 +61,23 @@ $formSource = (string) file_get_contents($root . '/ChatwootSettingsForm.php');
 
 settingsFormMaskingCheck(str_contains($formSource, 'use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;'), 'ChatwootSettingsForm must use the real shared SecretFieldMasking helper, never a bespoke inline copy');
 
-$secretKeysStart = strpos($formSource, 'private const SECRET_KEYS');
-settingsFormMaskingCheck($secretKeysStart !== false, 'ChatwootSettingsForm must declare a real SECRET_KEYS list');
-$secretKeysBlock = substr($formSource, $secretKeysStart, (int) strpos($formSource, '];', $secretKeysStart) - $secretKeysStart);
+// UX-024: ChatwootSettingsForm::secretKeys() now delegates directly to
+// SettingsRegistry::secretKeys() instead of maintaining its own list —
+// checking the single shared source is now the correct-tier assertion.
+settingsFormMaskingCheck(!str_contains($formSource, 'private const SECRET_KEYS'), 'ChatwootSettingsForm must no longer maintain its own SECRET_KEYS list');
 foreach (['chatwootIdentityValidationSecret', 'chatwootApiAccessToken', 'chatwootSupportApiToken', 'mcpServiceToken'] as $secretKey) {
-    settingsFormMaskingCheck(str_contains($secretKeysBlock, "'{$secretKey}'"), "SECRET_KEYS must include the real secret \"{$secretKey}\"");
+    settingsFormMaskingCheck(in_array($secretKey, SettingsRegistry::secretKeys(), true), "SettingsRegistry must mark the real secret \"{$secretKey}\" as secret");
 }
 foreach (['chatwootBaseUrl', 'chatwootWebsiteToken', 'chatwootInboxId'] as $nonSecretKey) {
-    settingsFormMaskingCheck(!str_contains($secretKeysBlock, "'{$nonSecretKey}'"), "SECRET_KEYS must never include the non-secret \"{$nonSecretKey}\" — masking a connection detail that isn't actually a secret would just make the admin re-enter it needlessly");
+    settingsFormMaskingCheck(!in_array($nonSecretKey, SettingsRegistry::secretKeys(), true), "SettingsRegistry must never mark the non-secret \"{$nonSecretKey}\" as secret — masking a connection detail that isn't actually a secret would just make the admin re-enter it needlessly");
 }
 
-settingsFormMaskingCheck(str_contains($formSource, "'mcpServiceToken'"), 'mcpServiceToken must be a real, wired settings key (initData/readInputData/execute), not just declared as a secret');
+settingsFormMaskingCheck(in_array('mcpServiceToken', SettingsRegistry::keys(), true), 'mcpServiceToken must be a real, wired settings key (initData/readInputData/execute iterate SettingsRegistry::keys() directly), not just declared as a secret');
 settingsFormMaskingCheck(str_contains($formSource, 'SecretFieldMasking::displayValue($value)'), 'initData() must mask secret values through the real shared helper before ever assigning them to the template');
 settingsFormMaskingCheck(str_contains($formSource, 'SecretFieldMasking::resolveSavedValue($submitted, $existing)'), 'execute() must resolve the real saved value through the real shared helper before updateSetting() ever runs, so a resubmitted mask can never overwrite a real secret');
 
 $maskResolutionPos = strpos($formSource, 'SecretFieldMasking::resolveSavedValue($submitted, $existing)');
-$updateSettingPos = strpos($formSource, '$plugin->updateSetting($contextId, $key, $this->getData($key), $type)');
+$updateSettingPos = strpos($formSource, '$plugin->updateSetting($contextId, $key, $this->getData($key), SettingsRegistry::type($key))');
 settingsFormMaskingCheck($maskResolutionPos !== false && $updateSettingPos !== false && $maskResolutionPos < $updateSettingPos, 'secret values must be resolved through the masking helper before the settings-save loop runs, never after');
 
 // ================================================================
