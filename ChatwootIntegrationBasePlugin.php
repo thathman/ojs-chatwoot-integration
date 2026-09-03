@@ -317,6 +317,22 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             $contextId = (int) $submission->getData('contextId');
             $eventKey = $newStatus === PKPSubmission::STATUS_DECLINED ? 'eventRejected' : ($newStatus === PKPSubmission::STATUS_PUBLISHED ? 'eventAccepted' : null);
             if (!$eventKey || !$this->isEventEnabled($contextId, $eventKey)) return false;
+            // EVT-020 (CRITICAL, found by post-merge security review):
+            // 'eventAccepted'/'eventRejected' are the SAME ownership
+            // setting keys handleEditorDecision() gates on, but this is a
+            // completely separate real hook (a status change, not a
+            // decision) that produces the same SupportEventType via
+            // SubmissionStatusChangedEventAdapter. Transferring
+            // eventAccepted/eventRejected to v2 (adding
+            // SUBMISSION_ACCEPTED/SUBMISSION_REJECTED to
+            // LIVE_DELIVERY_ALLOWLIST) without this guard left this path
+            // still unconditionally calling dispatchEvent() — meaning a
+            // real submission published/declined via a status change
+            // (not only via an editorial decision) would have both v1
+            // (here) and v2 (the queue's own allowlist gate) deliver live
+            // for the exact same real occurrence. Never shipped past this
+            // fix — caught before any real double-post could occur.
+            if ($this->isLiveDeliveryOwnedByV2($eventKey)) return false;
             $author = $this->safeGetPrimaryAuthor($submission);
             if (!$author || !$author->getEmail()) return false;
 
@@ -343,6 +359,11 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             $status = (int) $publication->getData('status');
             $eventKey = $status === PKPSubmission::STATUS_SCHEDULED ? 'eventPublicationScheduled' : ($status === PKPSubmission::STATUS_PUBLISHED ? 'eventPublicationPublished' : null);
             if (!$eventKey || !$this->isEventEnabled($contextId, $eventKey)) return false;
+            // EVT-020: defensive guard added proactively (neither key is
+            // transferred yet) after the handleSubmissionStatusUpdated()
+            // double-delivery finding — whichever of these two types is
+            // transferred next must not repeat that mistake here.
+            if ($this->isLiveDeliveryOwnedByV2($eventKey)) return false;
             $author = $this->safeGetPrimaryAuthor($submission);
             if (!$author || !$author->getEmail()) return false;
 

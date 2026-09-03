@@ -265,5 +265,50 @@ namespace {
         'the ownership-transfer check must run AFTER $eventKey is computed, so it can key on the real specific event type, not before'
     );
 
+    // ================================================================
+    // EVT-020 (CRITICAL, found by post-merge security review after
+    // #186 transferred eventAccepted/eventRejected): those two setting
+    // keys are shared between handleEditorDecision() (a decision) and
+    // handleSubmissionStatusUpdated() (a status change) — two separate
+    // real hooks that can each independently produce the exact same
+    // SupportEventType (SUBMISSION_ACCEPTED/SUBMISSION_REJECTED) via
+    // two different adapters (DecisionRecordedEventAdapter/
+    // SubmissionStatusChangedEventAdapter). Transferring the setting
+    // key without gating BOTH real call sites left
+    // handleSubmissionStatusUpdated() still unconditionally calling
+    // dispatchEvent() for a real status change to Published/Declined —
+    // meaning v1 (here) and v2 (the queue's own now-allowlisted type)
+    // would both deliver live for the same real occurrence. Every real
+    // v1 hook that can produce a transferred event-setting key must
+    // carry this same guard, not just the first one a given transfer
+    // happened to touch.
+    // ================================================================
+    foreach ([
+        ['handleSubmissionStatusUpdated($hookName, $args) {', 'eventKey = $newStatus === PKPSubmission::STATUS_DECLINED'],
+        ['handlePublicationPublished($hookName, $args) {', 'eventKey = $status === PKPSubmission::STATUS_SCHEDULED'],
+    ] as [$signature, $eventKeyNeedle]) {
+        $handlerStart = strpos($basePluginSource, "public function {$signature}");
+        evt016Check($handlerStart !== false, "ChatwootIntegrationBasePlugin::{$signature} must still exist with its real signature");
+        $handlerEnd = strpos($basePluginSource, "\n    }\n", $handlerStart);
+        $handlerBody = substr($basePluginSource, $handlerStart, $handlerEnd - $handlerStart);
+
+        evt016Check(str_contains($handlerBody, $eventKeyNeedle), "{$signature} must still compute \$eventKey the same real way");
+        evt016Check(
+            str_contains($handlerBody, 'isLiveDeliveryOwnedByV2($eventKey)'),
+            "{$signature} must check isLiveDeliveryOwnedByV2(\$eventKey) before dispatchEvent() — the same ownership-transfer guard handleEditorDecision() has, since this hook can produce the same transferable event-setting keys via a completely separate real occurrence"
+        );
+        $ownershipCheckPos = strpos($handlerBody, 'isLiveDeliveryOwnedByV2($eventKey)');
+        $dispatchPos = strpos($handlerBody, '$this->dispatchEvent(');
+        $eventKeyPos = strpos($handlerBody, $eventKeyNeedle);
+        evt016Check(
+            $dispatchPos === false || $ownershipCheckPos < $dispatchPos,
+            "{$signature}'s ownership-transfer check must run BEFORE dispatchEvent(), not after"
+        );
+        evt016Check(
+            $eventKeyPos !== false && $eventKeyPos < $ownershipCheckPos,
+            "{$signature}'s ownership-transfer check must run AFTER \$eventKey is computed"
+        );
+    }
+
     fwrite(STDOUT, "PASS: evt-016-no-double-delivery\n");
 }
