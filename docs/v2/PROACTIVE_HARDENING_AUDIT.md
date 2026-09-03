@@ -13,16 +13,19 @@ Severity:
 
 ## Chatwoot client correctness
 
-### HAR-001 — MUST FIX — explicit Chatwoot account binding; never silently fall back to account 1
+### HAR-001 — PARTIALLY FIXED (PR #217) — explicit Chatwoot account binding; never silently fall back to account 1
 
-Current source: `ChatwootApiService::__construct()` initializes `$accountId = 1`, calls `/api/v1/profile`, and keeps account 1 if resolution fails. Current Chatwoot profile responses expose both `account_id` and an `accounts[]` membership list. A failed profile request must not silently authorize operations against account 1.
+Original source: `ChatwootApiService::__construct()` initialized `$accountId = 1`, called `/api/v1/profile`, and silently kept account 1 if resolution failed for any reason (network error, bad token, malformed response) — indistinguishable from a real, confirmed account 1. Same "silently continue with stale/wrong state on failure" class of bug as KNO-011's outage-safety gap and HAR-007's `Repo::context()` bug found earlier this session.
 
-Required:
-- make account selection explicit/fail-closed;
-- when a token belongs to multiple accounts, surface human-readable account selection or prove the current account deterministically;
-- validate selected Inbox/Captain resources belong to that account;
-- cache/reuse resolved account identity rather than performing hidden account discovery in every API-service constructor;
-- multi-account real acceptance.
+**Closed by PR #217**: the fail-closed half. `ChatwootApiService` now tracks `$accountResolved` (true only once a real `/profile` response confirms the account, or a caller explicitly calls `setAccountId()`), and `requestJson()` refuses every `accounts/{id}/...` call while unresolved, returning the same `ok:false` contract every other failure path uses instead of silently guessing. Live-verified against the real Chatwoot API on dell:
+- a deliberately invalid token: `isAccountResolved()` → `false`, `getCannedResponses()` → `[]` (refused, not a guessed-account result) — confirms the fail-closed path fires against Chatwoot's real API, not just structurally.
+- the real production token/account: `isAccountResolved()` → `true`, `getAccountId()` → `2` (the real account, unchanged) — confirms no regression against the account the plugin has run against all session.
+
+**Still open** (not addressed by PR #217, tracked here for the next slice):
+- when a token belongs to multiple accounts, surface human-readable account selection or prove the current account deterministically — no multi-account UX exists yet, only single-account fail-closed/fail-open;
+- validate selected Inbox/Captain resources belong to the resolved account;
+- cache/reuse resolved account identity rather than performing hidden network I/O in every `ChatwootApiService` constructor — this remains a real hidden-constructor-I/O issue (see HAR-021), just no longer a silent-fallback one;
+- multi-account real acceptance test.
 
 ### HAR-002 — MUST FIX — remote list calls must distinguish empty from failed and must be complete
 
