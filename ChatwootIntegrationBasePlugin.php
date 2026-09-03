@@ -789,7 +789,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if (method_exists($request, 'getRequestedContextPath')) {
             $requestedContextPath = trim((string) $request->getRequestedContextPath());
             if ($requestedContextPath !== '') {
-                $context = Repo::context()->getByPath($requestedContextPath);
+                $context = Application::getContextDAO()->getByPath($requestedContextPath);
                 if ($context) {
                     return $context;
                 }
@@ -798,7 +798,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
         $requestedPage = trim((string) $request->getRequestedPage());
         if ($requestedPage !== '') {
-            $context = Repo::context()->getByPath($requestedPage);
+            $context = Application::getContextDAO()->getByPath($requestedPage);
             if ($context) {
                 return $context;
             }
@@ -813,27 +813,18 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             }
         }
 
-        return $this->fallbackWidgetContextFromSettings();
-    }
-
-    private function fallbackWidgetContextFromSettings() {
-        if (!method_exists(Repo::context(), 'getCollector')) {
-            return null;
-        }
-
-        $contexts = Repo::context()->getCollector()->getMany();
-        foreach ($contexts as $candidate) {
-            $contextId = (int) $candidate->getId();
-            if (
-                ($this->getEnabled($contextId) || $this->getEnabled())
-                && $this->toBool($this->getEffectiveSetting($contextId, 'enableWidget', false))
-                && $this->normalizeBaseUrl((string) $this->getEffectiveSetting($contextId, 'chatwootBaseUrl', '')) !== ''
-                && trim((string) $this->getEffectiveSetting($contextId, 'chatwootWebsiteToken', '')) !== ''
-            ) {
-                return $candidate;
-            }
-        }
-
+        // HAR-007: fail closed. A component/AJAX/site-admin request
+        // with no real per-request journal-context evidence must never
+        // invent one — the previous fallback here (a nonexistent
+        // Repo facade method, which does not exist and fataled every
+        // time this path was reached — silently logged and swallowed
+        // by PKP\plugins\Hook::run()'s own plugin-exception handling,
+        // never visibly breaking a page, but never rendering a widget
+        // either) iterated every enabled journal and returned the
+        // first one whose widget was configured, which could leak
+        // Journal A's widget/identity into a Journal B or site-level
+        // route. Returning null here means no widget renders on an
+        // ambiguous request, which is the correct, safe outcome.
         return null;
     }
 
