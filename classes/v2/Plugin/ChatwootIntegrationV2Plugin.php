@@ -553,26 +553,35 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         SupportEventType::SUBMISSION_REVISION_REQUESTED,
         SupportEventType::SUBMISSION_ACCEPTED,
         SupportEventType::SUBMISSION_REJECTED,
+        SupportEventType::PUBLICATION_SCHEDULED,
+        SupportEventType::PUBLICATION_PUBLISHED,
     ];
 
     /**
-     * EVT-017/EVT-020: the live-delivery ownership switch itself.
-     * `eventSubmissionCreated` (EVT-017), `eventDecisionRecorded`,
-     * `eventRevisionRequested`, `eventAccepted` and `eventRejected`
-     * (EVT-020) have been transferred so far; the remaining 2 v1-owned
-     * event-setting keys (`eventPublicationScheduled`/
-     * `eventPublicationPublished`, driven by different v1 handlers) stay
-     * v1-owned until each gets its own deliberate, reviewed transfer
-     * here. `eventRevisionRequested`/`eventAccepted`/`eventRejected`
-     * needed no new guard code — all three flow through the same
-     * `handleEditorDecision()` check the #179 fix already keys on
-     * `$eventKey` (`mapDecisionEventKey()` returns the matching key for
-     * each real decision-code group), so adding them here and to
-     * `LIVE_DELIVERY_ALLOWLIST` is the entire change per type.
+     * EVT-017/EVT-020: the live-delivery ownership switch itself. All 8
+     * known event-setting keys are now transferred to v2 in code —
+     * `eventSubmissionCreated` (EVT-017); `eventDecisionRecorded`,
+     * `eventRevisionRequested`, `eventAccepted`, `eventRejected`
+     * (`handleEditorDecision()`'s single per-decision-code guard, keyed
+     * correctly since #179); and `eventPublicationScheduled`/
+     * `eventPublicationPublished` (`handlePublicationPublished()` — a
+     * single real hook, a single real adapter
+     * (`PublicationStatusEventAdapter`) producing both types, no
+     * sibling call site sharing either key, verified by grep before this
+     * transfer per the lesson from the `eventAccepted`/`eventRejected`
+     * double-delivery near-miss: `handleSubmissionStatusUpdated()`
+     * shared those same two setting keys with `handleEditorDecision()`
+     * via a second, independent adapter and was missed on the first
+     * pass). `eventRevisionRequested`/`eventAccepted`/`eventRejected`/
+     * `eventPublicationScheduled`/`eventPublicationPublished` needed no
+     * new guard code beyond what each hook already had — adding them
+     * here and to `LIVE_DELIVERY_ALLOWLIST` is the entire change per
+     * type. See EVT-016B in docs/v2/TASKLIST.md for which of these are
+     * live-accepted vs. structural-only per CMP-001.
      */
     protected function isLiveDeliveryOwnedByV2(string $eventSettingKey): bool
     {
-        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested', 'eventAccepted', 'eventRejected'], true);
+        return in_array($eventSettingKey, ['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested', 'eventAccepted', 'eventRejected', 'eventPublicationScheduled', 'eventPublicationPublished'], true);
     }
 
     /** @param array<string,mixed> $row */
