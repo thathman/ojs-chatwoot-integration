@@ -101,8 +101,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMappe
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\CaptainSyncScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\DeliverQueuedSupportEventsTask;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Task\ProcessLegacyRetryQueueScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\FaqCacheSyncScheduledTask;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Task\ProcessLegacyRetryQueueScheduledTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportDataTask;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportMailTestMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;

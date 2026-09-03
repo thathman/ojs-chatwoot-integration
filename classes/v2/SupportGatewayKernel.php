@@ -12,11 +12,11 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\ApprovedFaqKnow
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CoreJournalKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePaymentKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\CorePublicationKnowledgeProvider;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\DatabaseSupportFaqCacheRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompilation;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeCompiler;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthReport;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeHealthService;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\DatabaseSupportFaqCacheRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\OfficialPageKnowledgeProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\AvailableActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Policy\CapabilityDecision;

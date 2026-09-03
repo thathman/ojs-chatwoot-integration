@@ -11,7 +11,6 @@ namespace {
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\ApprovedFaqKnowledgeProvider;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\FaqCacheSyncService;
     use APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge\KnowledgeSourcePrecedence;
-    use APP\plugins\generic\chatwootIntegration\classes\v2\Migration\InstallSupportGatewayMigration;
 
     function kno011Check(bool $condition, string $message): void
     {
@@ -28,7 +27,7 @@ namespace {
     kno011Check(str_contains($migrationSource, "FAQ_CACHE_TABLE = 'chatwoot_support_faq_cache'"), 'migration must declare the FAQ cache table name constant');
     kno011Check(str_contains($migrationSource, 'upFaqCache()'), 'up() must call upFaqCache()');
     kno011Check(str_contains($migrationSource, 'Schema::dropIfExists(self::FAQ_CACHE_TABLE)'), 'down() must drop the FAQ cache table');
-    kno011Check(str_contains($migrationSource, "cw_faq_cache_identity"), 'the cache table must have a uniqueness constraint on (context_id, locale, external_id)');
+    kno011Check(str_contains($migrationSource, 'cw_faq_cache_identity'), 'the cache table must have a uniqueness constraint on (context_id, locale, external_id)');
 
     // ================================================================
     // Part 2: FaqCacheSyncService — the only place Chatwoot is called live.
@@ -38,15 +37,42 @@ namespace {
         public array $responses = [];
         public ?\Throwable $throwOnList = null;
 
-        public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array { return null; }
-        public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array { return null; }
-        public function syncCaptainDocument(string $documentId): bool { return true; }
-        public function listCaptainCustomTools(): array { return []; }
-        public function createCaptainCustomTool(array $definition): ?array { return null; }
-        public function updateCaptainCustomTool(string $toolId, array $definition): bool { return true; }
-        public function listCaptainScenarios(int $assistantId): array { return []; }
-        public function createCaptainScenario(int $assistantId, array $definition): ?array { return null; }
-        public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool { return true; }
+        public function findCaptainDocumentByExternalLink(int $assistantId, string $externalLink): ?array
+        {
+            return null;
+        }
+        public function createCaptainDocument(int $assistantId, string $name, string $externalLink): ?array
+        {
+            return null;
+        }
+        public function syncCaptainDocument(string $documentId): bool
+        {
+            return true;
+        }
+        public function listCaptainCustomTools(): array
+        {
+            return [];
+        }
+        public function createCaptainCustomTool(array $definition): ?array
+        {
+            return null;
+        }
+        public function updateCaptainCustomTool(string $toolId, array $definition): bool
+        {
+            return true;
+        }
+        public function listCaptainScenarios(int $assistantId): array
+        {
+            return [];
+        }
+        public function createCaptainScenario(int $assistantId, array $definition): ?array
+        {
+            return null;
+        }
+        public function updateCaptainScenario(int $assistantId, string $scenarioId, array $definition): bool
+        {
+            return true;
+        }
 
         public function listCaptainAssistantResponses(int $assistantId): array
         {
@@ -112,8 +138,13 @@ namespace {
     // ================================================================
     final class FakeFaqContext
     {
-        public function __construct(private int $id) {}
-        public function getId(): int { return $this->id; }
+        public function __construct(private int $id)
+        {
+        }
+        public function getId(): int
+        {
+            return $this->id;
+        }
     }
 
     $provider = new ApprovedFaqKnowledgeProvider($repository);
@@ -135,12 +166,17 @@ namespace {
     // The provider must degrade to [] rather than throw when the repository itself fails.
     final class ThrowingFaqRepository implements SupportFaqCacheRepositoryInterface
     {
-        public function replaceAll(int $contextId, string $locale, array $faqs, int $now): void {}
+        public function replaceAll(int $contextId, string $locale, array $faqs, int $now): void
+        {
+        }
         public function listApproved(int $contextId, string $locale): array
         {
             throw new \RuntimeException('DB unavailable');
         }
-        public function lastSyncedAt(int $contextId, string $locale): ?int { return null; }
+        public function lastSyncedAt(int $contextId, string $locale): ?int
+        {
+            return null;
+        }
     }
     $throwingProvider = new ApprovedFaqKnowledgeProvider(new ThrowingFaqRepository());
     kno011Check($throwingProvider->collect(new FakeFaqContext(1), new \stdClass(), 'en') === [], 'a repository failure must degrade to an empty fact set, never an uncaught exception');
