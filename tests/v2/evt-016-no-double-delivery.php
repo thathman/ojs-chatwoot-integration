@@ -172,54 +172,41 @@ namespace {
             'resource_id' => 101,
         ];
 
-        if (in_array($eventType, [SupportEventType::SUBMISSION_CREATED, SupportEventType::SUBMISSION_REVIEW_SUBMITTED, SupportEventType::SUBMISSION_DECISION_RECORDED, SupportEventType::SUBMISSION_REVISION_REQUESTED, SupportEventType::SUBMISSION_ACCEPTED, SupportEventType::SUBMISSION_REJECTED], true)) {
-            $threw = false;
-            try {
-                $method->invoke($plugin, null, $row);
-            } catch (\Throwable $e) {
-                $threw = true;
-            }
-            evt016Check(
-                $threw,
-                "event type '{$eventType}' is one of the six transferred/allowlisted types — it must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
-            );
-            continue;
+        // All 8 known event types are now transferred/allowlisted.
+        $threw = false;
+        try {
+            $method->invoke($plugin, null, $row);
+        } catch (\Throwable $e) {
+            $threw = true;
         }
-
-        $result = $method->invoke($plugin, null, $row);
         evt016Check(
-            $result === true,
-            "event type '{$eventType}' must be blocked from live re-delivery (return true / no-op) until its own EVT-0xx task confirms v1 no longer also delivers it — got a non-true result, meaning it attempted to actually call the (null) bridge and would have fataled or, worse in production, double-posted to Chatwoot"
+            $threw,
+            "event type '{$eventType}' must now actually attempt live delivery (reach the null \$bridge and fatal), proving it passed the allowlist gate instead of staying a silent no-op"
         );
     }
 
-    // The allowlist must currently contain exactly these six types — the
-    // moment any further type is added, it must be a deliberate,
-    // reviewed decision (a real code change to this constant), never
-    // silently reintroduced.
+    // The allowlist must currently contain exactly all 8 known types —
+    // the moment any further type is added (a 9th event kind is
+    // invented), it must be a deliberate, reviewed decision (a real code
+    // change to this constant), never silently reintroduced.
     $pluginSource = (string) file_get_contents("{$root}/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php");
     $allowlistStart = strpos($pluginSource, 'LIVE_DELIVERY_ALLOWLIST = [');
     evt016Check($allowlistStart !== false, 'the plugin must declare a real LIVE_DELIVERY_ALLOWLIST constant');
     $allowlistBlock = substr($pluginSource, $allowlistStart, (int) strpos($pluginSource, '];', $allowlistStart) - $allowlistStart);
     $allowlistNormalized = trim(str_replace(['LIVE_DELIVERY_ALLOWLIST = [', "\n", ' ', ','], ['', '', '', ''], $allowlistBlock));
     evt016Check(
-        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATEDSupportEventType::SUBMISSION_REVIEW_SUBMITTEDSupportEventType::SUBMISSION_DECISION_RECORDEDSupportEventType::SUBMISSION_REVISION_REQUESTEDSupportEventType::SUBMISSION_ACCEPTEDSupportEventType::SUBMISSION_REJECTED',
-        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly SUBMISSION_CREATED, SUBMISSION_REVIEW_SUBMITTED, SUBMISSION_DECISION_RECORDED, SUBMISSION_REVISION_REQUESTED, SUBMISSION_ACCEPTED and SUBMISSION_REJECTED and nothing else, got: ' . $allowlistNormalized
+        $allowlistNormalized === 'SupportEventType::SUBMISSION_CREATEDSupportEventType::SUBMISSION_REVIEW_SUBMITTEDSupportEventType::SUBMISSION_DECISION_RECORDEDSupportEventType::SUBMISSION_REVISION_REQUESTEDSupportEventType::SUBMISSION_ACCEPTEDSupportEventType::SUBMISSION_REJECTEDSupportEventType::PUBLICATION_SCHEDULEDSupportEventType::PUBLICATION_PUBLISHED',
+        'LIVE_DELIVERY_ALLOWLIST must currently contain exactly all 8 known SupportEventTypes and nothing else, got: ' . $allowlistNormalized
     );
 
     // Ownership-switch parity: the base plugin's per-type gate must agree
-    // with the allowlist exactly.
+    // with the allowlist exactly — all 8 real event-setting keys
+    // transferred, none left v1-owned.
     $ownershipMethod = new \ReflectionMethod($plugin, 'isLiveDeliveryOwnedByV2');
-    foreach (['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested', 'eventAccepted', 'eventRejected'] as $transferred) {
+    foreach (['eventSubmissionCreated', 'eventDecisionRecorded', 'eventRevisionRequested', 'eventAccepted', 'eventRejected', 'eventPublicationScheduled', 'eventPublicationPublished'] as $transferred) {
         evt016Check(
             $ownershipMethod->invoke($plugin, $transferred) === true,
             "isLiveDeliveryOwnedByV2() must return true for '{$transferred}' now that it has been transferred"
-        );
-    }
-    foreach (['eventPublicationScheduled', 'eventPublicationPublished'] as $stillV1Owned) {
-        evt016Check(
-            $ownershipMethod->invoke($plugin, $stillV1Owned) === false,
-            "isLiveDeliveryOwnedByV2() must still return false for '{$stillV1Owned}' — not yet transferred"
         );
     }
 
