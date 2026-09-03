@@ -41,6 +41,7 @@ namespace {
     require_once $root . '/ChatwootIntegrationBasePlugin.php';
 
     use APP\plugins\generic\chatwootIntegration\ChatwootIntegrationBasePlugin;
+    use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 
     function settings002Check(bool $condition, string $message): void
     {
@@ -51,28 +52,34 @@ namespace {
     }
 
     // ================================================================
-    // SETTINGS-SMALL-002: exportSettings() (v2, LEGACY_EXPORT_KEYS) and
-    // importSettings()/saveGlobalProfile()/applyGlobalProfile() (v1,
-    // inherited unchanged by v2, EXPORT_KEYS) previously used two
+    // SETTINGS-SMALL-002/UX-024: exportSettings() (v2, legacyExportKeys())
+    // and importSettings()/saveGlobalProfile()/applyGlobalProfile() (v1,
+    // inherited unchanged by v2, exportKeys()) previously used two
     // independently-maintained key lists that had drifted apart —
     // widgetSettingsJson, eventDeliveryGlobalMode,
     // eventDeliveryCustomerMessageConsent, eventDeliveryPerEventOverridesJson,
     // and chatwootCaptainAssistantId/chatwootSupportApiToken were only
-    // in one list or the other. A real export → import round-trip
-    // would silently drop whichever of these keys weren't in the
-    // *import* list, even though they were genuinely exported.
-    //
-    // This test proves, against the real source tree, that both lists
-    // now agree on every one of these keys (source-level: the two
-    // constants live in different classes/files, so a single
-    // reflection call can't compare them directly — string assertion
-    // against both real files is the correct-tier check here), and
-    // exercises the real, executable import-safety logic
-    // (isImportValueSafe) via reflection against the real class.
+    // in one list or the other. Both now delegate directly to the same
+    // canonical `SettingsRegistry::exportableKeys()` (UX-024), so they
+    // can never drift apart again — this test proves both real methods
+    // still delegate to it (drift is now structurally impossible rather
+    // than merely checked), and exercises the real, executable
+    // import-safety logic (isImportValueSafe) via reflection against
+    // the real class.
     // ================================================================
 
     $v1Source = (string) file_get_contents("{$root}/ChatwootIntegrationBasePlugin.php");
     $v2Source = (string) file_get_contents("{$root}/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php");
+
+    settings002Check(!str_contains($v1Source, 'private const EXPORT_KEYS'), 'v1 must no longer maintain its own EXPORT_KEYS list');
+    $v1ExportKeysStart = strpos($v1Source, 'function exportKeys()');
+    settings002Check($v1ExportKeysStart !== false, 'v1 must declare exportKeys()');
+    settings002Check(str_contains(substr($v1Source, $v1ExportKeysStart, 150), 'SettingsRegistry::exportableKeys()'), "v1's exportKeys() must delegate to SettingsRegistry::exportableKeys()");
+
+    settings002Check(!str_contains($v2Source, 'LEGACY_EXPORT_KEYS'), 'v2 must no longer maintain its own LEGACY_EXPORT_KEYS list');
+    $v2ExportKeysStart = strpos($v2Source, 'function legacyExportKeys()');
+    settings002Check($v2ExportKeysStart !== false, 'v2 must declare legacyExportKeys()');
+    settings002Check(str_contains(substr($v2Source, $v2ExportKeysStart, 150), 'SettingsRegistry::exportableKeys()'), "v2's legacyExportKeys() must delegate to SettingsRegistry::exportableKeys()");
 
     $newKeys = [
         'chatwootCaptainAssistantId',
@@ -82,31 +89,17 @@ namespace {
         'eventDeliveryCustomerMessageConsent',
         'eventDeliveryPerEventOverridesJson',
     ];
-
-    $v1ExportKeysStart = strpos($v1Source, 'private const EXPORT_KEYS');
-    settings002Check($v1ExportKeysStart !== false, 'v1 must declare EXPORT_KEYS');
-    $v1ExportKeysBlock = substr($v1Source, $v1ExportKeysStart, (int) strpos($v1Source, '];', $v1ExportKeysStart) - $v1ExportKeysStart);
-
-    $v2ExportKeysStart = strpos($v2Source, 'LEGACY_EXPORT_KEYS = [');
-    settings002Check($v2ExportKeysStart !== false, 'v2 must declare LEGACY_EXPORT_KEYS');
-    $v2ExportKeysBlock = substr($v2Source, $v2ExportKeysStart, (int) strpos($v2Source, '];', $v2ExportKeysStart) - $v2ExportKeysStart);
-
     foreach ($newKeys as $key) {
         settings002Check(
-            str_contains($v1ExportKeysBlock, "'{$key}'"),
-            "v1's EXPORT_KEYS (import/saveGlobalProfile/applyGlobalProfile) must include '{$key}' — otherwise an export→import round-trip silently drops it"
-        );
-        settings002Check(
-            str_contains($v2ExportKeysBlock, "'{$key}'"),
-            "v2's LEGACY_EXPORT_KEYS (export) must include '{$key}' — it is a real, non-secret, UI-configurable setting"
+            in_array($key, SettingsRegistry::exportableKeys(), true),
+            "SettingsRegistry must mark '{$key}' exportable — otherwise an export→import round-trip silently drops it"
         );
     }
 
-    // mcpServiceToken must still never appear in either list (ADR-021,
-    // already covered by tests/v2/settings-form-mcp-secret-masking.php
-    // — re-asserted here as a same-file regression guard for this PR).
-    settings002Check(!str_contains($v1ExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in v1 EXPORT_KEYS');
-    settings002Check(!str_contains($v2ExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in v2 LEGACY_EXPORT_KEYS');
+    // mcpServiceToken must never be exportable (ADR-021, already
+    // covered by tests/v2/settings-form-mcp-secret-masking.php —
+    // re-asserted here as a same-file regression guard).
+    settings002Check(!in_array('mcpServiceToken', SettingsRegistry::exportableKeys(), true), 'mcpServiceToken must never be exportable');
 
     // --- Real, executable behavior: guessSettingType() ---
     $plugin = new ChatwootIntegrationBasePlugin();

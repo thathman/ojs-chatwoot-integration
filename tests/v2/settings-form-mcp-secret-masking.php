@@ -6,6 +6,7 @@ $root = dirname(__DIR__, 2);
 require_once $root . '/classes/v2/bootstrap.php';
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 
 function settingsFormMaskingCheck(bool $condition, string $message): void
 {
@@ -82,17 +83,11 @@ settingsFormMaskingCheck($maskResolutionPos !== false && $updateSettingPos !== f
 // Wiring: mcpServiceToken must never be exportable/importable, exactly
 // like the other real secrets already established this session.
 // ================================================================
-$v2PluginSource = (string) file_get_contents($root . '/classes/v2/Plugin/ChatwootIntegrationV2Plugin.php');
-$legacyExportKeysStart = strpos($v2PluginSource, 'LEGACY_EXPORT_KEYS = [');
-settingsFormMaskingCheck($legacyExportKeysStart !== false, 'the plugin must declare LEGACY_EXPORT_KEYS');
-$legacyExportKeysBlock = substr($v2PluginSource, $legacyExportKeysStart, (int) strpos($v2PluginSource, '];', $legacyExportKeysStart) - $legacyExportKeysStart);
-settingsFormMaskingCheck(!str_contains($legacyExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in LEGACY_EXPORT_KEYS — it must be structurally impossible to export or import via the settings backup path, same as the MCP credential design already establishes elsewhere');
-
-$v1PluginSource = (string) file_get_contents($root . '/ChatwootIntegrationBasePlugin.php');
-$v1ExportKeysStart = strpos($v1PluginSource, 'EXPORT_KEYS = [');
-settingsFormMaskingCheck($v1ExportKeysStart !== false, 'v1 must declare its own EXPORT_KEYS');
-$v1ExportKeysBlock = substr($v1PluginSource, $v1ExportKeysStart, (int) strpos($v1PluginSource, '];', $v1ExportKeysStart) - $v1ExportKeysStart);
-settingsFormMaskingCheck(!str_contains($v1ExportKeysBlock, "'mcpServiceToken'"), 'mcpServiceToken must never appear in v1\'s own EXPORT_KEYS either — v1\'s importSettings() gates on this same list, so this closes both the export and import path');
+// UX-024: both exportKeys() (v1) and legacyExportKeys() (v2) now
+// delegate directly to SettingsRegistry::exportableKeys(), which
+// itself marks mcpServiceToken exportable: false — checking the
+// single shared source is now the correct-tier assertion.
+settingsFormMaskingCheck(!in_array('mcpServiceToken', SettingsRegistry::exportableKeys(), true), 'mcpServiceToken must never be exportable — it must be structurally impossible to export or import via the settings backup path, same as the MCP credential design already establishes elsewhere');
 
 // ================================================================
 // Wiring: the template must render every real secret as a password

@@ -30,6 +30,8 @@ function tst022Check(bool $condition, string $message): void
 }
 
 $root = dirname(__DIR__, 2);
+require_once "{$root}/classes/v2/Settings/SettingDefinition.php";
+require_once "{$root}/classes/v2/Settings/SettingsRegistry.php";
 
 $formSource = (string) file_get_contents("{$root}/ChatwootSettingsForm.php");
 tst022Check(
@@ -61,21 +63,22 @@ tst022Check(
     'Captain Document and Custom Tool provisioning must both still require chatwootCaptainAssistantId (proves this test checks the same key provisioning actually needs, not a renamed/orphaned one)'
 );
 
-// mcpServiceToken must remain excluded from LEGACY_EXPORT_KEYS (an
-// already-tested design decision, tests/v2/settings-form-mcp-secret-
-// masking.php) — this test does not weaken that guarantee while adding
-// chatwootCaptainAssistantId to the same list.
-$legacyExportKeysStart = strpos($pluginSource, 'LEGACY_EXPORT_KEYS = [');
-tst022Check($legacyExportKeysStart !== false, 'the plugin must declare LEGACY_EXPORT_KEYS');
-$legacyExportKeysEnd = strpos($pluginSource, '];', $legacyExportKeysStart);
-$legacyExportKeysBlock = substr($pluginSource, $legacyExportKeysStart, $legacyExportKeysEnd - $legacyExportKeysStart);
+// UX-024: LEGACY_EXPORT_KEYS is gone — legacyExportKeys() now
+// delegates directly to SettingsRegistry::exportableKeys(), so
+// checking the single shared source is the correct-tier assertion.
+// chatwootCaptainAssistantId (a public numeric ID, safe to
+// export/import like chatwootInboxId) must be exportable; mcpServiceToken
+// must still never be (an already-tested design decision,
+// tests/v2/settings-form-mcp-secret-masking.php) — this fix must not
+// regress that already-tested guarantee.
+tst022Check(!str_contains($pluginSource, 'LEGACY_EXPORT_KEYS'), 'ChatwootIntegrationV2Plugin must no longer maintain its own LEGACY_EXPORT_KEYS list');
 tst022Check(
-    str_contains($legacyExportKeysBlock, "'chatwootCaptainAssistantId'"),
-    'chatwootCaptainAssistantId must be included in LEGACY_EXPORT_KEYS — it is a public numeric ID, safe to export/import like chatwootInboxId'
+    in_array('chatwootCaptainAssistantId', \APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry::exportableKeys(), true),
+    'chatwootCaptainAssistantId must be exportable — it is a public numeric ID, safe to export/import like chatwootInboxId'
 );
 tst022Check(
-    !str_contains($legacyExportKeysBlock, "'mcpServiceToken'"),
-    'mcpServiceToken must still never appear in LEGACY_EXPORT_KEYS — this fix must not regress that already-tested guarantee'
+    !in_array('mcpServiceToken', \APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry::exportableKeys(), true),
+    'mcpServiceToken must still never be exportable — this fix must not regress that already-tested guarantee'
 );
 
 fwrite(STDOUT, "PASS: tst-022-captain-assistant-id-settings-field\n");
