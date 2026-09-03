@@ -25,13 +25,22 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Provider\ProviderHealth;
  *   legitimately-not-applicable state)              -> failed
  *   Knowledge health is degraded/empty,
  *   Captain health is degraded,
- *   Support API/MCP/verification not configured,
  *   or dead letters are accumulating (> 0)          -> degraded
  *   otherwise                                       -> healthy
  *
  * Captain's own "not_provisioned" state is deliberately treated as
  * neutral, not degraded — a fresh install genuinely has nothing
  * provisioned yet, which is not evidence of a problem.
+ *
+ * HAR-017: Support API, MCP, and verification are optional add-on
+ * modules with no separate "I intend to use this" setting distinct
+ * from the credential itself — the only real signal available is
+ * whether their token/config is present. Treating "not configured"
+ * as degraded punished every install that simply never opted into an
+ * optional module, exactly the false-positive Captain's
+ * not_provisioned precedent already guards against. `*Configured()`
+ * stays exposed on the summary so the Overview UI can still show each
+ * module's own state; none of the three feed the overall-state rule.
  */
 final class SupportGatewayHealthAggregator
 {
@@ -60,9 +69,6 @@ final class SupportGatewayHealthAggregator
         } elseif (
             in_array($knowledgeHealth?->state(), [KnowledgeHealthReport::STATE_DEGRADED, KnowledgeHealthReport::STATE_EMPTY], true)
             || $captainHealth?->overallState() === CaptainProvisioningHealthReport::STATE_DEGRADED
-            || !$supportApiConfigured
-            || !$mcpConfigured
-            || !$verificationConfigured
             || $deadLetterCount > 0
         ) {
             $overallState = SupportGatewayHealthSummary::STATE_DEGRADED;
