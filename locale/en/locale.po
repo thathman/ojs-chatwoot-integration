@@ -355,6 +355,9 @@ msgstr "Successfully synced {$count} templates to Chatwoot."
 msgid "plugins.generic.chatwootIntegration.syncQueued"
 msgstr "{$count} templates were queued for retry."
 
+msgid "plugins.generic.chatwootIntegration.syncDenied"
+msgstr "{$count} security/verification templates were never synced (denied by policy)."
+
 msgid "plugins.generic.chatwootIntegration.import.invalidJson"
 msgstr "Import payload is invalid JSON or missing the settings object."
 

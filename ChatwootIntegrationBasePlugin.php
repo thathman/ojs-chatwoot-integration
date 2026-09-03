@@ -215,10 +215,11 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $this->processApiQueue($contextId, 8);
         $api = new ChatwootApiService($baseUrl, $token);
         $templates = Repo::emailTemplate()->getCollector($contextId)->getMany();
-        $count = 0; $queued = 0;
+        $count = 0; $queued = 0; $denied = 0;
 
         foreach ($templates as $template) {
             $shortCode = (string) $template->getData('key');
+            if (!$this->isCannedResponseSafe($shortCode)) { $denied++; continue; }
             $content = (string) $template->getLocalizedData('body');
             if ($content === '') continue;
             $result = $api->createCannedResponse($shortCode, $content);
@@ -232,7 +233,35 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             }
         }
 
-        return new JSONMessage(true, __('plugins.generic.chatwootIntegration.syncSuccess', ['count' => $count]) . ' ' . __('plugins.generic.chatwootIntegration.syncQueued', ['count' => $queued]));
+        return new JSONMessage(true, __('plugins.generic.chatwootIntegration.syncSuccess', ['count' => $count]) . ' ' . __('plugins.generic.chatwootIntegration.syncQueued', ['count' => $queued]) . ' ' . __('plugins.generic.chatwootIntegration.syncDenied', ['count' => $denied]));
+    }
+
+    /**
+     * HAR-013: security/verification/password-reset/registration/
+     * login-recovery templates must never be promoted to a Chatwoot
+     * canned response merely because this button exists — that content
+     * is plaintext account-recovery material (reset links, magic-login
+     * links, validation links), and a canned response is visible to
+     * every support agent with Chatwoot access, not just this journal's
+     * editorial staff. Live-verified against this real installation's
+     * actual templates: PASSWORD_RESET_CONFIRM, MAGIC_LOGIN_LINK,
+     * USER_VALIDATE_CONTEXT, and USER_VALIDATE_SITE would otherwise
+     * have been synced as-is. Keyword-matched rather than an exact-key
+     * denylist so a similarly-named template added later by this or
+     * any other installed plugin is denied by default (fail closed),
+     * not only the specific keys discovered this session.
+     */
+    private const CANNED_RESPONSE_DENY_KEYWORDS = [
+        'PASSWORD', 'RESET', 'VALIDATE', 'VERIF', 'LOGIN', 'REGISTER',
+        'ACTIVATE', 'TOKEN', 'SECRET', 'OTP', 'PIN', 'MAGIC', 'CREDENTIAL',
+    ];
+
+    private function isCannedResponseSafe(string $templateKey): bool {
+        $key = strtoupper($templateKey);
+        foreach (self::CANNED_RESPONSE_DENY_KEYWORDS as $keyword) {
+            if (str_contains($key, $keyword)) return false;
+        }
+        return true;
     }
 
     public function handleEditorDecision($hookName, $args) {
