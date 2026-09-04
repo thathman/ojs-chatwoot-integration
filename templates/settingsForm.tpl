@@ -489,12 +489,23 @@
 				$('#chatwootAccountId').val(data.selectedAccountId);
 				var accountName = (data.accounts || []).filter(function(a) {ldelim} return String(a.id) === String(data.selectedAccountId); {rdelim})[0];
 				$('#chatwootAccountName').val(accountName ? accountName.name : '');
-				$('#chatwootDiscoveryVerifiedAt').val(new Date().toISOString());
-				$('#chatwootDiscoverSummary').text('Connected. Account: ' + (accountName ? accountName.name : data.selectedAccountId));
+				var verifiedAt = new Date().toISOString();
+				$('#chatwootDiscoveryVerifiedAt').val(verifiedAt);
+				// Owner browser review 2026-09-04 finding #3: the visible
+				// "Last verified" captions must refresh immediately on a
+				// fresh discovery, not only the hidden fields that
+				// actually get saved — otherwise the on-screen state looks
+				// stale until the next full page/modal reload even though
+				// the underlying data is already correct.
+				$('#chatwootDiscoverSummary').text(
+					{$discoverConnectedPrefixJs|json_encode_html_attribute} + (accountName ? accountName.name : data.selectedAccountId)
+					+ ' — ' + {$discoverLastVerifiedPrefixJs|json_encode_html_attribute} + verifiedAt
+				);
 				cwPopulateSelect($('#chatwootInboxId'), data.inboxes || [], 'Select a Website Inbox…', 'No Website inboxes found.');
 				cwPopulateSelect($('#chatwootCaptainAssistantId'), data.assistants || [], 'Select a Captain Assistant…', 'No Captain Assistants found.');
 				cwSyncSelectName($('#chatwootInboxId'), 'chatwootInboxName');
 				cwSyncSelectName($('#chatwootCaptainAssistantId'), 'chatwootCaptainAssistantName');
+				$('#chatwootInboxLastVerified').text({$discoverLastVerifiedPrefixJs|json_encode_html_attribute} + verifiedAt).removeAttr('hidden');
 				cwShowStatus($btn, 'Connected.', false);
 			{rdelim}).fail(function(jqXHR) {ldelim}
 				var message = (jqXHR.responseJSON && (jqXHR.responseJSON.content || jqXHR.responseJSON.errorMessage)) || 'Connection failed.';
@@ -676,7 +687,7 @@
 			<div class="cwActionStatus" id="chatwootDiscoverBtnStatus" role="status" hidden></div>
 			<p id="chatwootDiscoverSummary" class="cwSectionDescription">
 				{if $chatwootAccountName}
-					{translate key="plugins.generic.chatwootIntegration.settings.discover.connectedAccount"}{$chatwootAccountName|escape} — {translate key="plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"}{$chatwootDiscoveryVerifiedAt|escape}
+					{translate key="plugins.generic.chatwootIntegration.settings.discover.connectedAccount"}{$chatwootAccountName|escape} — <span id="chatwootAccountLastVerified">{translate key="plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"}{$chatwootDiscoveryVerifiedAt|escape}</span>
 				{else}
 					{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"}
 				{/if}
@@ -702,7 +713,7 @@
 						</option>
 					{/if}
 				</select>
-				{if $chatwootInboxName}<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"}{$chatwootDiscoveryVerifiedAt|escape}</p>{/if}
+				<p class="cwSectionDescription" id="chatwootInboxLastVerified"{if !$chatwootInboxName} hidden{/if}>{translate key="plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"}{$chatwootDiscoveryVerifiedAt|escape}</p>
 			{/fbvFormSection}
 		</div>
 
