@@ -379,7 +379,7 @@
 								<li>{translate key="plugins.generic.chatwootIntegration.settings.health.oldestPendingAge"} {$supportGatewayHealth.queueHealth.oldestPendingAgeSeconds|escape}s</li>
 							{/if}
 							{foreach from=$supportGatewayHealth.queueHealth.deadLetterErrorCodes key=errorCode item=errorCodeCount}
-								<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode" errorCode=$errorCode|escape count=$errorCodeCount|escape}</li>
+								<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode" errorCode=$errorCode|escape deadLetterCount=$errorCodeCount|escape}</li>
 							{/foreach}
 						{/if}
 					</ul>

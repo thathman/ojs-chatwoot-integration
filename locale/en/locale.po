@@ -74,7 +74,7 @@ msgid "plugins.generic.chatwootIntegration.settings.health.oldestPendingAge"
 msgstr "Oldest pending event age:"
 
 msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode"
-msgstr "Dead letters with error code \"{$errorCode}\": {$count}"
+msgstr "Dead letters with error code \"{$errorCode}\": {$deadLetterCount}"
 
 msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLettersDescription"
 msgstr "These events exhausted their delivery attempts and are no longer retried automatically. Use this to reset them back to pending for a fresh retry (up to 50 at a time)."
