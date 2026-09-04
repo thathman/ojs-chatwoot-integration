@@ -226,6 +226,81 @@ msgstr "Select a Captain Assistant…"
 msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.noneFound"
 msgstr "No Captain Assistants were found on this account, or Captain is not enabled."
 
+msgid "plugins.generic.chatwootIntegration.settings.appearance"
+msgstr "Appearance"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetPosition"
+msgstr "Position"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetPosition.right"
+msgstr "Right"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetPosition.left"
+msgstr "Left"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLauncherStyle"
+msgstr "Launcher style"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLauncherStyle.standard"
+msgstr "Standard icon"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLauncherStyle.expandedBubble"
+msgstr "Expanded button"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLauncherTitle"
+msgstr "Button title"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLauncherTitle.description"
+msgstr "Shown only when the launcher style is \"Expanded button\" (e.g. Need Help?)."
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLanguageMode"
+msgstr "Language"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLanguageMode.matchOjs"
+msgstr "Match OJS language"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLanguageMode.browser"
+msgstr "Follow visitor's browser"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetLanguageMode.fixed"
+msgstr "Fixed locale"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetFixedLocale"
+msgstr "Fixed locale code"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetFixedLocale.description"
+msgstr "Only used when Language is set to \"Fixed locale\" (e.g. en, fr, es)."
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetTheme"
+msgstr "Theme"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetTheme.auto"
+msgstr "Automatic"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetTheme.light"
+msgstr "Light"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetTheme.dark"
+msgstr "Dark"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetOtherOptions"
+msgstr "Other options"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetShowPopoutButton"
+msgstr "Show pop-out (expand to full page) button"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetShowUnreadDialog"
+msgstr "Show a prompt for unread messages"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetHideMessageBubble"
+msgstr "Hide the launcher bubble (widget opens only via a page action)"
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetPreview"
+msgstr "Local preview — approximate only. This does not load the real Chatwoot widget; use Send Test Message or visit the site to see the real widget."
+
+msgid "plugins.generic.chatwootIntegration.settings.widgetSettingsJson.advancedDescription"
+msgstr "Advanced: only for real Chatwoot SDK options the Widget tab's structured controls do not yet cover. Values here merge on top of the structured controls, so they can add or override a specific key, but should not be needed for ordinary setup. Must be a valid JSON object."
+
 msgid "plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"
 msgstr "Support API Token"
 

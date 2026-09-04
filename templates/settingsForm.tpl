@@ -65,6 +65,54 @@
 		background: #fef2f2;
 		color: #991b1b;
 	}
+	.pkpc-chatwootIntegrationSettings .cwWidgetAppearanceLayout {
+		display: flex;
+		gap: 2em;
+		flex-wrap: wrap;
+		align-items: flex-start;
+	}
+	.pkpc-chatwootIntegrationSettings .cwWidgetAppearanceControls {
+		flex: 1 1 320px;
+		min-width: 280px;
+	}
+	.pkpc-chatwootIntegrationSettings .cwWidgetPreviewWrap {
+		flex: 0 0 260px;
+	}
+	.pkpc-chatwootIntegrationSettings #cwWidgetPreviewStage {
+		position: relative;
+		height: 220px;
+		border: 1px dashed #cbd5e1;
+		border-radius: 8px;
+		background: #f8fafc;
+		overflow: hidden;
+	}
+	.pkpc-chatwootIntegrationSettings #cwWidgetPreviewBubble {
+		position: absolute;
+		bottom: 16px;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5em;
+		padding: 0.6em 0.9em;
+		border-radius: 999px;
+		background: #1f2937;
+		color: #fff;
+		font-size: 0.85em;
+		box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+		right: 16px;
+	}
+	.pkpc-chatwootIntegrationSettings #cwWidgetPreviewBubble.cwPreviewLeft {
+		right: auto;
+		left: 16px;
+	}
+	.pkpc-chatwootIntegrationSettings #cwWidgetPreviewBubble.cwPreviewDark {
+		background: #111827;
+		color: #f3f4f6;
+	}
+	.pkpc-chatwootIntegrationSettings #cwWidgetPreviewBubble.cwPreviewLight {
+		background: #ffffff;
+		color: #1f2937;
+		border: 1px solid #e5e7eb;
+	}
 </style>
 <script>
 	$(function() {ldelim}
@@ -258,6 +306,36 @@
 			e.preventDefault();
 			cwRunDiscovery({ldelim}discoverAccountId: $('#chatwootAccountIdSelect').val(){rdelim});
 		{rdelim});
+
+		// Widget tab console (owner directive 2026-09-04): show only the
+		// fields relevant to the current selection, and keep the local
+		// preview in sync — a pure client-side approximation, never the
+		// real Chatwoot iframe/SDK.
+		function cwUpdateWidgetFieldVisibility() {ldelim}
+			$('#widgetLauncherTitleWrap').attr('hidden', $('#widgetLauncherStyle').val() !== 'expanded_bubble');
+			$('#widgetFixedLocaleWrap').attr('hidden', $('#widgetLanguageMode').val() !== 'fixed');
+		{rdelim}
+
+		function cwUpdateWidgetPreview() {ldelim}
+			var $bubble = $('#cwWidgetPreviewBubble');
+			var position = $('#widgetPosition').val();
+			var style = $('#widgetLauncherStyle').val();
+			var theme = $('#widgetTheme').val();
+			var title = $('#widgetLauncherTitle').val() || 'Chat with us';
+
+			$bubble.toggleClass('cwPreviewLeft', position === 'left');
+			$bubble.toggleClass('cwPreviewDark', theme === 'dark');
+			$bubble.toggleClass('cwPreviewLight', theme === 'light');
+
+			$('#cwWidgetPreviewBubbleLabel').text(style === 'expanded_bubble' ? title : '');
+		{rdelim}
+
+		$('#widgetPosition, #widgetLauncherStyle, #widgetLauncherTitle, #widgetTheme, #widgetLanguageMode').on('change keyup', function() {ldelim}
+			cwUpdateWidgetFieldVisibility();
+			cwUpdateWidgetPreview();
+		{rdelim});
+		cwUpdateWidgetFieldVisibility();
+		cwUpdateWidgetPreview();
 	{rdelim});
 </script>
 
@@ -375,9 +453,53 @@
 				{fbvElement type="checkbox" id="hideForRole_1048576" value="1" checked=$hideForRole_1048576 label="plugins.generic.chatwootIntegration.settings.hideForRole_Reader"}
 			{/fbvFormSection}
 
-			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetSettingsJson"}
-				{fbvElement type="textarea" id="widgetSettingsJson" value=$widgetSettingsJson label="plugins.generic.chatwootIntegration.settings.widgetSettingsJson"}
-			{/fbvFormSection}
+			{* ============================================================ *}
+			{* Structured Appearance — owner directive 2026-09-04, item C.  *}
+			{* Every option here is a real window.chatwootSettings key the  *}
+			{* deployed Chatwoot SDK actually reads (verified against the   *}
+			{* real bundle) — no raw JSON for the ordinary case.            *}
+			{* ============================================================ *}
+			<h3>{translate key="plugins.generic.chatwootIntegration.settings.appearance"}</h3>
+			<div class="cwWidgetAppearanceLayout">
+				<div class="cwWidgetAppearanceControls">
+					{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetPosition"}
+						{fbvElement type="select" id="widgetPosition" from=$widgetPositionOptions selected=$widgetPosition label="plugins.generic.chatwootIntegration.settings.widgetPosition" translate=false}
+					{/fbvFormSection}
+					{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetLauncherStyle"}
+						{fbvElement type="select" id="widgetLauncherStyle" from=$widgetLauncherStyleOptions selected=$widgetLauncherStyle label="plugins.generic.chatwootIntegration.settings.widgetLauncherStyle" translate=false}
+					{/fbvFormSection}
+					<div id="widgetLauncherTitleWrap">
+						{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetLauncherTitle"}
+							{fbvElement type="text" id="widgetLauncherTitle" value=$widgetLauncherTitle label="plugins.generic.chatwootIntegration.settings.widgetLauncherTitle.description"}
+						{/fbvFormSection}
+					</div>
+					{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetLanguageMode"}
+						{fbvElement type="select" id="widgetLanguageMode" from=$widgetLanguageModeOptions selected=$widgetLanguageMode label="plugins.generic.chatwootIntegration.settings.widgetLanguageMode" translate=false}
+					{/fbvFormSection}
+					<div id="widgetFixedLocaleWrap">
+						{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetFixedLocale"}
+							{fbvElement type="text" id="widgetFixedLocale" value=$widgetFixedLocale label="plugins.generic.chatwootIntegration.settings.widgetFixedLocale.description"}
+						{/fbvFormSection}
+					</div>
+					{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetTheme"}
+						{fbvElement type="select" id="widgetTheme" from=$widgetThemeOptions selected=$widgetTheme label="plugins.generic.chatwootIntegration.settings.widgetTheme" translate=false}
+					{/fbvFormSection}
+					{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.widgetOtherOptions"}
+						{fbvElement type="checkbox" id="widgetShowPopoutButton" value="1" checked=$widgetShowPopoutButton label="plugins.generic.chatwootIntegration.settings.widgetShowPopoutButton"}
+						{fbvElement type="checkbox" id="widgetShowUnreadDialog" value="1" checked=$widgetShowUnreadDialog label="plugins.generic.chatwootIntegration.settings.widgetShowUnreadDialog"}
+						{fbvElement type="checkbox" id="widgetHideMessageBubble" value="1" checked=$widgetHideMessageBubble label="plugins.generic.chatwootIntegration.settings.widgetHideMessageBubble"}
+					{/fbvFormSection}
+				</div>
+
+				{* Local-only visual approximation — never boots the real *}
+				{* Chatwoot iframe/SDK, just reflects the controls above. *}
+				<div class="cwWidgetPreviewWrap">
+					<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.widgetPreview"}</p>
+					<div id="cwWidgetPreviewStage">
+						<div id="cwWidgetPreviewBubble"><span id="cwWidgetPreviewBubbleIcon">💬</span><span id="cwWidgetPreviewBubbleLabel"></span></div>
+					</div>
+				</div>
+			</div>
 		</div>
 
 		{* ================================================================ *}
@@ -455,6 +577,11 @@
 		{* troubleshooting (debug mode, mail test).                        *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-advanced" aria-labelledby="cwTab-advanced" hidden>
+			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetSettingsJson"}
+				<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.widgetSettingsJson.advancedDescription"}</p>
+				{fbvElement type="textarea" id="widgetSettingsJson" value=$widgetSettingsJson label="plugins.generic.chatwootIntegration.settings.widgetSettingsJson"}
+			{/fbvFormSection}
+
 			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.performance"}
 				{fbvElement type="checkbox" id="lazyLoadWidget" value="1" checked=$lazyLoadWidget label="plugins.generic.chatwootIntegration.settings.lazyLoadWidget"}
 				{fbvElement type="select" id="lazyLoadTrigger" from=$lazyLoadTriggerOptions selected=$lazyLoadTrigger label="plugins.generic.chatwootIntegration.settings.lazyLoadTrigger" translate=false}

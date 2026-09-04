@@ -73,6 +73,29 @@ class ChatwootSettingsForm extends Form
             'idle' => __('plugins.generic.chatwootIntegration.settings.lazyLoadTrigger.idle'),
             'interaction' => __('plugins.generic.chatwootIntegration.settings.lazyLoadTrigger.interaction'),
         ]);
+        // Widget tab console (owner directive 2026-09-04): every option
+        // here is a real window.chatwootSettings value the deployed
+        // Chatwoot SDK actually reads (verified against the real bundle
+        // at support.airixmedia.com/packs/js/sdk.js) — never invented.
+        $templateMgr->assign('widgetPositionOptions', [
+            'right' => __('plugins.generic.chatwootIntegration.settings.widgetPosition.right'),
+            'left' => __('plugins.generic.chatwootIntegration.settings.widgetPosition.left'),
+        ]);
+        $templateMgr->assign('widgetLauncherStyleOptions', [
+            'standard' => __('plugins.generic.chatwootIntegration.settings.widgetLauncherStyle.standard'),
+            'expanded_bubble' => __('plugins.generic.chatwootIntegration.settings.widgetLauncherStyle.expandedBubble'),
+        ]);
+        $templateMgr->assign('widgetLanguageModeOptions', [
+            'match_ojs' => __('plugins.generic.chatwootIntegration.settings.widgetLanguageMode.matchOjs'),
+            'browser' => __('plugins.generic.chatwootIntegration.settings.widgetLanguageMode.browser'),
+            'fixed' => __('plugins.generic.chatwootIntegration.settings.widgetLanguageMode.fixed'),
+        ]);
+        $templateMgr->assign('widgetThemeOptions', [
+            'auto' => __('plugins.generic.chatwootIntegration.settings.widgetTheme.auto'),
+            'light' => __('plugins.generic.chatwootIntegration.settings.widgetTheme.light'),
+            'dark' => __('plugins.generic.chatwootIntegration.settings.widgetTheme.dark'),
+        ]);
+
         $templateMgr->assign('eventDeliveryGlobalModeOptions', [
             '' => __('plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.useLegacy'),
             EventDeliveryMode::PRIVATE_NOTE => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.privateNote'),
