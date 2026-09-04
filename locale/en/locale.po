@@ -122,7 +122,7 @@ msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.desc
 msgstr "Controls how events queued by the Event Bridge (submission created, decision recorded, publication published, etc.) are delivered to Chatwoot."
 
 msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.useLegacy"
-msgstr "(use the legacy Sync Mode setting above)"
+msgstr "(use this journal's existing legacy sync behavior)"
 
 msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryMode.privateNote"
 msgstr "Private note (staff-only, never customer-visible)"
@@ -150,6 +150,57 @@ msgstr "Per-Event Overrides"
 
 msgid "plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson.description"
 msgstr "Optional JSON object mapping an event type to a delivery mode, overriding the default above for just that event, e.g. {\"publication.published\": \"audit_only\"}. Recognized event types: submission.created, submission.decision_recorded, submission.revision_requested, submission.accepted, submission.rejected, publication.scheduled, publication.published, submission.review_submitted. An unrecognized event type or mode is silently ignored."
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix"
+msgstr "Events"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.description"
+msgstr "Choose which OJS events reach Chatwoot and what happens when each one fires."
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.event"
+msgstr "Event"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.enabled"
+msgstr "Enabled"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.action"
+msgstr "Action"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.customerVisibleWarning"
+msgstr "This sends an outgoing Chatwoot message the customer can read."
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.submissionCreated"
+msgstr "New submission"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.reviewSubmitted"
+msgstr "Review submitted"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.revisionRequested"
+msgstr "Revision requested"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.accepted"
+msgstr "Submission accepted"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.rejected"
+msgstr "Submission declined"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.publicationScheduled"
+msgstr "Publication scheduled"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.publicationPublished"
+msgstr "Article published"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventMatrix.decisionRecorded"
+msgstr "Other editor decision"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventAction.useDefault"
+msgstr "Use default"
+
+msgid "plugins.generic.chatwootIntegration.settings.eventReviewSubmitted"
+msgstr "Review submitted"
+
+msgid "plugins.generic.chatwootIntegration.settings.legacyRetryQueue"
+msgstr "Legacy Retry Queue (compatibility)"
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrl"
 msgstr "Chatwoot Base URL"

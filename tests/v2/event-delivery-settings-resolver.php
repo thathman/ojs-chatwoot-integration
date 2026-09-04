@@ -113,6 +113,15 @@ foreach (['eventDeliveryGlobalMode', 'eventDeliveryCustomerMessageConsent', 'eve
 }
 
 $templateSource = (string) file_get_contents($root . '/templates/settingsForm.tpl');
-eventDeliverySettingsResolverCheck(str_contains($templateSource, 'id="eventDeliveryGlobalMode"') && str_contains($templateSource, 'id="eventDeliveryCustomerMessageConsent"') && str_contains($templateSource, 'id="eventDeliveryPerEventOverridesJson"'), 'the template must render real form fields for all three new settings');
+// Owner directive 2026-09-04, item E: eventDeliveryPerEventOverridesJson
+// is no longer rendered as a raw named textarea — the Automation tab's
+// event/action matrix (one per-row Action select, see
+// ChatwootSettingsForm::EVENT_MATRIX_ROWS) is now its only real UI, and
+// ChatwootSettingsForm::execute() computes+writes the setting from those
+// selects instead of reading a field with this literal name. Global mode
+// and consent are still real, directly-named fields.
+eventDeliverySettingsResolverCheck(str_contains($templateSource, 'id="eventDeliveryGlobalMode"') && str_contains($templateSource, 'id="eventDeliveryCustomerMessageConsent"'), 'the template must render real form fields for the global mode and consent settings');
+eventDeliverySettingsResolverCheck(!str_contains($templateSource, 'id="eventDeliveryPerEventOverridesJson"'), 'eventDeliveryPerEventOverridesJson must not be rendered as a raw named field — it is computed from the event/action matrix selects');
+eventDeliverySettingsResolverCheck(str_contains($formSource, "setData('eventDeliveryPerEventOverridesJson'"), 'ChatwootSettingsForm::execute() must still compute and persist eventDeliveryPerEventOverridesJson, just not from a raw posted field of that name');
 
 fwrite(STDOUT, "Event delivery settings resolver tests passed\n");

@@ -440,12 +440,47 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
     }
 
     /** Shared EVT-010/EVT-011 resolve+enqueue step for every hook wiring above. */
+    /**
+     * Owner directive 2026-09-04 item E: maps each real SupportEventType
+     * to the Automation matrix's "Enabled" setting for that row. Before
+     * this, none of the v2 event adapters (this method's only caller)
+     * consulted these settings at all — on any install where v2 owns
+     * delivery (HAR-012: all 8 real event types, always, today), the
+     * eventXxx checkboxes were a pure placebo: v1's own dead legacy
+     * delivery path checked them, but that path always no-ops itself via
+     * isLiveDeliveryOwnedByV2() before it could ever matter. Real-browser
+     * acceptance requires "saved choices must change real Event Bridge
+     * behavior" (K's checklist) — this is that real gate.
+     *
+     * @var array<string,string>
+     */
+    private const EVENT_TYPE_ENABLED_SETTING = [
+        SupportEventType::SUBMISSION_CREATED => 'eventSubmissionCreated',
+        SupportEventType::SUBMISSION_DECISION_RECORDED => 'eventDecisionRecorded',
+        SupportEventType::SUBMISSION_REVISION_REQUESTED => 'eventRevisionRequested',
+        SupportEventType::SUBMISSION_ACCEPTED => 'eventAccepted',
+        SupportEventType::SUBMISSION_REJECTED => 'eventRejected',
+        SupportEventType::PUBLICATION_SCHEDULED => 'eventPublicationScheduled',
+        SupportEventType::PUBLICATION_PUBLISHED => 'eventPublicationPublished',
+        SupportEventType::SUBMISSION_REVIEW_SUBMITTED => 'eventReviewSubmitted',
+    ];
+
     private function v2EnqueueEvent(?SupportEvent $event): void
     {
         if ($event === null) {
             return;
         }
         $contextId = $event->contextId();
+
+        // Real per-event enable gate — defaults to true (never silently
+        // starts dropping events for an existing install that never
+        // touched the new matrix UI); an admin must explicitly uncheck a
+        // row to stop that event type from being enqueued at all.
+        $enabledSettingKey = self::EVENT_TYPE_ENABLED_SETTING[$event->type()] ?? null;
+        if ($enabledSettingKey !== null && !$this->v2Bool($this->v2EffectiveSetting($contextId, $enabledSettingKey, true))) {
+            return;
+        }
+
         $legacyMode = (string) $this->v2EffectiveSetting($contextId, 'eventSyncMode', 'note');
         $configuredGlobalMode = trim((string) $this->v2EffectiveSetting($contextId, 'eventDeliveryGlobalMode', ''));
         $consentGiven = (bool) $this->v2EffectiveSetting($contextId, 'eventDeliveryCustomerMessageConsent', false);

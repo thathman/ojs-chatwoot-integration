@@ -126,6 +126,30 @@
 	.pkpc-chatwootIntegrationSettings .cwSecurityInvariant p {
 		margin: 0.25rem 0 0;
 	}
+	.pkpc-chatwootIntegrationSettings .cwEventMatrix {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0.5rem 0 1rem;
+	}
+	.pkpc-chatwootIntegrationSettings .cwEventMatrix th,
+	.pkpc-chatwootIntegrationSettings .cwEventMatrix td {
+		border: 1px solid #e5e7eb;
+		padding: 0.5rem 0.75rem;
+		text-align: left;
+		vertical-align: top;
+	}
+	.pkpc-chatwootIntegrationSettings .cwEventMatrix th {
+		background: #f9fafb;
+	}
+	.pkpc-chatwootIntegrationSettings .cwCustomerVisibleWarning {
+		color: #92400e;
+		background: #fffbeb;
+		border: 1px solid #fde68a;
+		border-radius: 4px;
+		padding: 0.35rem 0.5rem;
+		margin: 0.35rem 0 0;
+		font-size: 0.85em;
+	}
 </style>
 <script>
 	$(function() {ldelim}
@@ -372,6 +396,22 @@
 		{rdelim}
 		$('[id^="audienceAllow_"]').on('change', cwUpdateEffectiveAudience);
 		cwUpdateEffectiveAudience();
+
+		// Automation/Event Bridge matrix (owner directive 2026-09-04,
+		// item E): inline per-row customer-visible-message warning +
+		// consent, instead of one detached global checkbox. Never rely
+		// on the consent checkbox being seen if no row actually needs it.
+		function cwUpdateEventConsentVisibility() {ldelim}
+			var anyCustomerVisible = false;
+			$('.cwEventActionSelect').each(function() {ldelim}
+				var isCustomerVisible = $(this).val() === 'opt_in_customer_message';
+				$('#cwCustomerVisibleWarning_' + $(this).attr('id').replace('eventAction_', '')).prop('hidden', !isCustomerVisible);
+				if (isCustomerVisible) anyCustomerVisible = true;
+			{rdelim});
+			$('#cwEventConsentWrap').prop('hidden', !anyCustomerVisible);
+		{rdelim}
+		$('.cwEventActionSelect').on('change', cwUpdateEventConsentVisibility);
+		cwUpdateEventConsentVisibility();
 	{rdelim});
 </script>
 
@@ -563,29 +603,62 @@
 		{* Automation: Event Bridge — SettingsRegistry tab "automation".    *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-automation" aria-labelledby="cwTab-automation" hidden>
-			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.workflowAutomation"}
-				{fbvElement type="checkbox" id="retryQueueEnabled" value="1" checked=$retryQueueEnabled label="plugins.generic.chatwootIntegration.settings.retryQueueEnabled"}
-				{fbvElement type="text" id="maxRetryAttempts" value=$maxRetryAttempts label="plugins.generic.chatwootIntegration.settings.maxRetryAttempts"}
-				{fbvElement type="select" id="eventSyncMode" from=$eventSyncModeOptions selected=$eventSyncMode label="plugins.generic.chatwootIntegration.settings.eventSyncMode" translate=false}
-				{fbvElement type="checkbox" id="eventSubmissionCreated" value="1" checked=$eventSubmissionCreated label="plugins.generic.chatwootIntegration.settings.eventSubmissionCreated"}
-				{fbvElement type="checkbox" id="eventRevisionRequested" value="1" checked=$eventRevisionRequested label="plugins.generic.chatwootIntegration.settings.eventRevisionRequested"}
-				{fbvElement type="checkbox" id="eventAccepted" value="1" checked=$eventAccepted label="plugins.generic.chatwootIntegration.settings.eventAccepted"}
-				{fbvElement type="checkbox" id="eventRejected" value="1" checked=$eventRejected label="plugins.generic.chatwootIntegration.settings.eventRejected"}
-				{fbvElement type="checkbox" id="eventPublicationScheduled" value="1" checked=$eventPublicationScheduled label="plugins.generic.chatwootIntegration.settings.eventPublicationScheduled"}
-				{fbvElement type="checkbox" id="eventPublicationPublished" value="1" checked=$eventPublicationPublished label="plugins.generic.chatwootIntegration.settings.eventPublicationPublished"}
-				{fbvElement type="checkbox" id="eventDecisionRecorded" value="1" checked=$eventDecisionRecorded label="plugins.generic.chatwootIntegration.settings.eventDecisionRecorded"}
-			{/fbvFormSection}
-
 			<div class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.description"}</div>
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode"}
 				{fbvElement type="select" id="eventDeliveryGlobalMode" from=$eventDeliveryGlobalModeOptions selected=$eventDeliveryGlobalMode label="plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.help" translate=false}
 			{/fbvFormSection}
-			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent"}
-				{fbvElement type="checkbox" id="eventDeliveryCustomerMessageConsent" value="1" checked=$eventDeliveryCustomerMessageConsent label="plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent.description"}
-			{/fbvFormSection}
-			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson"}
-				{fbvElement type="textarea" id="eventDeliveryPerEventOverridesJson" value=$eventDeliveryPerEventOverridesJson label="plugins.generic.chatwootIntegration.settings.eventDeliveryPerEventOverridesJson.description"}
-			{/fbvFormSection}
+
+			{* ============================================================ *}
+			{* Event/action matrix — owner directive 2026-09-04, item E:    *}
+			{* one understandable table replacing the old fragmented        *}
+			{* checkboxes + raw per-event JSON. Enabled checkboxes are      *}
+			{* real Automation eventXxx/eventReviewSubmitted settings that  *}
+			{* now genuinely gate delivery (see v2EnqueueEvent()'s          *}
+			{* EVENT_TYPE_ENABLED_SETTING). Action selects are encoded back *}
+			{* into the same eventDeliveryPerEventOverridesJson storage by  *}
+			{* ChatwootSettingsForm — no raw JSON in this tab.              *}
+			{* ============================================================ *}
+			<h3>{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix"}</h3>
+			<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix.description"}</p>
+			<table class="cwEventMatrix">
+				<thead>
+					<tr>
+						<th>{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix.event"}</th>
+						<th>{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix.enabled"}</th>
+						<th>{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix.action"}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{foreach from=$eventMatrixRows item=row}
+						<tr>
+							<td>{$row.label|escape}</td>
+							<td>
+								{if $row.rowKey == 'submissionCreated'}{fbvElement type="checkbox" id="eventSubmissionCreated" value="1" checked=$eventSubmissionCreated label=""}{/if}
+								{if $row.rowKey == 'reviewSubmitted'}{fbvElement type="checkbox" id="eventReviewSubmitted" value="1" checked=$eventReviewSubmitted label=""}{/if}
+								{if $row.rowKey == 'revisionRequested'}{fbvElement type="checkbox" id="eventRevisionRequested" value="1" checked=$eventRevisionRequested label=""}{/if}
+								{if $row.rowKey == 'accepted'}{fbvElement type="checkbox" id="eventAccepted" value="1" checked=$eventAccepted label=""}{/if}
+								{if $row.rowKey == 'rejected'}{fbvElement type="checkbox" id="eventRejected" value="1" checked=$eventRejected label=""}{/if}
+								{if $row.rowKey == 'publicationScheduled'}{fbvElement type="checkbox" id="eventPublicationScheduled" value="1" checked=$eventPublicationScheduled label=""}{/if}
+								{if $row.rowKey == 'publicationPublished'}{fbvElement type="checkbox" id="eventPublicationPublished" value="1" checked=$eventPublicationPublished label=""}{/if}
+								{if $row.rowKey == 'decisionRecorded'}{fbvElement type="checkbox" id="eventDecisionRecorded" value="1" checked=$eventDecisionRecorded label=""}{/if}
+							</td>
+							<td>
+								<select id="eventAction_{$row.rowKey}" name="eventAction_{$row.rowKey}" class="cwEventActionSelect">
+									{html_options options=$eventActionOptions selected=$row.currentAction}
+								</select>
+								<p class="cwCustomerVisibleWarning" id="cwCustomerVisibleWarning_{$row.rowKey}" hidden>
+									{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix.customerVisibleWarning"}
+								</p>
+							</td>
+						</tr>
+					{/foreach}
+				</tbody>
+			</table>
+			<div id="cwEventConsentWrap" hidden>
+				{fbvFormSection list=true}
+					{fbvElement type="checkbox" id="eventDeliveryCustomerMessageConsent" value="1" checked=$eventDeliveryCustomerMessageConsent label="plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent.description"}
+				{/fbvFormSection}
+			</div>
 
 			{if $supportGatewayHealth.deadLetterCount > 0}
 				<div class="cwSectionDescription">
@@ -634,6 +707,15 @@
 		{* troubleshooting (debug mode, mail test).                        *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-advanced" aria-labelledby="cwTab-advanced" hidden>
+			{* Legacy retry queue (HAR-012 remainder): the sole drain path
+			   is ProcessLegacyRetryQueueScheduledTask; not the normal
+			   Automation workflow, kept here until fully retired. *}
+			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.legacyRetryQueue"}
+				{fbvElement type="checkbox" id="retryQueueEnabled" value="1" checked=$retryQueueEnabled label="plugins.generic.chatwootIntegration.settings.retryQueueEnabled"}
+				{fbvElement type="text" id="maxRetryAttempts" value=$maxRetryAttempts label="plugins.generic.chatwootIntegration.settings.maxRetryAttempts"}
+				{fbvElement type="select" id="eventSyncMode" from=$eventSyncModeOptions selected=$eventSyncMode label="plugins.generic.chatwootIntegration.settings.eventSyncMode" translate=false}
+			{/fbvFormSection}
+
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.widgetSettingsJson"}
 				<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.widgetSettingsJson.advancedDescription"}</p>
 				{fbvElement type="textarea" id="widgetSettingsJson" value=$widgetSettingsJson label="plugins.generic.chatwootIntegration.settings.widgetSettingsJson"}
