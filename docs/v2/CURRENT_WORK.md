@@ -2,7 +2,7 @@
 
 This file is the short authoritative continuation pointer for active v2 development. Read it before `TASKLIST.md`, `AIRIX360_TASKLIST.md`, or older phase summaries.
 
-Last reconciled: 2026-09-04 (PR #249 merged, deployed SHA `f10e1b6` confirmed on dell — console item B, Chatwoot tab discovery, shipped and live-verified; see the owner redirect section for the full B–K build sequence).
+Last reconciled: 2026-09-04 (PR #251 merged, deployed SHA `42c300d` confirmed on dell — console item C, Widget tab structured Appearance + local preview, shipped; see the owner redirect section for the full B–K build sequence).
 
 ## Owner goal
 
@@ -25,6 +25,9 @@ B. Chatwoot tab — connection, account discovery/selection, Website Inbox selec
 C. Widget tab — structured Appearance controls (position/launcher/title/language/
    theme), local visual preview (no real iframe boot), widgetSettingsJson moved to
    Advanced/removed
+   **[shipped, PR #251 — every option verified against the real deployed Chatwoot
+   SDK bundle (support.airixmedia.com/packs/js/sdk.js); real-frontend-matches-
+   preview browser check still owed as part of item K]**
 D. Audience/privacy UX — positive audience model ("who can see the widget"),
    blind-review protection reframed as an always-on invariant, not a toggle
 E. Automation/Event Bridge UI — single understandable event/action matrix, no raw
