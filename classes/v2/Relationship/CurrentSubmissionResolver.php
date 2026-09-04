@@ -33,10 +33,20 @@ final class CurrentSubmissionResolver
     {
         $candidate = $request->getUserVar('submissionId');
 
-        if (($candidate === null || $candidate === '') && method_exists($request, 'getRequestedPage')) {
+        // TST-020: Request::getRequestedPage()/getRequestedArgs() exist on
+        // the Request class itself but delegate to its router, and both
+        // fatal ("Call to undefined method") on a PKPComponentRouter (any
+        // AJAX/grid-cell call, including this plugin's own settings-grid
+        // render) — method_exists($request, ...) is always true regardless
+        // of router type, so it can't guard this. Confirmed live on dell:
+        // this exact call crashed the plugin-management grid for any
+        // logged-in reviewer-role user once masking became unconditional
+        // (see ChatwootIntegrationBasePlugin::addChatwootWidget()'s own
+        // matching $isPageRequest check for the same underlying issue).
+        if (($candidate === null || $candidate === '') && $request->getRouter() instanceof \PKP\core\PKPPageRouter) {
             $page = (string) $request->getRequestedPage();
-            if (in_array($page, self::SUBMISSION_SCOPED_PAGES, true) && method_exists($request, 'getRequestedArgs')) {
-                $args = $request->getRequestedArgs();
+            $args = $request->getRequestedArgs();
+            if (in_array($page, self::SUBMISSION_SCOPED_PAGES, true)) {
                 $candidate = $args[0] ?? null;
             }
         }
