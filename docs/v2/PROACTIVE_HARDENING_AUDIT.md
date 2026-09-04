@@ -103,14 +103,13 @@ Required:
 
 `KnowledgeSanitizer` is a custom regex sanitizer for HTML that can ultimately feed public Knowledge/Captain content. Either use a vetted OJS/PKP sanitization facility if available without inappropriate dependencies, or maintain a serious adversarial corpus covering malformed HTML, entities/encoded schemes, case variants, broken quoting, nested tags, dangerous URI obfuscation and relevant SVG/XML-like edge cases.
 
-### HAR-011 — MUST FIX — repository-wide safe logging
+### HAR-011 — FIXED (PR #239) — repository-wide safe logging
 
-Raw `$e->getMessage()` still appears in scheduled-task execution logs, legacy event error logs and Chatwoot client error results. External HTTP/SMTP/provider exceptions may contain URLs, request details or other data that should not become operator-visible logs.
+Original source: raw `$e->getMessage()` appeared in scheduled-task execution logs, legacy event error logs, provider/knowledge-provider failure logs, and the Chatwoot client's own error results. Guzzle's `RequestException::getMessage()` in particular embeds the full request URI (query-string tokens included) and response body text directly.
 
-Required:
-- safe normalized error codes/messages;
-- detailed exception data only in an explicitly safe internal diagnostic sink if needed;
-- no tokens, emails, OTPs, reviewer identity, manuscript content or raw provider bodies.
+Fixed by adding `SafeExceptionMessage::describe()` (`classes/v2/Diagnostics/`) — returns only the exception's short class name, plus the HTTP status code when it's a Guzzle `RequestException` with a response. Applied at every real call site: `ChatwootApiService::requestJson()` (the single funnel every Chatwoot HTTP call goes through, so fixing it here protects every downstream consumer transitively), `ChatwootIntegrationBasePlugin`'s four legacy event `error_log()` calls, `SupportProviderRegistry`'s and `KnowledgeCompiler`'s provider-failure logs, and all five scheduled tasks' execution logs. `McpDispatcher`'s one remaining `$e->getMessage()` call was verified safe by construction — every `McpHandlerError` in this codebase is built from a hardcoded, developer-authored string literal, never a raw external exception, confirmed by grepping every `new McpHandlerError(...)` call site.
+
+`tests/v2/har-011-safe-exception-logging.php` proves `describe()` strips a real token/URL/response-body-shaped message down to a safe label, and that every named call site now uses it — no remaining raw `$e->getMessage()` outside the verified-safe MCP path.
 
 ---
 
