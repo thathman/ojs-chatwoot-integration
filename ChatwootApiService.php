@@ -154,18 +154,40 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return ['success' => true];
     }
 
-    public function findContactByEmail($email) {
+    /**
+     * HAR-022: an email address is not a guaranteed-unique contact key
+     * in Chatwoot — duplicate contacts sharing one email can exist
+     * (manual creation, imports, an email that changed OJS-account
+     * ownership). Returning the first exact-email match risked
+     * attaching a real OJS event to an unrelated duplicate contact.
+     * $identifier (the stable OJS user ID this plugin always sets via
+     * createContact()) is preferred when a caller can supply it —
+     * among the real email matches, the one whose own identifier
+     * equals it is authoritative. Only when no candidate carries that
+     * identifier (or the caller has none to check) does this fall back
+     * to the first email match, exactly as before — an email-only
+     * ambiguity with no stable identifier cannot be resolved more
+     * precisely than that.
+     */
+    public function findContactByEmail($email, string $identifier = '') {
         $result = $this->requestJson('GET', "accounts/{$this->accountId}/contacts/search", ['query' => ['q' => $email]]);
         if (!$result['ok']) return null;
         $data = $result['data'] ?? [];
         $payload = $data['payload'] ?? [];
         if (!is_array($payload) || empty($payload)) return null;
         $target = strtolower(trim((string) $email));
+        $matches = [];
         foreach ($payload as $contact) {
             $contactEmail = strtolower(trim((string) ($contact['email'] ?? '')));
-            if ($target !== '' && $contactEmail === $target) return $contact;
+            if ($target !== '' && $contactEmail === $target) $matches[] = $contact;
         }
-        return null;
+        if (empty($matches)) return null;
+        if ($identifier !== '') {
+            foreach ($matches as $contact) {
+                if ((string) ($contact['identifier'] ?? '') === $identifier) return $contact;
+            }
+        }
+        return $matches[0];
     }
 
     public function createContact(string $email, string $name = '', string $identifier = ''): ?array {
