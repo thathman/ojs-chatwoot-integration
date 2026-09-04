@@ -6,6 +6,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\OverviewCardStates;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateKeys;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\template\TemplateManager;
@@ -232,6 +234,18 @@ class ChatwootSettingsForm extends Form
             : '';
         $templateMgr->assign('mcpEndpointUrl', $mcpEndpointUrl);
         $templateMgr->assign('mcpProtocolRevision', '2026-07-28');
+
+        // Verification tab (owner directive 2026-09-04, item G / HAR-014
+        // remainder): real EmailTemplate customization state — never
+        // claims "healthy"/"verified", only whether an admin has
+        // customized the seeded default yet. See
+        // VerificationEmailTemplateService::isCustomized().
+        $verificationContextId = $context ? (int) $context->getId() : 0;
+        $templateMgr->assign('verificationPinTemplateExists', VerificationEmailTemplateService::isCustomized($verificationContextId, VerificationEmailTemplateKeys::PIN));
+        $templateMgr->assign('verificationLinkTemplateExists', VerificationEmailTemplateService::isCustomized($verificationContextId, VerificationEmailTemplateKeys::LINK));
+        $templateMgr->assign('manageEmailTemplatesUrl', $context
+            ? $request->getDispatcher()->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), 'management', 'settings', ['workflow'], ['anchor' => 'emails'])
+            : '');
 
         $healthSummary = method_exists($this->plugin, 'supportGatewayHealthSummary') ? $this->plugin->supportGatewayHealthSummary($request) : null;
         $healthArray = $healthSummary?->toArray();

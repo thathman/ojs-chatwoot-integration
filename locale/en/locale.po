@@ -25,6 +25,51 @@ msgstr "AI & Knowledge"
 msgid "plugins.generic.chatwootIntegration.settings.tab.apiMcp"
 msgstr "API & MCP"
 
+msgid "plugins.generic.chatwootIntegration.settings.tab.verification"
+msgstr "Verification"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.description"
+msgstr "How OJS accounts are verified before Chatwoot can see private submission context."
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.card.identityHmac"
+msgstr "Identity Validation"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.card.pinTemplate"
+msgstr "PIN Email Template"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.card.linkTemplate"
+msgstr "Link Email Template"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.state.customized"
+msgstr "Customized"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.state.usingDefault"
+msgstr "Using default"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.methods"
+msgstr "Verification methods"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.methods.pin"
+msgstr "One-time PIN — a short numeric code emailed to the account holder."
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.methods.link"
+msgstr "Secure link — a one-time verification link emailed to the account holder."
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.policySummary"
+msgstr "Every code/link expires after a short window, can only be used once, and is rate-limited per account to prevent guessing."
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.privacy.title"
+msgstr "What verification proves"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.privacy.description"
+msgstr "Verification proves control of the OJS account only. It never includes a manuscript title, submission ID, reviewer assignment, or any other resource detail in the email itself."
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.manageTemplates"
+msgstr "Open Email Templates"
+
+msgid "plugins.generic.chatwootIntegration.settings.verification.manageTemplates.description"
+msgstr "Customize the subject/body of either template (including translations) through the real OJS Email Templates workflow: "
+
 msgid "plugins.generic.chatwootIntegration.settings.tab.advanced"
 msgstr "Advanced"
 

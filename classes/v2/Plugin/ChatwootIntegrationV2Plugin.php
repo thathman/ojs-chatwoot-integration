@@ -109,7 +109,8 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Task\PurgeExpiredSupportD
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportMailTestMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\SupportVerificationMailable;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationChallenge;
-use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailContentBuilder;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateKeys;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateService;
 use Illuminate\Support\Facades\Mail;
 use PKP\core\JSONMessage;
 use PKP\facades\Locale;
@@ -1169,16 +1170,27 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
                         if (is_object($context)) {
                             $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : '';
                             $ttlMinutes = max(1, (int) ceil(($prepared->challenge()->expiresAt() - time()) / 60));
-                            $subject = VerificationEmailContentBuilder::subject($journalName);
 
                             $body = null;
                             if ($prepared->challenge()->method() === VerificationChallenge::METHOD_LINK) {
                                 $url = $bridge->getVerificationLinkUrl($request, $prepared->challenge()->publicReference(), $prepared->plaintextSecret());
                                 if ($url !== null) {
-                                    $body = VerificationEmailContentBuilder::linkBody($journalName, $url, $ttlMinutes);
+                                    $composed = VerificationEmailTemplateService::compose($contextId, VerificationEmailTemplateKeys::LINK, [
+                                        'journalName' => $journalName,
+                                        'verificationLink' => $url,
+                                        'expiryMinutes' => (string) $ttlMinutes,
+                                    ]);
+                                    $subject = $composed['subject'];
+                                    $body = $composed['body'];
                                 }
                             } else {
-                                $body = VerificationEmailContentBuilder::pinBody($journalName, $prepared->plaintextSecret(), $ttlMinutes);
+                                $composed = VerificationEmailTemplateService::compose($contextId, VerificationEmailTemplateKeys::PIN, [
+                                    'journalName' => $journalName,
+                                    'pinCode' => $prepared->plaintextSecret(),
+                                    'expiryMinutes' => (string) $ttlMinutes,
+                                ]);
+                                $subject = $composed['subject'];
+                                $body = $composed['body'];
                             }
 
                             if ($body !== null) {
@@ -1511,15 +1523,27 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
                                 if (is_object($context)) {
                                     $journalName = method_exists($context, 'getLocalizedName') ? (string) $context->getLocalizedName() : '';
                                     $ttlMinutes = max(1, (int) ceil(($prepared->challenge()->expiresAt() - time()) / 60));
-                                    $subject = VerificationEmailContentBuilder::subject($journalName);
+                                    $subject = null;
                                     $body = null;
                                     if ($prepared->challenge()->method() === VerificationChallenge::METHOD_LINK) {
                                         $url = $bridge->getVerificationLinkUrl($request, $prepared->challenge()->publicReference(), $prepared->plaintextSecret());
                                         if ($url !== null) {
-                                            $body = VerificationEmailContentBuilder::linkBody($journalName, $url, $ttlMinutes);
+                                            $composed = VerificationEmailTemplateService::compose($verifyContextId, VerificationEmailTemplateKeys::LINK, [
+                                                'journalName' => $journalName,
+                                                'verificationLink' => $url,
+                                                'expiryMinutes' => (string) $ttlMinutes,
+                                            ]);
+                                            $subject = $composed['subject'];
+                                            $body = $composed['body'];
                                         }
                                     } else {
-                                        $body = VerificationEmailContentBuilder::pinBody($journalName, $prepared->plaintextSecret(), $ttlMinutes);
+                                        $composed = VerificationEmailTemplateService::compose($verifyContextId, VerificationEmailTemplateKeys::PIN, [
+                                            'journalName' => $journalName,
+                                            'pinCode' => $prepared->plaintextSecret(),
+                                            'expiryMinutes' => (string) $ttlMinutes,
+                                        ]);
+                                        $subject = $composed['subject'];
+                                        $body = $composed['body'];
                                     }
                                     if ($body !== null) {
                                         Mail::send(new SupportVerificationMailable($context, $user, $subject, $body));

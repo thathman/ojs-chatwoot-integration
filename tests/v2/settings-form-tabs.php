@@ -44,7 +44,7 @@ namespace {
     // tab/tabpanel pair per rendered tab, each panel but the first
     // hidden by default.
     // ================================================================
-    $expectedTabs = ['overview', 'chatwoot', 'widget', 'automation', 'aiKnowledge', 'apiMcp', 'advanced'];
+    $expectedTabs = ['overview', 'chatwoot', 'widget', 'automation', 'verification', 'aiKnowledge', 'apiMcp', 'advanced'];
     foreach ($expectedTabs as $tab) {
         settingsFormTabsCheck(str_contains($tpl, "id=\"cwTab-{$tab}\""), "tab button cwTab-{$tab} must exist");
         settingsFormTabsCheck(str_contains($tpl, "id=\"cwPanel-{$tab}\""), "tab panel cwPanel-{$tab} must exist");

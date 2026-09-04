@@ -550,6 +550,7 @@
 		<button type="button" role="tab" id="cwTab-chatwoot" aria-controls="cwPanel-chatwoot" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.chatwoot"}</button>
 		<button type="button" role="tab" id="cwTab-widget" aria-controls="cwPanel-widget" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.widget"}</button>
 		<button type="button" role="tab" id="cwTab-automation" aria-controls="cwPanel-automation" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.automation"}</button>
+		<button type="button" role="tab" id="cwTab-verification" aria-controls="cwPanel-verification" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.verification"}</button>
 		<button type="button" role="tab" id="cwTab-aiKnowledge" aria-controls="cwPanel-aiKnowledge" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.aiKnowledge"}</button>
 		<button type="button" role="tab" id="cwTab-apiMcp" aria-controls="cwPanel-apiMcp" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.apiMcp"}</button>
 		<button type="button" role="tab" id="cwTab-advanced" aria-controls="cwPanel-advanced" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.advanced"}</button>
@@ -811,6 +812,52 @@
 		</div>
 
 		{* ================================================================ *}
+		{* Verification — Settings Console item G / HAR-014 remainder. No  *}
+		{* real setting keys of its own (identity secrets live on the       *}
+		{* Chatwoot tab); this is a status/action panel over the real       *}
+		{* VerificationEmailTemplateKeys EmailTemplate state.               *}
+		{* ================================================================ *}
+		<div role="tabpanel" id="cwPanel-verification" aria-labelledby="cwTab-verification" hidden>
+			<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.verification.description"}</p>
+
+			<div class="cwOverviewGrid">
+				<div class="cwOverviewCard cwState-{if $chatwootIdentityValidationSecret}configured{else}optional_off{/if}">
+					<div class="cwOverviewCardLabel">{translate key="plugins.generic.chatwootIntegration.settings.verification.card.identityHmac"}</div>
+					<div class="cwOverviewCardState">{if $chatwootIdentityValidationSecret}{translate key="plugins.generic.chatwootIntegration.settings.overview.state.configured"}{else}{translate key="plugins.generic.chatwootIntegration.settings.overview.state.optionalOff"}{/if}</div>
+				</div>
+				<div class="cwOverviewCard cwState-{if $verificationPinTemplateExists}healthy{else}configured{/if}">
+					<div class="cwOverviewCardLabel">{translate key="plugins.generic.chatwootIntegration.settings.verification.card.pinTemplate"}</div>
+					<div class="cwOverviewCardState">{if $verificationPinTemplateExists}{translate key="plugins.generic.chatwootIntegration.settings.verification.state.customized"}{else}{translate key="plugins.generic.chatwootIntegration.settings.verification.state.usingDefault"}{/if}</div>
+				</div>
+				<div class="cwOverviewCard cwState-{if $verificationLinkTemplateExists}healthy{else}configured{/if}">
+					<div class="cwOverviewCardLabel">{translate key="plugins.generic.chatwootIntegration.settings.verification.card.linkTemplate"}</div>
+					<div class="cwOverviewCardState">{if $verificationLinkTemplateExists}{translate key="plugins.generic.chatwootIntegration.settings.verification.state.customized"}{else}{translate key="plugins.generic.chatwootIntegration.settings.verification.state.usingDefault"}{/if}</div>
+				</div>
+			</div>
+
+			<h3>{translate key="plugins.generic.chatwootIntegration.settings.verification.methods"}</h3>
+			<ul>
+				<li>{translate key="plugins.generic.chatwootIntegration.settings.verification.methods.pin"}</li>
+				<li>{translate key="plugins.generic.chatwootIntegration.settings.verification.methods.link"}</li>
+			</ul>
+			<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.verification.policySummary"}</p>
+
+			<div class="cwSecurityInvariant">
+				<strong>{translate key="plugins.generic.chatwootIntegration.settings.verification.privacy.title"}</strong>
+				<p>{translate key="plugins.generic.chatwootIntegration.settings.verification.privacy.description"}</p>
+			</div>
+
+			<div class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.health.sendMailTestDescription"}</div>
+			{fbvElement type="button" id="chatwootSendMailTestBtn" label="plugins.generic.chatwootIntegration.settings.health.sendMailTest"}
+			<div class="cwActionStatus" id="chatwootSendMailTestBtnStatus" role="status" hidden></div>
+
+			<p class="cwSectionDescription">
+				{translate key="plugins.generic.chatwootIntegration.settings.verification.manageTemplates.description"}
+				<a href="{$manageEmailTemplatesUrl|escape}" target="_blank" rel="noopener">{translate key="plugins.generic.chatwootIntegration.settings.verification.manageTemplates"}</a>
+			</p>
+		</div>
+
+		{* ================================================================ *}
 		{* AI & Knowledge — SettingsRegistry tab "ai_knowledge".            *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-aiKnowledge" aria-labelledby="cwTab-aiKnowledge" hidden>
@@ -878,11 +925,6 @@
 			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.troubleshooting"}
 				{fbvElement type="checkbox" id="enableDebugMode" value="1" checked=$enableDebugMode label="plugins.generic.chatwootIntegration.settings.enableDebugMode"}
 			{/fbvFormSection}
-			<div class="cwSectionDescription">
-				{translate key="plugins.generic.chatwootIntegration.settings.health.sendMailTestDescription"}
-			</div>
-			{fbvElement type="button" id="chatwootSendMailTestBtn" label="plugins.generic.chatwootIntegration.settings.health.sendMailTest"}
-			<div class="cwActionStatus" id="chatwootSendMailTestBtnStatus" role="status" hidden></div>
 
 			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.adminTools"}
 				{fbvElement type="checkbox" id="enableGlobalDefaults" value="1" checked=$enableGlobalDefaults label="plugins.generic.chatwootIntegration.settings.enableGlobalDefaults"}
