@@ -248,10 +248,10 @@ msgid "plugins.generic.chatwootIntegration.settings.workflowAutomation"
 msgstr "Workflow Automation"
 
 msgid "plugins.generic.chatwootIntegration.settings.retryQueueEnabled"
-msgstr "Enable Retry Queue with Backoff"
+msgstr "Enable Retry Queue with Backoff (legacy — Send Test Message / Sync Email Templates only, not real-time event delivery)"
 
 msgid "plugins.generic.chatwootIntegration.settings.maxRetryAttempts"
-msgstr "Max Retry Attempts"
+msgstr "Max Retry Attempts (legacy — Send Test Message / Sync Email Templates only, not real-time event delivery)"
 
 msgid "plugins.generic.chatwootIntegration.settings.eventSyncMode"
 msgstr "Event Delivery Mode"
