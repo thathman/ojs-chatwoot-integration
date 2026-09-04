@@ -25,7 +25,7 @@ final class VerificationEmailContentBuilder
      * injection is exactly what a raw newline there would enable), and
      * separately HTML-escape it before use in either HTML body.
      */
-    private static function safeSubjectText(string $text): string
+    public static function safeSubjectText(string $text): string
     {
         return trim((string) preg_replace('/[\r\n\x00-\x1F]+/', ' ', $text));
     }

@@ -29,6 +29,7 @@ final class SupportGatewayMigrationRunner extends Migration
         return [
             new InstallSupportGatewayMigration(),
             new AddFaqCacheTableMigration(),
+            new AddVerificationEmailTemplatesMigration(),
         ];
     }
 
