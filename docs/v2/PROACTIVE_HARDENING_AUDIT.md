@@ -28,16 +28,15 @@ Original source: `ChatwootApiService::__construct()` initialized `$accountId = 1
 - validate selected Inbox/Captain resources belong to the resolved account;
 - multi-account real acceptance test.
 
-### HAR-002 — MUST FIX — remote list calls must distinguish empty from failed and must be complete
+### HAR-002 — PARTIALLY FIXED (PR #241) — remote list calls must distinguish empty from failed and must be complete
 
-Current list methods (`getCannedResponses`, Captain tools/scenarios, and PR #196 Assistant Responses) commonly return `[]` on API failure. Callers cannot distinguish “successful zero rows” from 401/403/429/5xx/network failure. Reconciliation/provisioning code must never perform destructive replacement or assume a resource is absent from an unknown/partial result.
+Original source: list methods (`getCannedResponses`, Captain tools/scenarios, Assistant Responses) commonly returned `[]` on API failure. Callers could not distinguish "successful zero rows" from 401/403/429/5xx/network failure. Reconciliation/provisioning code must never assume a resource is absent from an unknown/partial result.
 
-Required:
-- typed result/error semantics;
-- safe error codes, not raw Guzzle messages;
-- pagination/completeness support for every list endpoint that can paginate;
-- no create/delete/replace decisions from partial or failed lists;
-- tests for zero rows vs failure vs second/later page.
+**Already closed for Assistant Responses** (KNO-011, earlier this session): `listCaptainAssistantResponses()` throws on any request failure and fully paginates, never silently truncating.
+
+**Closed by PR #241** for the two real remaining reconciliation-risk methods: `listCaptainCustomTools()`/`listCaptainScenarios()` are dedup-before-create checks in `CaptainCustomToolProvisioner`/`CaptainScenarioProvisioner` — a failed request silently returning `[]` was indistinguishable from "genuinely zero exist," risking a real duplicate Captain resource created on retry after a transient outage. Both now throw on failure (interface docblocks updated to require this of any implementation), and both provisioners catch the failure and resolve to a safe `failed()` result rather than proceeding to create. `tests/v2/har-002-captain-list-failure-fail-closed.php` proves every tool/scenario fails closed and, critically, that not a single one is created while the listing itself fails.
+
+**Still open**: `getCannedResponses()` (used only by `syncEmailTemplates()`'s own add/update-only loop, never a destructive replace, so lower risk but still technically ambiguous on failure vs. empty) and `getContactConversations()` (its caller, `selectConversationForInbox()`, already fails closed on an empty/failed result regardless — see HAR-003 — so the ambiguity has no live consequence today, but the typed result/error semantics itself is not yet built); a general typed result/error type (vs. per-method throw-or-array conventions) remains a larger, not-yet-attempted refactor.
 
 ### HAR-003 — FIXED (PR #219) — scope existing-conversation selection to the configured OJS inbox
 
