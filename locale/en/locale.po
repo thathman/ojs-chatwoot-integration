@@ -176,16 +176,55 @@ msgid "plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken.descr
 msgstr "An Agent/Admin API Access Token for advanced features like Canned Responses and Notes."
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId"
-msgstr "Inbox ID"
+msgstr "Website Inbox"
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId.description"
-msgstr "Required for open/update conversation mode when no existing conversation is found."
+msgstr "The Chatwoot inbox the support widget connects to. Required for open/update conversation mode when no existing conversation is found."
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId"
-msgstr "Captain Assistant ID"
+msgstr "Captain Assistant"
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.description"
-msgstr "The numeric ID of the Chatwoot Captain assistant this journal's Knowledge Document, Custom Tools, and Scenarios should be provisioned under. Required for Sync/Repair Captain to do anything — without it, Captain provisioning silently does nothing."
+msgstr "The Chatwoot Captain assistant this journal's Knowledge Document, Custom Tools, and Scenarios should be provisioned under. Required for Sync/Repair Captain to do anything — without it, Captain provisioning silently does nothing."
+
+msgid "plugins.generic.chatwootIntegration.settings.discoverBtn"
+msgstr "Test Connection &amp; Discover"
+
+msgid "plugins.generic.chatwootIntegration.settings.discover.description"
+msgstr "Verifies your Base URL and API Access Token against Chatwoot, then discovers the accounts, Website Inboxes, and Captain Assistants available to this token — no numeric IDs to look up by hand."
+
+msgid "plugins.generic.chatwootIntegration.discovery.missingCredentials"
+msgstr "Enter a Base URL and API Access Token first."
+
+msgid "plugins.generic.chatwootIntegration.discovery.connectionFailed"
+msgstr "Connection failed. Check the Base URL and API Access Token."
+
+msgid "plugins.generic.chatwootIntegration.discovery.noAccounts"
+msgstr "Connected, but this token has no account memberships."
+
+msgid "plugins.generic.chatwootIntegration.settings.accountSelector"
+msgstr "Chatwoot Account"
+
+msgid "plugins.generic.chatwootIntegration.settings.accountSelector.multiple"
+msgstr "This token belongs to more than one Chatwoot account. Choose the one this journal should use."
+
+msgid "plugins.generic.chatwootIntegration.settings.discover.notRunYet"
+msgstr "Not tested yet."
+
+msgid "plugins.generic.chatwootIntegration.settings.discover.connected"
+msgstr "Connected. Account: %1$s"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId.selectPrompt"
+msgstr "Select a Website Inbox…"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId.noneFound"
+msgstr "No Website (widget) inboxes were found on this account. Create one in Chatwoot, then run discovery again."
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.selectPrompt"
+msgstr "Select a Captain Assistant…"
+
+msgid "plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.noneFound"
+msgstr "No Captain Assistants were found on this account, or Captain is not enabled."
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"
 msgstr "Support API Token"

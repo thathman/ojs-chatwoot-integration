@@ -97,6 +97,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Runtime\RuntimeContextBri
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBootstrap;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
@@ -215,6 +216,9 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         }
         if ($request->getUserVar('verb') === 'sendSupportMailTest') {
             return $this->sendSupportMailTest($request);
+        }
+        if ($request->getUserVar('verb') === 'discoverChatwootResources') {
+            return $this->discoverChatwootResources($request);
         }
         return parent::manage($args, $request);
     }
@@ -2371,6 +2375,111 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
      * method has no independent access to Chatwoot at all, so it cannot
      * weaken that guarantee even by accident.
      */
+    /**
+     * Chatwoot tab console (owner directive 2026-09-04): a single
+     * discovery call an admin uses to connect without ever typing a raw
+     * numeric Inbox/Captain Assistant ID. Reads baseUrl/token from the
+     * just-submitted (not yet saved) form fields when present — via
+     * SecretFieldMasking::resolveSavedValue(), since the token field
+     * redisplays as the mask string once already saved — falling back
+     * to already-saved settings, so "Test Connection" works both before
+     * the very first save and afterward.
+     *
+     * HAR-001: a token can belong to more than one Chatwoot account.
+     * Resolution order: an explicit `discoverAccountId` the admin just
+     * chose in this same request > the already-saved chatwootAccountId
+     * > auto-select when exactly one account exists. More than one
+     * account with no selection yet returns needsAccountSelection=true
+     * and the account list — never a guess.
+     *
+     * Every returned field is a safe, minimal display-only projection.
+     * Captain assistants in particular never carry their real
+     * guardrails/response_guidelines/config — see
+     * ChatwootApiService::listCaptainAssistants().
+     */
+    public function discoverChatwootResources($request): JSONMessage
+    {
+        $context = $request->getContext();
+        if (!$context) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
+        }
+        $contextId = (int) $context->getId();
+
+        $storedBaseUrl = (string) $this->getSetting($contextId, 'chatwootBaseUrl');
+        $storedToken = (string) $this->getSetting($contextId, 'chatwootApiAccessToken');
+        $storedAccountId = (int) $this->getSetting($contextId, 'chatwootAccountId');
+
+        $postedBaseUrl = trim((string) $request->getUserVar('chatwootBaseUrl'));
+        $baseUrl = $this->v2NormalizeBaseUrl($postedBaseUrl !== '' ? $postedBaseUrl : $storedBaseUrl);
+        $postedToken = (string) $request->getUserVar('chatwootApiAccessToken');
+        $token = $postedToken !== '' ? SecretFieldMasking::resolveSavedValue($postedToken, $storedToken) : $storedToken;
+
+        if ($baseUrl === '' || $token === '') {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.discovery.missingCredentials'));
+        }
+
+        try {
+            $api = new ChatwootApiService($baseUrl, $token);
+            $profile = $api->getProfile();
+            if (!$profile) {
+                return new JSONMessage(false, __('plugins.generic.chatwootIntegration.discovery.connectionFailed'));
+            }
+
+            $rawAccounts = is_array($profile['accounts'] ?? null) ? $profile['accounts'] : [];
+            $accounts = [];
+            foreach ($rawAccounts as $account) {
+                if (!is_array($account) || empty($account['id'])) {
+                    continue;
+                }
+                $accounts[] = ['id' => (int) $account['id'], 'name' => (string) ($account['name'] ?? '')];
+            }
+            if (empty($accounts)) {
+                return new JSONMessage(false, __('plugins.generic.chatwootIntegration.discovery.noAccounts'));
+            }
+
+            $accountIds = array_column($accounts, 'id');
+            $requestedAccountId = (int) $request->getUserVar('discoverAccountId');
+            if ($requestedAccountId > 0 && in_array($requestedAccountId, $accountIds, true)) {
+                $selectedAccountId = $requestedAccountId;
+            } elseif ($storedAccountId > 0 && in_array($storedAccountId, $accountIds, true)) {
+                $selectedAccountId = $storedAccountId;
+            } elseif (count($accounts) === 1) {
+                $selectedAccountId = $accounts[0]['id'];
+            } else {
+                return new JSONMessage(true, [
+                    'connected' => true,
+                    'needsAccountSelection' => true,
+                    'accounts' => $accounts,
+                ]);
+            }
+
+            $api->setAccountId($selectedAccountId);
+
+            $inboxes = [];
+            foreach ($api->listInboxes() as $inbox) {
+                if (($inbox['channel_type'] ?? '') !== 'Channel::WebWidget') {
+                    continue;
+                }
+                $inboxes[] = [
+                    'id' => (int) ($inbox['id'] ?? 0),
+                    'name' => (string) ($inbox['name'] ?? ''),
+                    'websiteUrl' => (string) ($inbox['website_url'] ?? ''),
+                ];
+            }
+
+            return new JSONMessage(true, [
+                'connected' => true,
+                'needsAccountSelection' => false,
+                'accounts' => $accounts,
+                'selectedAccountId' => $selectedAccountId,
+                'inboxes' => $inboxes,
+                'assistants' => $api->listCaptainAssistants(),
+            ]);
+        } catch (\Throwable $e) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.discovery.connectionFailed'));
+        }
+    }
+
     public function syncCaptainResources($request): JSONMessage
     {
         $context = $request->getContext();

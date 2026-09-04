@@ -146,6 +146,54 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return $result['ok'] ? ($result['data'] ?? []) : [];
     }
 
+    /**
+     * Chatwoot tab console (owner directive 2026-09-04): real inboxes on
+     * the resolved account, so an admin picks a Website Inbox by name
+     * instead of typing a numeric ID. Returns the raw per-inbox shape
+     * (id, name, channel_type, website_url, ...) — callers filter to
+     * Channel::WebWidget themselves; this method makes no assumption
+     * about which channel types the caller wants.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function listInboxes(): array {
+        $result = $this->requestJson('GET', "accounts/{$this->accountId}/inboxes");
+        if (!$result['ok']) return [];
+        $data = $result['data'] ?? [];
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        return array_values(array_filter($payload, 'is_array'));
+    }
+
+    /**
+     * Chatwoot tab console: real Captain assistants on the resolved
+     * account, so an admin picks one by name instead of typing a
+     * numeric ID. Deliberately strips every field beyond id/name/
+     * description before returning — a real assistant's raw API shape
+     * also carries `guardrails`, `response_guidelines`, and `config`,
+     * which on this account's real assistants contain confidential
+     * internal business rules (pricing strategy, escalation policy)
+     * that must never reach an OJS admin UI, a log line, or any HTTP
+     * response this plugin sends.
+     *
+     * @return array<int,array{id:int,name:string,description:string}>
+     */
+    public function listCaptainAssistants(): array {
+        $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistants");
+        if (!$result['ok']) return [];
+        $data = $result['data'] ?? [];
+        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
+        $safe = [];
+        foreach ($payload as $assistant) {
+            if (!is_array($assistant) || empty($assistant['id'])) continue;
+            $safe[] = [
+                'id' => (int) $assistant['id'],
+                'name' => (string) ($assistant['name'] ?? ''),
+                'description' => (string) ($assistant['description'] ?? ''),
+            ];
+        }
+        return $safe;
+    }
+
     public function createCannedResponse($shortCode, $content) {
         $result = $this->requestJson('POST', "accounts/{$this->accountId}/canned_responses", [
             'json' => ['short_code' => $shortCode, 'content' => $content]

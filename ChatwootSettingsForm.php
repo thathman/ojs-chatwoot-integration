@@ -92,6 +92,7 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('syncCaptainResourcesUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'syncCaptainResources'])));
         $templateMgr->assign('retryDeadLetterEventsUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'retryDeadLetterEvents'])));
         $templateMgr->assign('sendSupportMailTestUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'sendSupportMailTest'])));
+        $templateMgr->assign('discoverChatwootResourcesUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'discoverChatwootResources'])));
 
         $context = $request->getContext();
         $mcpEndpointUrl = $context
