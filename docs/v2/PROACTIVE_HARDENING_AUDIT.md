@@ -127,15 +127,13 @@ Original source: all eight known Event Bridge event types are now live-owned by 
 - drain/retire old rows safely and remove/deprecate the legacy queue settings (`retryQueueEnabled`/`maxRetryAttempts`) and scheduled task once no producer remains — requires the producer migration above first;
 - the settings-semantics ambiguity HAR-012 names (administrators reasonably believing `retryQueueEnabled`/`maxRetryAttempts` tune the current, not legacy, queue) is unresolved.
 
-### HAR-013 — MUST FIX — “Sync Email Templates” is too broad and misleading
+### HAR-013 — PARTIALLY FIXED (PR #225) — “Sync Email Templates” is too broad and misleading
 
-`syncEmailTemplates()` currently iterates the journal’s OJS EmailTemplates and creates Chatwoot canned responses for every non-empty body. There is no support-safe allowlist. Security/verification/password-reset/internal editorial templates must never be promoted to canned responses merely because the button exists.
+Original source: `syncEmailTemplates()` iterated the journal's OJS EmailTemplates and created Chatwoot canned responses for every non-empty body with no support-safe allowlist. Live-checked against this real installation's actual templates (via `Repo::emailTemplate()`): `PASSWORD_RESET_CONFIRM`, `MAGIC_LOGIN_LINK`, `USER_VALIDATE_CONTEXT`, and `USER_VALIDATE_SITE` all had non-empty bodies and would have been synced as plaintext canned responses visible to every support agent with Chatwoot access.
 
-Required:
-- preferably redesign as an explicit **Support Canned Responses** feature with opt-in template selection/classification;
-- hard deny security/verification/internal templates;
-- do not drain unrelated queues as a side effect;
-- if there is no compelling product requirement, remove the feature rather than preserve dangerous legacy behavior.
+**Closed by PR #225** ("hard deny security/verification/internal templates"): added `isCannedResponseSafe()`, a keyword-based hard deny (`PASSWORD`, `RESET`, `VALIDATE`, `VERIF`, `LOGIN`, `REGISTER`, `ACTIVATE`, `TOKEN`, `SECRET`, `OTP`, `PIN`, `MAGIC`, `CREDENTIAL`) checked before `createCannedResponse()` is ever called. Keyword-matched, not an exact-key denylist, so a similarly-named template added later by this or any other installed plugin is denied by default. `tests/v2/har-013-canned-response-deny-sensitive-templates.php` proves the real deny/allow decision; live-verified on dell against this installation's actual 112 non-empty templates: `MAGIC_LOGIN_LINK`, `PASSWORD_RESET_CONFIRM`, `REVIEWER_REGISTER`, `USER_REGISTER`, `USER_VALIDATE_CONTEXT`, `USER_VALIDATE_SITE` are now denied (6 of 112), the other 106 ordinary editorial templates remain allowed.
+
+**Still open**: "do not drain unrelated queues as a side effect" (`syncEmailTemplates()`'s own `processApiQueue($contextId, 8)` call, same class of item HAR-012 tracks) and the larger product-redesign question — an explicit opt-in **Support Canned Responses** feature with template selection/classification, vs. removing the button entirely if there is no compelling product requirement.
 
 ### HAR-014 — MUST FIX — verification email composition / EmailTemplates
 
