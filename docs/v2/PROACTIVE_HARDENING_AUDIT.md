@@ -213,9 +213,11 @@ Original source: every `new ChatwootApiService(...)` performed profile/account r
 - "batch queue delivery should reuse an appropriately scoped client where safe" — each row still constructs its own `ChatwootApiService` object; only the expensive part (account resolution) is shared, not the object itself;
 - performance acceptance with a realistic pending batch (many real rows, one real scheduled-task run) is not yet run.
 
-### HAR-022 — VERIFY/MUST FIX — contact identity resolution should not rely on email alone where duplicates are possible
+### HAR-022 — FIXED (PR #243) — contact identity resolution should not rely on email alone where duplicates are possible
 
-Event delivery finds contacts by exact email and returns the first matching result. The plugin itself sets a stable OJS identifier when it creates contacts. Audit Chatwoot duplicate-contact behavior and prefer a stable identifier/contact-inbox relationship where available so an OJS event cannot attach to an unrelated duplicate contact sharing an email.
+Original source: event delivery found contacts by exact email and returned the first matching result, unconditionally. The plugin itself sets a stable OJS identifier when it creates contacts, but never used it to disambiguate.
+
+Fixed: `findContactByEmail()` now accepts an optional `$identifier`. Among the real email matches, the one whose own identifier equals it is preferred; only when no candidate carries that identifier (or none was supplied) does it fall back to the first email match, exactly as before. Both real call sites (v1's `sendChatwootEvent()`, v2's `v2DeliverQueuedEventRow()`) now pass the stable identifier/userId they already had available at the call site. `tests/v2/har-022-contact-identity-prefers-stable-identifier.php` proves the identifier-preference logic runs before the fallback and that both call sites pass it — structural/source-level evidence (Guzzle is not available in this local test harness); `ChatwootApiService`'s general HTTP behavior is live-verified via the CLI harness on dell elsewhere this session.
 
 ### HAR-023 — VERIFY — widget injection multiplicity
 
