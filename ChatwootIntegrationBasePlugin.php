@@ -807,10 +807,40 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         }
         $widgetSettingsFromConfigJson = json_encode($widgetSettingsFromConfig);
 
+        // HAR/owner directive 2026-09-04: structured Appearance controls
+        // replace the previously-hardcoded defaults — every key here is a
+        // real window.chatwootSettings value the deployed Chatwoot SDK
+        // actually reads (verified against the real bundle). The Advanced
+        // "Custom Widget Overrides" JSON (widgetSettingsFromConfigJson)
+        // still merges on top, exactly as before, so it remains a real
+        // escape hatch for an SDK option this form does not yet expose —
+        // never a silent contradiction of what an admin chose above,
+        // since Object.assign here only overrides a key the override
+        // JSON actually names.
+        $languageMode = (string) $this->getEffectiveSetting($contextId, 'widgetLanguageMode', 'match_ojs');
+        $widgetDefaults = [
+            'position' => (string) $this->getEffectiveSetting($contextId, 'widgetPosition', 'right'),
+            'type' => (string) $this->getEffectiveSetting($contextId, 'widgetLauncherStyle', 'standard'),
+            'launcherTitle' => (string) $this->getEffectiveSetting($contextId, 'widgetLauncherTitle', 'Chat with us'),
+            'darkMode' => (string) $this->getEffectiveSetting($contextId, 'widgetTheme', 'auto'),
+            'showPopoutButton' => $this->toBool($this->getEffectiveSetting($contextId, 'widgetShowPopoutButton', false)) === true,
+            'showUnreadMessagesDialog' => $this->toBool($this->getEffectiveSetting($contextId, 'widgetShowUnreadDialog', true)) !== false,
+            'hideMessageBubble' => $this->toBool($this->getEffectiveSetting($contextId, 'widgetHideMessageBubble', false)) === true,
+        ];
+        if ($languageMode === 'browser') {
+            $widgetDefaults['useBrowserLanguage'] = true;
+        } elseif ($languageMode === 'fixed') {
+            $fixedLocale = trim((string) $this->getEffectiveSetting($contextId, 'widgetFixedLocale', ''));
+            $widgetDefaults['locale'] = $fixedLocale !== '' ? $fixedLocale : $chatLocale;
+        } else {
+            $widgetDefaults['locale'] = $chatLocale;
+        }
+        $widgetDefaultsJson = json_encode($widgetDefaults);
+
         $script = "
             <script" . ($nonce !== '' ? " nonce=\"" . htmlspecialchars($nonce) . "\"" : "") . ">
             window.chatwootSettings = Object.assign(
-                { locale:" . json_encode($chatLocale) . ", position:'right', type:'standard', launcherTitle:'Chat with us' },
+                $widgetDefaultsJson,
                 $widgetSettingsFromConfigJson,
                 window.chatwootSettings || {}
             );

@@ -81,7 +81,39 @@ final class SettingsRegistry
             new SettingDefinition('excludedPages', 'string', tab: 'advanced'),
             new SettingDefinition('cspSafeMode', 'bool', tab: 'advanced'),
             new SettingDefinition('skipBackendPages', 'bool', tab: 'advanced'),
-            new SettingDefinition('widgetSettingsJson', 'string', tab: 'widget'),
+            /**
+             * Widget tab console (owner directive 2026-09-04): structured
+             * Appearance controls replacing raw widgetSettingsJson editing
+             * for the common case. Every value here is a real, verified
+             * `window.chatwootSettings` key/value the deployed Chatwoot
+             * SDK (support.airixmedia.com/packs/js/sdk.js) actually reads
+             * — confirmed by inspecting that real bundle, never invented:
+             * position ("left"/"right"), launcher type ("standard"/
+             * "expanded_bubble"), theme/darkMode ("light"/"dark"/"auto"),
+             * useBrowserLanguage, showPopoutButton, showUnreadMessagesDialog,
+             * hideMessageBubble.
+             */
+            new SettingDefinition('widgetPosition', 'string', tab: 'widget'),
+            new SettingDefinition('widgetLauncherStyle', 'string', tab: 'widget'),
+            new SettingDefinition('widgetLauncherTitle', 'string', tab: 'widget'),
+            new SettingDefinition('widgetLanguageMode', 'string', tab: 'widget'),
+            new SettingDefinition('widgetFixedLocale', 'string', tab: 'widget'),
+            new SettingDefinition('widgetTheme', 'string', tab: 'widget'),
+            new SettingDefinition('widgetShowPopoutButton', 'bool', tab: 'widget'),
+            new SettingDefinition('widgetShowUnreadDialog', 'bool', tab: 'widget'),
+            new SettingDefinition('widgetHideMessageBubble', 'bool', tab: 'widget'),
+            /**
+             * Owner directive item 13: raw JSON editing is no longer part
+             * of ordinary setup — moved to Advanced as a documented,
+             * validated override layer for genuine compatibility edge
+             * cases only. The structured controls above remain
+             * authoritative; this merges on top of them (see
+             * addChatwootWidget()'s own layering comment) so an override
+             * here can only add/replace a key the structured controls
+             * do not already cover, never silently contradict a decision
+             * an admin made through them without visible effect.
+             */
+            new SettingDefinition('widgetSettingsJson', 'string', tab: 'advanced'),
             new SettingDefinition('eventDeliveryGlobalMode', 'string', tab: 'automation'),
             new SettingDefinition('eventDeliveryCustomerMessageConsent', 'bool', tab: 'automation'),
             new SettingDefinition('eventDeliveryPerEventOverridesJson', 'string', tab: 'automation'),
