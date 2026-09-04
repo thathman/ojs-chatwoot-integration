@@ -28,6 +28,25 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
     private const QUEUE_KEY = 'apiQueue';
 
     /**
+     * HAR-023: TemplateManager::fetch fires once per template/partial
+     * rendered — many times in a single real page load, each call
+     * producing its own separate output string — and
+     * TemplateManager::display fires once more for the full page.
+     * Without this guard, addChatwootWidget() could inject the widget
+     * script into more than one of those separate output fragments
+     * within the same HTTP response: each injected copy registers its
+     * own `chatwoot:ready` listener, so when the SDK actually becomes
+     * ready, every copy's listener fires, calling setUser()/
+     * setCustomAttributes() once per copy instead of once per page.
+     * The plugin instance is already effectively request-scoped (PKP's
+     * PluginRegistry caches one instance per request), so a plain
+     * instance flag reset on every fresh request is sufficient — no
+     * static property, which could leak across requests under a
+     * persistent worker.
+     */
+    private bool $widgetInjectedThisRequest = false;
+
+    /**
      * SETTINGS-SMALL-002/UX-024: the canonical key list for import,
      * Save Global Profile, and Apply Global Profile (importSettings()/
      * saveGlobalProfile()/applyGlobalProfile() below are inherited by
@@ -674,6 +693,15 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
 
         if (!$enabled || $baseUrl === '' || $token === '') return false;
 
+        // HAR-023: every condition below this point (excluded pages,
+        // hideForRole, backend-page skip) evaluates the same real
+        // facts (requested page, current user/roles) on every call
+        // within one HTTP request — so once one call actually injects
+        // the widget, every later call in the same request would reach
+        // the identical decision. Block here rather than duplicate the
+        // guard at every return point below.
+        if ($this->widgetInjectedThisRequest) return false;
+
         // TST-020: this hook fires on every TemplateManager::fetch site-wide,
         // including component-routed AJAX calls (any plugin's own settings
         // modal, grid cell renders, etc.) where $request->getRouter() is a
@@ -824,6 +852,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             </script>
         ";
 
+        $this->widgetInjectedThisRequest = true;
         $templateMgr->addHeader('chatwootWidgetFrontend', $script, ['contexts' => ['frontend']]);
         $templateMgr->addHeader('chatwootWidgetBackend', $script, ['contexts' => ['backend']]);
         if (isset($args[2]) && is_string($args[2]) && stripos($args[2], 'chatwootSDK.run') === false) {
