@@ -2,20 +2,57 @@
 
 This file is the short authoritative continuation pointer for active v2 development. Read it before `TASKLIST.md`, `AIRIX360_TASKLIST.md`, or older phase summaries.
 
-Last reconciled: 2026-09-04 (PR #246 merged — HAR-023 partially addressed; PR #245's overstated evidence claim corrected).
+Last reconciled: 2026-09-04 (PR #247 merged, deployed SHA `8ee400a` confirmed on dell — HAR-006 acceptance status corrected per explicit owner redirect below; owner has redirected the primary workstream to the Settings Console product UX).
 
 ## Owner goal
 
 Prepare the plugin completely. **Do not publish it.** Do not modify/replace the immutable `v2.0.0.0` release/tag/artifact and do not resume PKP Gallery work.
 
+## Owner redirect (2026-09-04) — Settings Console is now the primary workstream
+
+The owner explicitly redirected priority away from picking hardening (HAR-*) items opportunistically: proactive hardening has been productive but must not indefinitely postpone the actual Settings Console product UX. **Do not select HAR items merely because they are easy to close.** Only fix a hardening defect outside this list when it directly intersects the console surface being built or is a serious, standalone production-safety issue.
+
+The ordered console build sequence, to be worked in order:
+
+```
+A. reconcile CURRENT_WORK           (this update)
+B. Chatwoot tab — connection, account discovery/selection, Website Inbox selector,
+   Captain Assistant selector, resource-ownership validation, Chatwoot-owned vs
+   OJS-owned boundary (status + "Open in Chatwoot", never duplicate their config)
+C. Widget tab — structured Appearance controls (position/launcher/title/language/
+   theme), local visual preview (no real iframe boot), widgetSettingsJson moved to
+   Advanced/removed
+D. Audience/privacy UX — positive audience model ("who can see the widget"),
+   blind-review protection reframed as an always-on invariant, not a toggle
+E. Automation/Event Bridge UI — single understandable event/action matrix, no raw
+   JSON, inline customer-visible-message consent per row
+F. Overview health — per-integration state (Healthy/Configured/Optional-Off/
+   Not-configured/Never-checked/Stale/Degraded/Failed/Action-required), safe actions
+G. Verification tab — finish HAR-014 with real OJS EmailTemplate lifecycle + Mailpit
+   acceptance (PIN, link, malicious name, failure, expiry, wrong PIN, max attempts,
+   resend, anti-enumeration, success)
+H. API & MCP tab — credential lifecycle, capabilities, safe explanatory copy
+I. Integrations tab — real installed sibling providers only, status + link out,
+   never duplicate their config
+J. Advanced cleanup — CSP, lazy-load, route exclusions, raw override, debug,
+   export/import/global profile, queue tuning
+K. Real browser acceptance — full checklist in PROACTIVE_HARDENING_AUDIT.md's
+   Settings Console section once the AJDSI theme override (see item 1 below) is no
+   longer shadowing the real template
+```
+
+Full detailed requirements for each slice (exact fields, validation rules, ownership boundary, blind-review framing, etc.) are in the owner's 2026-09-04 directive — treat it as the authoritative UX spec for B–J until superseded.
+
+**Evidence discipline reminder** (owner-stated, now doubly authoritative): do not call something live-accepted because code exists on dell, the page returns 200, or no PHP error occurred. Real acceptance must discriminate the intended behavior — e.g. HAR-006 needs the actual author-on-A/reviewer-on-B case; HAR-003 needs a contact with multiple inbox conversations where the wrong inbox is present but not chosen; HAR-022 needs real duplicate-contact ambiguity; HAR-023 needs an actual rendered-page script/listener count (see that entry's own PR #245/#246 correction for what happens when this discipline slips).
+
 ## Immediate execution order
 
 1. ~~Do not merge PR #196 as-is.~~ **Done.** All three blocking findings fixed (PR #196, then #198 for a live-discovered pagination gap) and merged into `v2-dev`. Live-verified on dell: `SupportGatewayMigrationRunner` upgraded the real 2.0.0.0 database in place (new `chatwoot_support_faq_cache` table, existing five tables untouched), and `syncFaqCache()` synced all 209 real approved FAQs from the real Chatwoot account (real account ID 2, resolved dynamically — not the naively-assumed 1) into it. See `docs/v2/TASKLIST.md` KNO-011/KNO-021/MIG-003 for full evidence. Not yet done: a browser check that the anonymous `/support-knowledge/` page actually renders these facts end-to-end.
-2. **Settings Console Redesign — in progress.** `docs/v2/SETTINGS_UI_REDESIGN.md` is the authoritative product/UX brief. The canonical-settings slice (UX-024, ADM-007) is **complete**: `SettingsRegistry`/`SettingDefinition` (`classes/v2/Settings/`, PR #200) is the single source of truth for every one of the 39 real setting keys, and every previously-duplicated key list in the plugin now delegates directly to it (PRs #201/#204/#205/#207); HAR-008 closed as a side effect. The tabbed-UI first slice (ADM-008/ADM-009, PR #209) is also **complete**: a real WAI-ARIA tab layout (Overview/Chatwoot/Widget/Automation/AI & Knowledge/API & MCP/Advanced) replaces the old single-scroll form, tab membership driven directly by `SettingsRegistry`'s own `tab` field, the real duplicate-`id="description"` bug fixed, `alert()` replaced with inline status elements — `tests/v2/settings-form-tabs.php` is the drift guard. Deployed to dell; full browser acceptance remains blocked by the pre-existing AJDSI theme override of this exact template (see AUD-011/PR #195 — not a new limitation, not fixable from this repository). Next, in order: (a) close the cross-cutting HAR items below that intersect the settings surface, (b) the richer per-tab content ADM-008 still lacks (Chatwoot account/inbox/Captain discovery UI, structured widget preview, positive-audience-model controls, Integrations provider dashboard) — larger, separate slices — before returning to further Knowledge/Staff/Provider/Payment UI expansion.
-3. While implementing the console, close the cross-cutting hardening items that directly affect the same surfaces. Status per item — see `docs/v2/PROACTIVE_HARDENING_AUDIT.md` for full evidence on each:
+2. **Settings Console Redesign — in progress.** `docs/v2/SETTINGS_UI_REDESIGN.md` is the authoritative product/UX brief. The canonical-settings slice (UX-024, ADM-007) is **complete**: `SettingsRegistry`/`SettingDefinition` (`classes/v2/Settings/`, PR #200) is the single source of truth for every one of the 39 real setting keys, and every previously-duplicated key list in the plugin now delegates directly to it (PRs #201/#204/#205/#207); HAR-008 closed as a side effect. The tabbed-UI first slice (ADM-008/ADM-009, PR #209) is also **complete**: a real WAI-ARIA tab layout (Overview/Chatwoot/Widget/Automation/AI & Knowledge/API & MCP/Advanced) replaces the old single-scroll form, tab membership driven directly by `SettingsRegistry`'s own `tab` field, the real duplicate-`id="description"` bug fixed, `alert()` replaced with inline status elements — `tests/v2/settings-form-tabs.php` is the drift guard. Deployed to dell; full browser acceptance remains blocked by the pre-existing AJDSI theme override of this exact template (see AUD-011/PR #195 — not a new limitation, not fixable from this repository). Next: follow the owner-redirect build sequence (B–K) above — the richer per-tab content ADM-008 still lacks (Chatwoot account/inbox/Captain discovery UI, structured widget preview, positive-audience-model controls, Integrations provider dashboard) is now the explicit primary workstream, not an optional follow-up.
+3. Cross-cutting hardening items already closed or partially closed this far (fix one only when it directly intersects the console slice being built, or is a standalone serious production-safety issue — see the owner redirect above). Status per item — see `docs/v2/PROACTIVE_HARDENING_AUDIT.md` for full evidence on each:
    - HAR-002 — partial (PR #241): Captain custom-tool/scenario provisioning's dedup-before-create list checks now fail closed on a real request failure instead of risking a duplicate resource; `getCannedResponses()`/`getContactConversations()` and a general typed result/error type remain open, lower-risk items.
    - HAR-003 — closed (PR #219): event delivery no longer trusts `conversations[0]`; `selectConversationForInbox()` requires real `inbox_id` membership and fails closed otherwise.
-   - HAR-006 — closed (PR #215): widget and bind share one `resolveReviewerMasking()` decision instead of two independently-maintained ones.
+   - HAR-006 — implementation fixed (PR #215), multi-role Dell acceptance still open: widget and bind share one `resolveReviewerMasking()` decision instead of two independently-maintained ones, but the discriminating real-user walkthrough (one real user, author on Submission A + reviewer on Submission B, proving widget and `/bind` agree on identity in both contexts) has not been run. Do this during the Widget/Audience console work per the owner's redirect below.
    - HAR-007 — closed (PR #213): also fixed a real, high-volume production bug — a nonexistent `Repo::context()` call was throwing 3,081 times/day in real dell traffic, now 0.
    - HAR-008 — closed (PRs #200/#201): `SettingsRegistry` is the single source of truth for global-eligibility, closing the credential-sharing gap as a side effect.
    - HAR-011 — closed (PR #239): every real call site that logged a raw exception message now uses `SafeExceptionMessage::describe()`; MCP's one remaining `getMessage()` call verified safe by construction.
