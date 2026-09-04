@@ -3,6 +3,8 @@
 namespace APP\plugins\generic\chatwootIntegration;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\template\TemplateManager;
@@ -49,6 +51,26 @@ class ChatwootSettingsForm extends Form
         return in_array($rawValue, [true, 1, '1', 'true'], true);
     }
 
+    /**
+     * Automation/Event Bridge matrix (owner directive 2026-09-04, item
+     * E): one row per real SupportEventType. Maps each row's slug (used
+     * for its enabledKey/actionKey form field names) to the real
+     * SupportEventType constant and the real Automation "Enabled"
+     * setting for that type (see ChatwootIntegrationV2Plugin's
+     * EVENT_TYPE_ENABLED_SETTING — the two lists must name the same
+     * event types, checked by tests/v2/settings-automation-event-matrix.php).
+     */
+    private const EVENT_MATRIX_ROWS = [
+        'submissionCreated' => [SupportEventType::SUBMISSION_CREATED, 'eventSubmissionCreated'],
+        'reviewSubmitted' => [SupportEventType::SUBMISSION_REVIEW_SUBMITTED, 'eventReviewSubmitted'],
+        'revisionRequested' => [SupportEventType::SUBMISSION_REVISION_REQUESTED, 'eventRevisionRequested'],
+        'accepted' => [SupportEventType::SUBMISSION_ACCEPTED, 'eventAccepted'],
+        'rejected' => [SupportEventType::SUBMISSION_REJECTED, 'eventRejected'],
+        'publicationScheduled' => [SupportEventType::PUBLICATION_SCHEDULED, 'eventPublicationScheduled'],
+        'publicationPublished' => [SupportEventType::PUBLICATION_PUBLISHED, 'eventPublicationPublished'],
+        'decisionRecorded' => [SupportEventType::SUBMISSION_DECISION_RECORDED, 'eventDecisionRecorded'],
+    ];
+
     public function __construct(private ChatwootIntegrationPlugin $plugin, private int $contextId)
     {
         parent::__construct($plugin->getTemplateResource('settingsForm.tpl'));
@@ -79,6 +101,18 @@ class ChatwootSettingsForm extends Form
             $this->setData('audienceAllow_' . $audienceKey, !self::isChecked($plugin->getSetting($contextId, $hideKey)));
         }
 
+        // Automation/Event Bridge matrix: decode the existing raw
+        // eventDeliveryPerEventOverridesJson value (Advanced-only from
+        // now on, but still the real storage format — see execute())
+        // into one Action select per row. A row with no override shows
+        // "Use default".
+        $overridesJson = (string) $plugin->getSetting($contextId, 'eventDeliveryPerEventOverridesJson');
+        $consentGiven = self::isChecked($plugin->getSetting($contextId, 'eventDeliveryCustomerMessageConsent'));
+        $decodedOverrides = EventDeliverySettingsResolver::parsePerEventOverrides($overridesJson, $consentGiven);
+        foreach (self::EVENT_MATRIX_ROWS as $rowKey => [$eventType, ]) {
+            $this->setData('eventAction_' . $rowKey, $decodedOverrides[$eventType] ?? '');
+        }
+
         parent::initData();
     }
 
@@ -88,6 +122,7 @@ class ChatwootSettingsForm extends Form
         // hideForRole_* key — see initData()'s note.
         $this->readUserVars(SettingsRegistry::keys());
         $this->readUserVars(array_map(fn (string $audienceKey): string => 'audienceAllow_' . $audienceKey, array_keys(self::AUDIENCE_ROLE_KEYS)));
+        $this->readUserVars(array_map(fn (string $rowKey): string => 'eventAction_' . $rowKey, array_keys(self::EVENT_MATRIX_ROWS)));
         $this->addCheck(new FormValidator($this, 'chatwootBaseUrl', 'required', 'plugins.generic.chatwootIntegration.settings.chatwootBaseUrlRequired'));
         $this->addCheck(new FormValidator($this, 'chatwootWebsiteToken', 'required', 'plugins.generic.chatwootIntegration.settings.chatwootWebsiteTokenRequired'));
     }
@@ -98,6 +133,10 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('pluginName', $this->plugin->getName());
         $router = $request->getRouter();
 
+        // Legacy fallback only (owner directive item J) — eventDeliveryGlobalMode's
+        // own "(use this journal's existing legacy sync behavior)" option is
+        // what actually reads this; moved to Advanced, no longer part of
+        // the normal Automation workflow.
         $templateMgr->assign('eventSyncModeOptions', [
             'note' => __('plugins.generic.chatwootIntegration.settings.eventSyncMode.note'),
             'open_update' => __('plugins.generic.chatwootIntegration.settings.eventSyncMode.openUpdate'),
@@ -152,6 +191,28 @@ class ChatwootSettingsForm extends Form
             EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.optInCustomerMessage'),
         ]);
 
+        // Automation/Event Bridge matrix (owner directive 2026-09-04,
+        // item E): per-row Action options — same real EventDeliveryMode
+        // values as the global default, but "" reads as "use the default
+        // action" for a row rather than eventDeliveryGlobalModeOptions'
+        // journal-wide "use legacy eventSyncMode" meaning.
+        $templateMgr->assign('eventActionOptions', [
+            '' => __('plugins.generic.chatwootIntegration.settings.eventAction.useDefault'),
+            EventDeliveryMode::PRIVATE_NOTE => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.privateNote'),
+            EventDeliveryMode::OPEN_UPDATE_CONVERSATION => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.openUpdateConversation'),
+            EventDeliveryMode::UPDATE_CONTEXT => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.updateContext'),
+            EventDeliveryMode::AUDIT_ONLY => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.auditOnly'),
+            EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE => __('plugins.generic.chatwootIntegration.settings.eventDeliveryMode.optInCustomerMessage'),
+        ]);
+        $templateMgr->assign('eventMatrixRows', array_map(
+            fn (string $rowKey): array => [
+                'rowKey' => $rowKey,
+                'label' => __('plugins.generic.chatwootIntegration.settings.eventMatrix.' . $rowKey),
+                'currentAction' => (string) $this->getData('eventAction_' . $rowKey),
+            ],
+            array_keys(self::EVENT_MATRIX_ROWS)
+        ));
+
         $params = ['plugin' => $this->plugin->getName(), 'category' => 'generic'];
         $templateMgr->assign('healthCheckUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'healthCheck'])));
         $templateMgr->assign('testMessageUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'testMessage'])));
@@ -196,6 +257,20 @@ class ChatwootSettingsForm extends Form
             $allowed = self::isChecked($this->getData('audienceAllow_' . $audienceKey));
             $this->setData($hideKey, !$allowed);
         }
+
+        // Automation/Event Bridge matrix: encode the submitted per-row
+        // Action selects back into eventDeliveryPerEventOverridesJson —
+        // the real storage format EventDeliverySettingsResolver already
+        // parses (unchanged). A row left at "" (use default) is simply
+        // omitted, exactly like never having had an override.
+        $overrides = [];
+        foreach (self::EVENT_MATRIX_ROWS as $rowKey => [$eventType, ]) {
+            $mode = trim((string) $this->getData('eventAction_' . $rowKey));
+            if ($mode !== '') {
+                $overrides[$eventType] = $mode;
+            }
+        }
+        $this->setData('eventDeliveryPerEventOverridesJson', $overrides === [] ? '' : json_encode($overrides));
 
         // UX-024: SettingsRegistry::keys()/::type() already includes
         // every hideForRole_* key — see initData()'s note.

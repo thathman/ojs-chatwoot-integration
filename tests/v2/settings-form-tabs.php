@@ -98,7 +98,18 @@ namespace {
         'hideForRole_1' => 'audienceAllow_siteAdmin',
     ];
 
+    // Owner directive 2026-09-04, item E: eventDeliveryPerEventOverridesJson
+    // is no longer a single directly-rendered field — it's computed from
+    // 8 real eventAction_* selects in the event/action matrix (see
+    // event-delivery-settings-resolver.php for the fuller assertion that
+    // it's still genuinely read/written). Skipped here, not mapped to one
+    // proxy id, since no single id stands in for it.
+    $computedNotDirectlyRendered = ['eventDeliveryPerEventOverridesJson'];
+
     foreach (SettingsRegistry::all() as $key => $definition) {
+        if (in_array($key, $computedNotDirectlyRendered, true)) {
+            continue;
+        }
         $expectedPanelId = $panelMap[$definition->tab] ?? null;
         settingsFormTabsCheck($expectedPanelId !== null, "SettingsRegistry declares an unmapped tab '{$definition->tab}' for '{$key}' — this test's panelMap must cover every real registry tab");
         settingsFormTabsCheck(isset($panels[$expectedPanelId]), "expected panel '{$expectedPanelId}' was not found in the template");

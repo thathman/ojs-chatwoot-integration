@@ -86,9 +86,16 @@ final class SettingsRegistry
             new SettingDefinition('hideForRole_4096', 'bool', tab: 'widget'),
             new SettingDefinition('hideForRole_1048576', 'bool', tab: 'widget'),
             new SettingDefinition('enableGlobalDefaults', 'bool', tab: 'advanced'),
-            new SettingDefinition('retryQueueEnabled', 'bool', tab: 'automation'),
-            new SettingDefinition('maxRetryAttempts', 'int', tab: 'automation'),
-            new SettingDefinition('eventSyncMode', 'string', tab: 'automation'),
+            /**
+             * Owner directive 2026-09-04 item J/E: moved from the
+             * Automation tab to Advanced — legacy queue compatibility
+             * config, not part of the normal current-event workflow.
+             * See ProcessLegacyRetryQueueScheduledTask (HAR-012's sole
+             * remaining real drain path).
+             */
+            new SettingDefinition('retryQueueEnabled', 'bool', tab: 'advanced'),
+            new SettingDefinition('maxRetryAttempts', 'int', tab: 'advanced'),
+            new SettingDefinition('eventSyncMode', 'string', tab: 'advanced'),
             new SettingDefinition('eventSubmissionCreated', 'bool', tab: 'automation'),
             new SettingDefinition('eventRevisionRequested', 'bool', tab: 'automation'),
             new SettingDefinition('eventAccepted', 'bool', tab: 'automation'),
@@ -96,6 +103,16 @@ final class SettingsRegistry
             new SettingDefinition('eventPublicationScheduled', 'bool', tab: 'automation'),
             new SettingDefinition('eventPublicationPublished', 'bool', tab: 'automation'),
             new SettingDefinition('eventDecisionRecorded', 'bool', tab: 'automation'),
+            /**
+             * Owner directive 2026-09-04 item E: SUBMISSION_REVIEW_SUBMITTED
+             * (EVT-007/EVT-020) is the one real v2-native event type with no
+             * v1-era enable setting — it fired unconditionally. Adding this
+             * (default true via v2EnqueueEvent()'s getEffectiveSetting()
+             * fallback, not stored-default) makes the Automation matrix's
+             * "Review submitted" row a real control instead of always-on
+             * with no way to turn it off.
+             */
+            new SettingDefinition('eventReviewSubmitted', 'bool', tab: 'automation'),
             new SettingDefinition('lazyLoadWidget', 'bool', tab: 'advanced'),
             new SettingDefinition('lazyLoadTrigger', 'string', tab: 'advanced'),
             new SettingDefinition('excludedPages', 'string', tab: 'advanced'),
