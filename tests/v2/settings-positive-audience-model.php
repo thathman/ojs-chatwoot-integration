@@ -76,6 +76,32 @@ positiveAudienceCheck(
     'execute() must translate audienceAllow_* back into hideFor*/hideForGuests BEFORE the SettingsRegistry::keys() save loop runs, or the translated values would never actually persist'
 );
 
+/**
+ * Real-browser-discovered defect (2026-09-04): splitting the old single
+ * "list=true" fbvFormSection (enableWidget + hideFor* checkboxes) into
+ * separate sections dropped list=true from the one still wrapping the
+ * enableWidget checkbox — PKP's FormBuilderVocabulary throws "FBV: list
+ * attribute not set on form section containing lists" (an uncaught
+ * fatal with an empty response body and no application log line at all,
+ * since it happens outside any Hook::call()-wrapped context) the moment
+ * ANY fbvFormSection contains a checkbox/radio <li> element without
+ * list=true, even a section with only one. Every fbvFormSection in the
+ * template that contains an {fbvElement type="checkbox"...} or
+ * type="radio" must declare list=true.
+ */
+preg_match_all('/\{fbvFormSection([^}]*)\}(.*?)\{\/fbvFormSection\}/s', $tpl, $sectionMatches, PREG_SET_ORDER);
+positiveAudienceCheck(count($sectionMatches) > 5, 'sanity check: expected multiple fbvFormSection blocks in the template');
+foreach ($sectionMatches as $section) {
+    [, $attrs, $body] = $section;
+    $hasListElement = (bool) preg_match('/type="(?:checkbox|radio)"/', $body);
+    if ($hasListElement) {
+        positiveAudienceCheck(
+            str_contains($attrs, 'list=true'),
+            'every fbvFormSection containing a checkbox/radio element must declare list=true, or FormBuilderVocabulary throws an uncaught fatal — offending section attrs: ' . trim($attrs)
+        );
+    }
+}
+
 // The old optional privacy-mode checkbox must be gone from both the
 // template and the registry — see har-006-shared-reviewer-masking.php
 // for the runtime-invariant side of this fix.

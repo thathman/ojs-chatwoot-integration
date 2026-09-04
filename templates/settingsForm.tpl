@@ -476,7 +476,7 @@
 		{* Widget: visibility/appearance — SettingsRegistry tab "widget".   *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-widget" aria-labelledby="cwTab-widget" hidden>
-			{fbvFormSection}
+			{fbvFormSection list=true}
 				{fbvElement type="checkbox" id="enableWidget" value="1" checked=$enableWidget label="plugins.generic.chatwootIntegration.settings.enableWidget"}
 			{/fbvFormSection}
 
