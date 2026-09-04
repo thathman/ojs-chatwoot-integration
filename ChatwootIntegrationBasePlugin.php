@@ -7,6 +7,7 @@ use APP\facades\Repo;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Api\CorrelationId;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\DatabaseSupportApiAuditLogger;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Context\SupportContext;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\CurrentSubmissionResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\OjsSubmissionRelationshipEvidenceProvider;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Relationship\ReviewerMaskingPolicy;
@@ -319,7 +320,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
             ]);
         } catch (\Exception $e) {
             // Log safe error message without exposing sensitive data
-            error_log('Chatwoot event sync failed (editor decision): ' . $e->getMessage());
+            error_log('Chatwoot event sync failed (editor decision): ' . SafeExceptionMessage::describe($e));
         }
         return false;
     }
@@ -357,7 +358,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
                 'eventAction' => (string) $this->getEffectiveSetting($contextId, 'eventSyncMode', 'note'),
             ]);
         } catch (\Exception $e) {
-            error_log('Chatwoot event sync failed (submission created): ' . $e->getMessage());
+            error_log('Chatwoot event sync failed (submission created): ' . SafeExceptionMessage::describe($e));
         }
         return false;
     }
@@ -398,7 +399,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
                 'eventAction' => (string) $this->getEffectiveSetting($contextId, 'eventSyncMode', 'note'),
             ]);
         } catch (\Exception $e) {
-            error_log('Chatwoot event sync failed (status updated): ' . $e->getMessage());
+            error_log('Chatwoot event sync failed (status updated): ' . SafeExceptionMessage::describe($e));
         }
         return false;
     }
@@ -429,7 +430,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
                 'eventAction' => (string) $this->getEffectiveSetting($contextId, 'eventSyncMode', 'note'),
             ]);
         } catch (\Exception $e) {
-            error_log('Chatwoot event sync failed (publication published): ' . $e->getMessage());
+            error_log('Chatwoot event sync failed (publication published): ' . SafeExceptionMessage::describe($e));
         }
         return false;
     }
