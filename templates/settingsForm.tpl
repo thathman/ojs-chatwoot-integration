@@ -127,6 +127,9 @@
 	.pkpc-chatwootIntegrationSettings .cwSecurityInvariant p {
 		margin: 0.25rem 0 0;
 	}
+	.pkpc-chatwootIntegrationSettings .cwTableScroll {
+		overflow-x: auto;
+	}
 	.pkpc-chatwootIntegrationSettings .cwEventMatrix {
 		width: 100%;
 		border-collapse: collapse;
@@ -825,6 +828,7 @@
 			{* ============================================================ *}
 			<h3>{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix"}</h3>
 			<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.eventMatrix.description"}</p>
+			<div class="cwTableScroll">
 			<table class="cwEventMatrix">
 				<thead>
 					<tr>
@@ -859,6 +863,7 @@
 					{/foreach}
 				</tbody>
 			</table>
+			</div>
 			<div id="cwEventConsentWrap" hidden>
 				{fbvFormSection list=true}
 					{fbvElement type="checkbox" id="eventDeliveryCustomerMessageConsent" value="1" checked=$eventDeliveryCustomerMessageConsent label="plugins.generic.chatwootIntegration.settings.eventDeliveryCustomerMessageConsent.description"}
@@ -985,6 +990,7 @@
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-integrations" aria-labelledby="cwTab-integrations" hidden>
 			<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.integrations.description"}</p>
+			<div class="cwTableScroll">
 			<table class="cwEventMatrix">
 				<thead>
 					<tr>
@@ -1011,6 +1017,7 @@
 					{/foreach}
 				</tbody>
 			</table>
+			</div>
 			<p class="cwSectionDescription">
 				{translate key="plugins.generic.chatwootIntegration.settings.integrations.openPlugins.description"}
 				<a href="{$pluginsPageUrl|escape}" target="_blank" rel="noopener">{translate key="plugins.generic.chatwootIntegration.settings.integrations.openPlugins"}</a>
