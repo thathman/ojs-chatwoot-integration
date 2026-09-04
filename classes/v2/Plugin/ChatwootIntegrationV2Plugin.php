@@ -98,6 +98,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionBoo
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\SupportSessionService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ExportPolicy;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\ServiceCredentialGenerator;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\RequiredActionMapper;
 use APP\plugins\generic\chatwootIntegration\classes\v2\State\SupportStateMapper;
@@ -220,6 +221,9 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         }
         if ($request->getUserVar('verb') === 'discoverChatwootResources') {
             return $this->discoverChatwootResources($request);
+        }
+        if ($request->getUserVar('verb') === 'generateServiceCredential') {
+            return $this->generateServiceCredential($request);
         }
         return parent::manage($args, $request);
     }
@@ -2537,6 +2541,41 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         } catch (\Throwable $e) {
             return new JSONMessage(false, __('plugins.generic.chatwootIntegration.discovery.connectionFailed'));
         }
+    }
+
+    /**
+     * Settings Console item H (API & MCP tab): the real generate/rotate
+     * workflow for the two plugin-owned service credentials —
+     * `chatwootSupportApiToken` and `mcpServiceToken`. Persists the new
+     * value immediately (an admin should not have to separately click
+     * "Save Settings" afterward for a credential change to take
+     * effect) and returns the real plaintext exactly once in this
+     * response, for the admin to copy into their client now — every
+     * later render only ever shows `SecretFieldMasking::MASK` for it,
+     * same as any other secret field.
+     *
+     * Still open (documented, not silently pretended done): no
+     * overlap/grace-period window — rotating immediately invalidates
+     * the previous value for any client still using it. A dual-token
+     * rotation window would need its own settings/validation-path
+     * change and is a larger, separate follow-up.
+     */
+    public function generateServiceCredential($request): JSONMessage
+    {
+        $context = $request->getContext();
+        if (!$context) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.noContext'));
+        }
+
+        $key = trim((string) $request->getUserVar('credentialKey'));
+        if (!ServiceCredentialGenerator::isAllowedKey($key)) {
+            return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.invalidCredentialKey'));
+        }
+
+        $newValue = ServiceCredentialGenerator::generate();
+        $this->updateSetting((int) $context->getId(), $key, $newValue, 'string');
+
+        return new JSONMessage(true, ['credentialKey' => $key, 'value' => $newValue]);
     }
 
     public function syncCaptainResources($request): JSONMessage

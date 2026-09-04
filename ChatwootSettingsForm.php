@@ -6,6 +6,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\OverviewCardStates;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\McpToolCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateKeys;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
@@ -234,6 +235,19 @@ class ChatwootSettingsForm extends Form
             : '';
         $templateMgr->assign('mcpEndpointUrl', $mcpEndpointUrl);
         $templateMgr->assign('mcpProtocolRevision', '2026-07-28');
+
+        // API & MCP tab (owner directive 2026-09-04, item H): real
+        // configured-state + generate/rotate URLs for both plugin-owned
+        // service credentials, and a real tool-catalog summary sourced
+        // from McpToolCatalog (never hand-copied, see its own drift-guard
+        // test) so this can never silently list stale/wrong tool names.
+        $templateMgr->assign('generateServiceCredentialUrl', $router->url($request, null, null, 'manage', null, array_merge($params, ['verb' => 'generateServiceCredential'])));
+        $templateMgr->assign('supportApiTokenConfigured', trim((string) $this->getData('chatwootSupportApiToken')) !== '');
+        $templateMgr->assign('mcpServiceTokenConfigured', trim((string) $this->getData('mcpServiceToken')) !== '');
+        $templateMgr->assign('mcpToolSummaries', McpToolCatalog::summaries());
+        $templateMgr->assign('mcpToolCount', McpToolCatalog::count());
+        $templateMgr->assign('apiMcpGeneratedLabel', __('plugins.generic.chatwootIntegration.settings.apiMcp.generatedLabel'));
+        $templateMgr->assign('apiMcpRotateLabel', __('plugins.generic.chatwootIntegration.settings.apiMcp.rotate'));
 
         // Verification tab (owner directive 2026-09-04, item G / HAR-014
         // remainder): real EmailTemplate customization state — never

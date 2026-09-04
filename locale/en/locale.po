@@ -70,6 +70,33 @@ msgstr "Open Email Templates"
 msgid "plugins.generic.chatwootIntegration.settings.verification.manageTemplates.description"
 msgstr "Customize the subject/body of either template (including translations) through the real OJS Email Templates workflow: "
 
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.authVsAuthz.title"
+msgstr "Authentication ≠ authorization"
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.authVsAuthz.description"
+msgstr "A service credential below authenticates an application calling this journal's API — it proves the caller is a trusted client. It does not, by itself, authorize access to any specific OJS user's private data. Per-user access is always separately verified through the identity/verification flow."
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.supportApi"
+msgstr "Support API"
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.supportApi.description"
+msgstr "Used by the Chatwoot Captain assistant and other trusted applications to reach this journal's read-only support endpoints."
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.mcp"
+msgstr "MCP (Model Context Protocol)"
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.generate"
+msgstr "Generate"
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.rotate"
+msgstr "Rotate"
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.generatedLabel"
+msgstr "New credential generated — copy it now, it will not be shown again: "
+
+msgid "plugins.generic.chatwootIntegration.settings.apiMcp.capabilities"
+msgstr "Available tools ({$mcpToolCount})"
+
 msgid "plugins.generic.chatwootIntegration.settings.tab.advanced"
 msgstr "Advanced"
 
