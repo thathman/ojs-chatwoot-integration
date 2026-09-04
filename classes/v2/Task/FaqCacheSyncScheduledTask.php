@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Task;
 
 use APP\core\Application;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin;
 use PKP\scheduledTask\ScheduledTask;
 
@@ -53,7 +54,7 @@ final class FaqCacheSyncScheduledTask extends ScheduledTask
             ));
             return true;
         } catch (\Throwable $e) {
-            $this->addExecutionLogEntry('FAQ cache sync failed: ' . $e->getMessage());
+            $this->addExecutionLogEntry('FAQ cache sync failed: ' . SafeExceptionMessage::describe($e));
             return false;
         }
     }

@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Provider;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\PaymentSupportProviderInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 
 /**
  * Minimal Support Provider registry (docs/v2/AIRIX360_TASKLIST.md
@@ -98,7 +99,7 @@ final class SupportProviderRegistry
                 error_log(sprintf(
                     '[ChatwootIntegration] Support provider "%s" failed: %s',
                     $provider->providerId(),
-                    $e->getMessage()
+                    SafeExceptionMessage::describe($e)
                 ));
                 continue;
             }

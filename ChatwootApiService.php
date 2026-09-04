@@ -4,6 +4,7 @@ namespace APP\plugins\generic\chatwootIntegration;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\ChatwootCaptainClientInterface;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\ChatwootConversationClientInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -89,9 +90,9 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return is_array($data) ? $data : null;
     }
 
+    /** HAR-011: never the raw exception message — see SafeExceptionMessage. */
     public function getLastErrorMessage(\Throwable $e): string {
-        if ($e instanceof \RuntimeException) return $e->getMessage();
-        return $e->getMessage() ?: 'Unknown Chatwoot API error';
+        return SafeExceptionMessage::describe($e);
     }
 
     private function resolveAccountId(): void {
@@ -129,7 +130,14 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
             $decoded = strlen($body) ? json_decode($body, true) : [];
             return ['ok' => true, 'data' => is_array($decoded) ? $decoded : []];
         } catch (GuzzleException $e) {
-            return ['ok' => false, 'error' => $e->getMessage()];
+            // HAR-011: never surface a raw Guzzle exception message —
+            // it embeds the full request URI (query-string tokens
+            // included) and any response body. This is the single
+            // funnel every Chatwoot HTTP call in this class goes
+            // through, so sanitizing here protects every downstream
+            // consumer (admin-visible error messages, exceptions built
+            // from this text, scheduled-task logs) in one place.
+            return ['ok' => false, 'error' => SafeExceptionMessage::describe($e)];
         }
     }
 

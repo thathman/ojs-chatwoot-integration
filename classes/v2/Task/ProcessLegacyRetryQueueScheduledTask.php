@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Task;
 
 use APP\core\Application;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Plugin\ChatwootIntegrationV2Plugin;
 use PKP\scheduledTask\ScheduledTask;
 
@@ -52,7 +53,7 @@ final class ProcessLegacyRetryQueueScheduledTask extends ScheduledTask
             $this->addExecutionLogEntry(sprintf('Processed the legacy retry queue for %d journal(s).', $processed));
             return true;
         } catch (\Throwable $e) {
-            $this->addExecutionLogEntry('Legacy retry queue processing failed: ' . $e->getMessage());
+            $this->addExecutionLogEntry('Legacy retry queue processing failed: ' . SafeExceptionMessage::describe($e));
             return false;
         }
     }

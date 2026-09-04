@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Task;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Audit\DatabaseSupportApiAuditLogger;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Session\DatabaseSupportSessionRepository;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\DatabaseVerificationChallengeRepository;
 use PKP\scheduledTask\ScheduledTask;
@@ -55,7 +56,7 @@ final class PurgeExpiredSupportDataTask extends ScheduledTask
             ));
             return true;
         } catch (\Throwable $e) {
-            $this->addExecutionLogEntry('Purge failed: ' . $e->getMessage());
+            $this->addExecutionLogEntry('Purge failed: ' . SafeExceptionMessage::describe($e));
             return false;
         }
     }

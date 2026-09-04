@@ -3,6 +3,7 @@
 namespace APP\plugins\generic\chatwootIntegration\classes\v2\Knowledge;
 
 use APP\plugins\generic\chatwootIntegration\classes\v2\Contracts\KnowledgeProviderInterface;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Diagnostics\SafeExceptionMessage;
 
 /**
  * Compiles registered KnowledgeProviders into one context/locale-scoped
@@ -48,7 +49,7 @@ final class KnowledgeCompiler
                 error_log(sprintf(
                     '[ChatwootIntegration] Knowledge provider "%s" failed: %s',
                     $providerId,
-                    $e->getMessage()
+                    SafeExceptionMessage::describe($e)
                 ));
                 continue;
             }
