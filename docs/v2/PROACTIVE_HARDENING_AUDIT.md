@@ -124,10 +124,11 @@ Original source: all eight known Event Bridge event types are now live-owned by 
 
 **Also closed by PR #227**: `syncEmailTemplates()`'s own `processApiQueue($contextId, 8)` call removed too — the shared legacy queue mixes job types (`canned_response_sync` from this action, `conversation_event` from Send Test Message), so clicking "Sync Email Templates" could as a side effect redeliver an unrelated queued Test Message. This closes HAR-013's overlapping "do not drain unrelated queues as a side effect" requirement as well. `ProcessLegacyRetryQueueScheduledTask` is now the sole drain path anywhere in the plugin.
 
-**Still open** (the other three required items):
+**Also closed by PR #231**: the settings-semantics ambiguity — `retryQueueEnabled`/`maxRetryAttempts`'s labels now explicitly say they only tune the legacy Send Test Message/Sync Email Templates path, not real-time v2 event delivery. `tests/v2/har-012-legacy-queue-settings-labels.php` also confirms the underlying code-level fact (v2 event delivery never reads either setting).
+
+**Still open** (the last two required items):
 - inventory/migrate the two remaining legitimate producers (Send Test Message, `syncEmailTemplates()`'s canned-response sync) to explicit v2 operations — both still use the legacy `apiQueue`/`enqueueApiJob()` path, just without opportunistically draining it anymore;
-- drain/retire old rows safely and remove/deprecate the legacy queue settings (`retryQueueEnabled`/`maxRetryAttempts`) and scheduled task once no producer remains — requires the producer migration above first;
-- the settings-semantics ambiguity HAR-012 names (administrators reasonably believing `retryQueueEnabled`/`maxRetryAttempts` tune the current, not legacy, queue) is unresolved.
+- drain/retire old rows safely and remove/deprecate the legacy queue settings and scheduled task once no producer remains — requires the producer migration above first.
 
 ### HAR-013 — PARTIALLY FIXED (PR #225) — “Sync Email Templates” is too broad and misleading
 
