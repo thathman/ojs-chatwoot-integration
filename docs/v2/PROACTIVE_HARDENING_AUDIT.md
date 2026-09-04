@@ -203,15 +203,16 @@ Also verify every customer-specific tool enforces the established verified-ident
 
 ## Performance and external API behavior
 
-### HAR-021 — SHOULD FIX — eliminate constructor-time/N+1 profile calls
+### HAR-021 — PARTIALLY FIXED (inherited via HAR-001, PR #233) — eliminate constructor-time/N+1 profile calls
 
-Every `new ChatwootApiService(...)` currently performs profile/account resolution in its constructor. Queue delivery constructs a client per event row, producing an avoidable profile API call per row before the actual contact/conversation calls.
+Original source: every `new ChatwootApiService(...)` performed profile/account resolution in its constructor. Queue delivery (`deliverQueuedSupportEvents()` → `v2DeliverQueuedEventRow()`) constructs a client per event row, producing an avoidable profile API call per row before the actual contact/conversation calls.
 
-Required:
-- constructors should not hide network I/O;
-- resolve account explicitly once and cache/reuse within an operation/context;
-- batch queue delivery should reuse an appropriately scoped client where safe;
-- performance acceptance with a realistic pending batch.
+**Closed by inheritance from HAR-001's account-identity cache** (PR #229, this entry cross-referenced by PR #233): "resolve account explicitly once and cache/reuse within an operation/context" — `ChatwootApiService`'s static `$resolvedAccountCache`, keyed by `(baseUrl, token)`, already applies here since every row for the same journal derives its credentials deterministically from `v2EffectiveSetting($contextId, ...)`. Only the first row per journal per scheduled-task run pays the real `/profile` cost; every later row for the same journal in the same run hits the cache — live-verified under HAR-001 (768ms cold, 0ms cached, real production account). `tests/v2/har-021-queue-delivery-reuses-cached-account.php` proves the real `v2DeliverQueuedEventRow()` code path actually derives credentials this way, so the inherited fix genuinely applies, not just in isolation.
+
+**Still open**:
+- constructors still hide network I/O on a cold cache (the first row/call still pays a real, un-signaled `/profile` round trip inside `__construct()`) — "constructors should not hide network I/O" is not fully satisfied, only its N+1 consequence is;
+- "batch queue delivery should reuse an appropriately scoped client where safe" — each row still constructs its own `ChatwootApiService` object; only the expensive part (account resolution) is shared, not the object itself;
+- performance acceptance with a realistic pending batch (many real rows, one real scheduled-task run) is not yet run.
 
 ### HAR-022 — VERIFY/MUST FIX — contact identity resolution should not rely on email alone where duplicates are possible
 
