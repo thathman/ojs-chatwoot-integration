@@ -81,4 +81,17 @@ ownerReviewCheck(str_contains($formSource, 'overviewNeedsAttentionLabels'), 'Cha
 ownerReviewCheck(str_contains($tpl, 'cwOverviewBanner'), 'the Overview tab must render one human banner sentence, not just the card grid alone');
 ownerReviewCheck(!preg_match('/\{translate[^}]*\bcount=/', $tpl), 'no {translate} call anywhere in this template may pass the reserved "count" param as an ordinary value');
 
+// ================================================================
+// Live-browser follow-up (2026-09-04, same-day second session): a
+// fresh "Test Connection & Discover" run updated the hidden
+// chatwootDiscoveryVerifiedAt field correctly (so a Save persists the
+// real new timestamp), but the visible "Last verified" captions
+// stayed on their stale pre-discovery value until the modal was
+// closed and reopened — a real, observable inconsistency, even though
+// the underlying saved data was already correct.
+// ================================================================
+ownerReviewCheck(str_contains($tpl, "\$('#chatwootDiscoverSummary').text(") && str_contains($tpl, 'discoverLastVerifiedPrefixJs'), 'a fresh discovery must immediately refresh the visible connection summary caption with the real new verified-at time, not only the hidden field');
+ownerReviewCheck(str_contains($tpl, "\$('#chatwootInboxLastVerified')") && str_contains($tpl, ".removeAttr('hidden')"), 'a fresh discovery must immediately reveal/refresh the Website Inbox "Last verified" caption, not leave it hidden or stale until the next full reload');
+ownerReviewCheck(str_contains($formSource, "'discoverConnectedPrefixJs'") && str_contains($formSource, "'discoverLastVerifiedPrefixJs'"), 'the JS-refreshed captions must reuse the real localized strings (via ChatwootSettingsForm), never hardcoded English literals');
+
 fwrite(STDOUT, "Owner review (health/discovery) tests passed\n");

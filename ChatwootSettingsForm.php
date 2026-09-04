@@ -248,6 +248,13 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('mcpToolSummaries', McpToolCatalog::summaries());
         $templateMgr->assign('mcpToolCount', McpToolCatalog::count());
         $templateMgr->assign('apiMcpGeneratedLabel', __('plugins.generic.chatwootIntegration.settings.apiMcp.generatedLabel'));
+
+        // Owner browser review 2026-09-04 finding #3: the JS success
+        // handler for a fresh discovery needs these same two localized
+        // strings to refresh the visible "Last verified"/"Connected"
+        // captions immediately, not only on the next full page load.
+        $templateMgr->assign('discoverConnectedPrefixJs', __('plugins.generic.chatwootIntegration.settings.discover.connectedAccount'));
+        $templateMgr->assign('discoverLastVerifiedPrefixJs', __('plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix'));
         $templateMgr->assign('apiMcpRotateLabel', __('plugins.generic.chatwootIntegration.settings.apiMcp.rotate'));
 
         // Integrations tab (owner directive 2026-09-04, item I): real
