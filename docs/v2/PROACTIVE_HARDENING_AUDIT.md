@@ -140,17 +140,18 @@ Original source: `syncEmailTemplates()` iterated the journal's OJS EmailTemplate
 
 **Still open**: the larger product-redesign question — an explicit opt-in **Support Canned Responses** feature with template selection/classification, vs. removing the button entirely if there is no compelling product requirement.
 
-### HAR-014 — MUST FIX — verification email composition / EmailTemplates
+### HAR-014 — PARTIALLY FIXED (PR #235) — verification email composition / EmailTemplates
 
-`VerificationEmailContentBuilder` is still fixed-English hand-built HTML. `$journalName` is interpolated into HTML without escaping (the URL is escaped, the journal name is not). The subject also uses journal-controlled text without explicit header/CRLF normalization.
+Original source: `VerificationEmailContentBuilder` interpolated `$journalName` raw into HTML (the URL was escaped, the journal name was not) and into the mail subject with no CRLF/header normalization — real header-injection and HTML-injection surfaces via an admin-configurable journal name.
 
-Required:
-- proper OJS 3.5 EmailTemplate lifecycle for PIN and secure-link mail;
+**Closed by PR #235** ("context-correct HTML escaping and subject/header normalization"): `pinBody()`/`linkBody()` now HTML-escape the journal name (and, defensively, the PIN); `subject()` strips CRLF/control characters before use. `tests/v2/har-014-verification-email-safe-composition.php` proves both attack shapes are neutralized with real malicious-looking journal-name fixtures (`<script>`/`<img onerror>` for HTML injection, embedded CRLF + smuggled `Bcc:`/`X-Injected:` for header injection), and that an ordinary journal name renders identically to before.
+
+**Still open** (the other four required items — a larger localization/architecture effort, not a single-file fix):
+- proper OJS 3.5 EmailTemplate lifecycle for PIN and secure-link mail (this content remains fixed-English hand-built HTML, not a real `EmailTemplate`);
 - locale/fallback behavior;
-- context-correct HTML escaping and subject/header normalization;
 - strict variable allowlist;
-- exclude verification/security templates from any canned-response sync;
-- real Mailpit acceptance including special-character/malicious journal-name fixture.
+- exclude verification/security templates from any canned-response sync — moot for this exact content today (it never goes through `syncEmailTemplates()`, only real OJS `EmailTemplate`s do, per HAR-013), but becomes a real requirement the moment this content is migrated to a real `EmailTemplate` per the item above;
+- real Mailpit acceptance including a special-character/malicious journal-name fixture — this session's evidence is unit-level (real function calls, real malicious input, real assertions on the output), not a captured real SMTP send.
 
 ### HAR-015 — MUST FIX — complete retention lifecycle
 
