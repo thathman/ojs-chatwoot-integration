@@ -23,10 +23,11 @@ Original source: `ChatwootApiService::__construct()` initialized `$accountId = 1
 
 **Also closed by PR #229**: "cache/reuse resolved account identity rather than performing hidden account discovery in every API-service constructor" — added a static per-`(baseUrl, token)` cache consulted before `getProfile()` is ever called; a resolution failure is never cached (self-heals once Chatwoot recovers). Live-verified on dell against the real production account: first construction 768ms (real `/profile` round trip), second construction with identical credentials 0ms, same real account ID (2) both times.
 
-**Still open** (not addressed by PRs #217/#229, tracked here for the next slice):
-- when a token belongs to multiple accounts, surface human-readable account selection or prove the current account deterministically — no multi-account UX exists yet, only single-account fail-closed/fail-open;
-- validate selected Inbox/Captain resources belong to the resolved account;
-- multi-account real acceptance test.
+**Also closed by PR #249** (Settings Console Chatwoot tab, owner directive 2026-09-04): "surface human-readable account selection" and "validate selected Inbox/Captain resources belong to the resolved account" — `discoverChatwootResources()` resolves the account explicitly (a saved `chatwootAccountId`, or a just-chosen `discoverAccountId`, or auto-select only when exactly one account exists) and never guesses when more than one exists, instead returning the real account list for the admin to choose from. Every later resource call is scoped via `$api->setAccountId($resolvedId)`, so an Inbox/Captain Assistant can only ever be discovered from the one explicit account, never a different one the token also has access to. Live-verified on dell against the real Chatwoot account: 9 of 11 real inboxes correctly filtered to Website-type, all 11 real Captain assistants returned with exactly the safe `{id, name, description}` fields (their real `guardrails`/`response_guidelines`/`config` — confidential internal business rules on this account — confirmed absent).
+
+**Still open**:
+- multi-account real acceptance test — this session's real Chatwoot token has exactly one account membership, so the `needsAccountSelection` branch is proven structurally (source-level assertions) but not against a real multi-account token;
+- the Website Token / Captain "connected to inbox" relationship checks from the owner's fuller Chatwoot-tab spec (items 8/9 of the 2026-09-04 directive) remain unbuilt.
 
 ### HAR-002 — PARTIALLY FIXED (PR #241) — remote list calls must distinguish empty from failed and must be complete
 
