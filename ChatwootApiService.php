@@ -21,6 +21,22 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
      */
     private bool $accountResolved = false;
 
+    /**
+     * HAR-001/HAR-021: every construction used to perform its own
+     * hidden `/profile` network call — a real request that instantiates
+     * this service more than once for the same Chatwoot credentials
+     * (e.g. a nested call, or a future call site) paid for that
+     * resolution again each time, indistinguishable in a request trace
+     * from genuinely new work. Cached per (baseUrl, token) for the
+     * lifetime of the PHP process/request; a resolution failure is
+     * deliberately never cached, so a transient outage does not lock
+     * every later construction in the same request into the fail-closed
+     * state once Chatwoot recovers.
+     *
+     * @var array<string,int>
+     */
+    private static array $resolvedAccountCache = [];
+
     public function __construct($baseUrl, $apiAccessToken) {
         $this->baseUrl = rtrim($baseUrl, '/');
         $this->apiAccessToken = $apiAccessToken;
@@ -79,17 +95,27 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
     }
 
     private function resolveAccountId(): void {
+        $cacheKey = md5($this->baseUrl . '|' . $this->apiAccessToken);
+        if (isset(self::$resolvedAccountCache[$cacheKey])) {
+            $this->accountId = self::$resolvedAccountCache[$cacheKey];
+            $this->accountResolved = true;
+            return;
+        }
+
         try {
             $profile = $this->getProfile();
             if (!empty($profile['account_id'])) {
                 $this->accountId = (int) $profile['account_id'];
                 $this->accountResolved = true;
+                self::$resolvedAccountCache[$cacheKey] = $this->accountId;
             }
         } catch (\Throwable $e) {
             // HAR-001: account resolution failed — $accountResolved stays
             // false. Do not fall through and silently operate against the
             // unconfirmed default account ID; requestJson() below refuses
             // every accounts/{id}/... call until an account is confirmed.
+            // Deliberately not cached, so a transient failure does not
+            // poison later constructions in the same request/process.
         }
     }
 

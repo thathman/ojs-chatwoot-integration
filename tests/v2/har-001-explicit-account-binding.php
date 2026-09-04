@@ -36,9 +36,20 @@ namespace {
     har001Check($resolveStart !== false, 'resolveAccountId() must exist');
     $resolveBody = substr($source, $resolveStart, (int) strpos($source, "\n    }\n", $resolveStart) - $resolveStart);
     har001Check(str_contains($resolveBody, '$this->accountResolved = true;'), 'resolveAccountId() must mark the account resolved only once a real profile confirms it');
+    // HAR-021: a cache hit (see har-001-cached-account-resolution.php)
+    // legitimately also sets accountResolved = true before the profile
+    // success branch even runs — that assignment is itself a real
+    // confirmation (a prior construction already resolved this exact
+    // baseUrl/token combo), not an unconditional bypass. What must never
+    // happen is the *profile* success flag being set outside its own
+    // `if (!empty($profile['account_id']))` branch, so this looks at the
+    // occurrence nearest that branch rather than the first in the file.
+    $successBranchPos = strpos($resolveBody, "if (!empty(\$profile['account_id']))");
+    har001Check($successBranchPos !== false, 'the real profile success branch must exist');
+    $accountResolvedNearSuccess = strpos($resolveBody, '$this->accountResolved = true;', $successBranchPos);
     har001Check(
-        strpos($resolveBody, '$this->accountResolved = true;') > strpos($resolveBody, "if (!empty(\$profile['account_id']))"),
-        'accountResolved must be set inside the success branch, not unconditionally'
+        $accountResolvedNearSuccess !== false && $accountResolvedNearSuccess > $successBranchPos,
+        'accountResolved must be set inside the profile success branch, not unconditionally'
     );
 
     // The old bug: resolveAccountId() silently swallowing failure and
