@@ -2,7 +2,7 @@
 
 This file is the short authoritative continuation pointer for active v2 development. Read it before `TASKLIST.md`, `AIRIX360_TASKLIST.md`, or older phase summaries.
 
-Last reconciled: 2026-09-04 (PR #241 merged — HAR-002 partially closed, Captain provisioning fail-closed on list failure).
+Last reconciled: 2026-09-04 (PR #243 merged — HAR-022 fully closed, contact resolution prefers stable identifier).
 
 ## Owner goal
 
@@ -27,8 +27,9 @@ Prepare the plugin completely. **Do not publish it.** Do not modify/replace the 
    - HAR-018 — partial (PR #211): `skipBackendPages` placebo-setting item closed; other items remain open.
    - HAR-001 — partial (PRs #217/#229): fails closed instead of silently guessing account 1, and caches the resolved account per (baseUrl, token) (live-verified: 768ms cold, 0ms cached); multi-account selection UX and Inbox/Captain resource-ownership validation remain open.
    - HAR-021 — partial (inherited from HAR-001's cache, PR #233): queue delivery's per-row client construction already skips the redundant `/profile` call after the first row per journal per run; constructors still hide network I/O on a cold cache, and per-object client reuse remain open.
+   - HAR-022 — closed (PR #243): `findContactByEmail()` prefers a candidate matching the stable OJS identifier over the first email match; both real call sites now pass it.
 
-   Every MUST-FIX item in `docs/v2/PROACTIVE_HARDENING_AUDIT.md` now has at least a real, evidenced, deployed first slice. None are fully closed to the audit's complete original scope. The next reasonable increments are: (a) any of the follow-up items noted above, each independently choosable; (b) the remaining fully-untouched audit entries (HAR-004/005/009/010/015/019/020/022/023/024/025 — read each before picking, several are larger architecture/product-decision items); (c) richer ADM-008 per-tab Settings Console content per item 2 above; (d) after live-accepting the console foundation on Dell, the remaining Product Bible backlog in `COMPLETION_RECONCILIATION.md`.
+   Every MUST-FIX item in `docs/v2/PROACTIVE_HARDENING_AUDIT.md` now has at least a real, evidenced, deployed first slice. None are fully closed to the audit's complete original scope. The next reasonable increments are: (a) any of the follow-up items noted above, each independently choosable; (b) the remaining fully-untouched audit entries (HAR-004/005/009/010/015/019/020/023/024/025 — read each before picking, several are larger architecture/product-decision items); (c) richer ADM-008 per-tab Settings Console content per item 2 above; (d) after live-accepting the console foundation on Dell, the remaining Product Bible backlog in `COMPLETION_RECONCILIATION.md`.
 4. After the console foundation is live-accepted on Dell, return to the remaining Product Bible backlog in `COMPLETION_RECONCILIATION.md`, but treat the proactive hardening audit as a candidate gate: unresolved MUST-FIX items cannot be hidden by older checked boxes.
 
 ## Current-next rule
