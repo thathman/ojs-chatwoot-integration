@@ -15,19 +15,24 @@ function har023Check(bool $condition, string $message): void
 
 /**
  * HAR-023: TemplateManager::fetch fires once per template/partial
- * rendered within a single real page load (many times), and
- * TemplateManager::display fires once more — addChatwootWidget() is
- * hooked to both, plus a footer hook that routes through the same
- * method. Live-confirmed on the real demo site
- * (https://ojs-demo.airixmedia.com/ajdsi) before this fix: the
- * rendered page contained the widget's `chatwoot:ready` listener and
- * `__chatwootLoaded` boot function TWICE — two separate `<script>`
- * blocks injected into one page. `window.__chatwootLoaded` correctly
- * dedupes the actual SDK boot (`chatwootSDK.run` appeared only once),
- * but each injected copy's own `chatwoot:ready` listener still fires
- * independently once the SDK becomes ready, calling
- * setUser()/setCustomAttributes() once per copy instead of once per
- * page — real, observed multiplicity, not a hypothetical.
+ * rendered within a single real page load (many times, once per
+ * Smarty {include}) and TemplateManager::display fires once more —
+ * addChatwootWidget() is hooked to both, plus a footer hook routing
+ * through the same method. A real, live GET of
+ * https://ojs-demo.airixmedia.com/ajdsi was checked during this fix:
+ * an initial naive substring count of "chatwoot:ready"/
+ * "__chatwootLoaded" appeared to show 2 each, but closer inspection
+ * showed this was a false positive — one "chatwoot:ready" belonged to
+ * a completely separate, legitimate v2 support-context script with
+ * its own distinct purpose (not a duplicate of this widget), and
+ * "__chatwootLoaded" appearing twice was just this widget's own single
+ * script referencing that one variable name twice (a check, then a
+ * set) within one script block, not two separate blocks. That
+ * specific page did not show an actual live duplication. So this fix
+ * is preventive hardening against a real, well-documented
+ * architectural risk (TemplateManager::fetch's multiple-firing-per-
+ * page behavior), not a fix for an actively observed live bug on the
+ * page that was checked — CMP-001: do not overstate the evidence tier.
  */
 $source = (string) file_get_contents("{$root}/ChatwootIntegrationBasePlugin.php");
 
