@@ -74,7 +74,7 @@ msgid "plugins.generic.chatwootIntegration.settings.health.oldestPendingAge"
 msgstr "Oldest pending event age:"
 
 msgid "plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode"
-msgstr "Dead letters with error code \"%errorCode%\": %count%"
+msgstr "Dead letters with error code \"{$errorCode}\": {$count}"
 
 msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLettersDescription"
 msgstr "These events exhausted their delivery attempts and are no longer retried automatically. Use this to reset them back to pending for a fresh retry (up to 50 at a time)."
@@ -308,7 +308,7 @@ msgid "plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.desc
 msgstr "Shared secret Chatwoot Captain must send as a Bearer token when calling the conversation-bound Support API. Required for that API to respond."
 
 msgid "plugins.generic.chatwootIntegration.settings.mcpEndpoint.description"
-msgstr "MCP-capable clients (e.g. an AI agent) can reach this journal's read-only support tools at %endpoint%, speaking MCP protocol revision %revision%. See the MCP setup guide for details."
+msgstr "MCP-capable clients (e.g. an AI agent) can reach this journal's read-only support tools at {$endpoint}, speaking MCP protocol revision {$revision}. See the MCP setup guide for details."
 
 msgid "plugins.generic.chatwootIntegration.settings.mcpServiceToken"
 msgstr "MCP Service Token"
