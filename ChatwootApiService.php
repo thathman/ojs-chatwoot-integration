@@ -267,9 +267,19 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return (bool) $result['ok'];
     }
 
+    /**
+     * HAR-002: must throw on a real request failure, never collapse to
+     * []. Both provisioner call sites use this as a dedup check before
+     * creating a new remote resource — a failed request silently
+     * returning [] would look identical to "genuinely zero custom
+     * tools exist," causing a real duplicate to be created on retry
+     * after a transient outage instead of correctly refusing to act.
+     */
     public function listCaptainCustomTools(): array {
         $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/custom_tools");
-        if (!$result['ok']) return [];
+        if (!$result['ok']) {
+            throw new \RuntimeException('Chatwoot Captain custom_tools request failed: ' . ($result['error'] ?? 'unknown error'));
+        }
         $data = $result['data'] ?? [];
         $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
         return array_values(array_filter($payload, 'is_array'));
@@ -291,9 +301,12 @@ class ChatwootApiService implements ChatwootConversationClientInterface, Chatwoo
         return (bool) $result['ok'];
     }
 
+    /** HAR-002: must throw on a real request failure — same reasoning as listCaptainCustomTools(), a real dedup-before-create check. */
     public function listCaptainScenarios(int $assistantId): array {
         $result = $this->requestJson('GET', "accounts/{$this->accountId}/captain/assistants/{$assistantId}/scenarios");
-        if (!$result['ok']) return [];
+        if (!$result['ok']) {
+            throw new \RuntimeException('Chatwoot Captain scenarios request failed: ' . ($result['error'] ?? 'unknown error'));
+        }
         $data = $result['data'] ?? [];
         $payload = is_array($data['payload'] ?? null) ? $data['payload'] : (is_array($data) ? $data : []);
         return array_values(array_filter($payload, 'is_array'));

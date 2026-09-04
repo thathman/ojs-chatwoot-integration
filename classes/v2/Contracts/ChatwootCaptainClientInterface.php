@@ -43,6 +43,17 @@ interface ChatwootCaptainClientInterface
      * is 15 tools, `Captain::CustomTool::MAX_PER_ACCOUNT`). Used only to
      * detect an unmanaged tool by title before ever creating one.
      *
+     * HAR-002: unlike every other method on this interface, this is a
+     * dedup-before-create check — returning `[]` on a failed request
+     * would be indistinguishable from "genuinely zero custom tools
+     * exist," and every caller would then proceed to create a real
+     * duplicate on retry after a transient outage. Implementations must
+     * throw on any request failure, never collapse it to `[]`; callers
+     * must catch and fail closed (never create), not treat the
+     * exception as "provisioning unavailable, safe to proceed."
+     *
+     * @throws \Throwable on any request failure.
+     *
      * @return array<int,array{id:int|string,title:string}>
      */
     public function listCaptainCustomTools(): array;
@@ -62,6 +73,12 @@ interface ChatwootCaptainClientInterface
      * `enterprise/app/controllers/api/v1/accounts/captain/scenarios_controller.rb`
      * (nested under `assistants`, per `config/routes.rb`'s
      * `resources :assistants do ... resources :scenarios end end`).
+     *
+     * HAR-002: same dedup-before-create reasoning as
+     * listCaptainCustomTools() — implementations must throw on any
+     * request failure, never collapse it to `[]`.
+     *
+     * @throws \Throwable on any request failure.
      *
      * @return array<int,array{id:int|string,title:string}>
      */

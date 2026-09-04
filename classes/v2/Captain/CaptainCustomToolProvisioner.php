@@ -99,10 +99,20 @@ final class CaptainCustomToolProvisioner
         }
 
         if ($existingTitles === null) {
-            $existingTitles = array_map(
-                static fn (array $t): string => (string) ($t['title'] ?? ''),
-                $this->client->listCaptainCustomTools()
-            );
+            try {
+                $existingTitles = array_map(
+                    static fn (array $t): string => (string) ($t['title'] ?? ''),
+                    $this->client->listCaptainCustomTools()
+                );
+            } catch (\Throwable $e) {
+                // HAR-002: this listing is a dedup check before create —
+                // a failed request must never be treated as "zero
+                // existing tools," which would create a real duplicate
+                // on retry after a transient outage. $existingTitles
+                // stays null so the next tool in this same provisionAll()
+                // call retries the listing rather than reusing a failure.
+                return CaptainSyncResult::failed('existing_tools_unknown');
+            }
         }
 
         if (in_array($tool->title(), $existingTitles, true)) {
