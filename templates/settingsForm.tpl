@@ -53,6 +53,7 @@
 		padding: 0.5em 0.75em;
 		border-radius: 4px;
 		font-size: 0.9em;
+		white-space: pre-line;
 	}
 	.pkpc-chatwootIntegrationSettings .cwActionStatus[hidden] {
 		display: none;
@@ -140,6 +141,22 @@
 	}
 	.pkpc-chatwootIntegrationSettings .cwEventMatrix th {
 		background: #f9fafb;
+	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewBanner {
+		border-radius: 4px;
+		padding: 0.6rem 0.9rem;
+		margin: 0.5rem 0;
+		font-weight: 600;
+	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewBannerAttention {
+		background: #fffbeb;
+		border: 1px solid #fde68a;
+		color: #92400e;
+	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewBannerOk {
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		color: #166534;
 	}
 	.pkpc-chatwootIntegrationSettings .cwOverviewGrid {
 		display: grid;
@@ -247,10 +264,37 @@
 			{rdelim});
 		{rdelim}
 
+		// Owner browser review 2026-09-04: Health Check/Captain Sync/Retry
+		// Dead Letters must never show raw JSON in normal UI — they
+		// already return clean structured data (booleans/counts, no raw
+		// exceptions), this only translates that into human sentences.
+		var cwYesNoLabels = {ldelim}
+			reachable: {$healthLabelReachable|json_encode_html_attribute},
+			notReachable: {$healthLabelNotReachable|json_encode_html_attribute},
+			notConfigured: {$healthLabelNotConfigured|json_encode_html_attribute},
+			verified: {$healthLabelVerified|json_encode_html_attribute},
+			invalid: {$healthLabelInvalid|json_encode_html_attribute},
+			notChecked: {$healthLabelNotChecked|json_encode_html_attribute},
+			complete: {$healthLabelComplete|json_encode_html_attribute},
+			incomplete: {$healthLabelIncomplete|json_encode_html_attribute},
+			justNow: {$healthLabelJustNow|json_encode_html_attribute}
+		{rdelim};
+		function cwFormatHealthCheck(content) {ldelim}
+			var lines = [];
+			var configured = content.configured || {ldelim}{rdelim};
+			var allConfigured = configured.baseUrl && configured.websiteToken && configured.apiAccessToken && configured.identitySecret;
+			lines.push({$healthLineService|json_encode_html_attribute} + (configured.baseUrl ? (content.sdkReachable ? cwYesNoLabels.reachable : cwYesNoLabels.notReachable) : cwYesNoLabels.notConfigured));
+			lines.push({$healthLineApi|json_encode_html_attribute} + (content.apiTokenValid === null ? cwYesNoLabels.notChecked : (content.apiTokenValid ? cwYesNoLabels.verified : cwYesNoLabels.invalid)));
+			lines.push({$healthLineIdentity|json_encode_html_attribute} + (content.identityHmacValid === null ? cwYesNoLabels.notConfigured : (content.identityHmacValid ? cwYesNoLabels.verified : cwYesNoLabels.invalid)));
+			lines.push({$healthLineSettings|json_encode_html_attribute} + (allConfigured ? cwYesNoLabels.complete : cwYesNoLabels.incomplete));
+			lines.push({$healthLineLastChecked|json_encode_html_attribute} + cwYesNoLabels.justNow);
+			return lines.join('\n');
+		{rdelim}
+
 		cwWireAction('chatwootHealthCheckBtn', function() {ldelim}
 			return cwPost('{$healthCheckUrl|escape:"javascript"}');
 		{rdelim}, function(resp) {ldelim}
-			return JSON.stringify(resp.content || resp, null, 2);
+			return cwFormatHealthCheck(resp.content || {ldelim}{rdelim});
 		{rdelim});
 
 		cwWireAction('chatwootTestMessageBtn', function() {ldelim}
@@ -285,16 +329,49 @@
 			return resp.content || 'Applied.';
 		{rdelim});
 
+		var cwCaptainStatusLabels = {ldelim}
+			synced: {$captainStatusSynced|json_encode_html_attribute},
+			created: {$captainStatusCreated|json_encode_html_attribute},
+			noop: {$captainStatusNoop|json_encode_html_attribute},
+			conflict: {$captainStatusConflict|json_encode_html_attribute},
+			failed: {$captainStatusFailed|json_encode_html_attribute},
+			unavailable: {$captainStatusUnavailable|json_encode_html_attribute}
+		{rdelim};
+		function cwFormatCaptainCounts(counts) {ldelim}
+			var parts = [];
+			$.each(counts || {ldelim}{rdelim}, function(status, count) {ldelim}
+				parts.push(count + ' ' + (cwCaptainStatusLabels[status] || status));
+			{rdelim});
+			return parts.length ? parts.join(', ') : {$captainNoneLabel|json_encode_html_attribute};
+		{rdelim}
+		function cwFormatCaptainSync(content) {ldelim}
+			var hasIssues = content.document === 'failed'
+				|| Object.prototype.hasOwnProperty.call(content.tools || {ldelim}{rdelim}, 'failed')
+				|| Object.prototype.hasOwnProperty.call(content.scenarios || {ldelim}{rdelim}, 'failed');
+			var allUpToDate = (content.document === 'synced' || content.document === 'noop')
+				&& Object.keys(content.tools || {ldelim}{rdelim}).every(function(k) {ldelim} return k === 'noop'; {rdelim})
+				&& Object.keys(content.scenarios || {ldelim}{rdelim}).every(function(k) {ldelim} return k === 'noop'; {rdelim});
+			if (allUpToDate) return {$captainUpToDateLabel|json_encode_html_attribute};
+			var lines = [hasIssues ? {$captainCompletedWithIssuesLabel|json_encode_html_attribute} : {$captainCompletedLabel|json_encode_html_attribute}];
+			lines.push({$captainLineDocument|json_encode_html_attribute} + (cwCaptainStatusLabels[content.document] || content.document));
+			lines.push({$captainLineTools|json_encode_html_attribute} + cwFormatCaptainCounts(content.tools));
+			lines.push({$captainLineScenarios|json_encode_html_attribute} + cwFormatCaptainCounts(content.scenarios));
+			return lines.join('\n');
+		{rdelim}
+
 		cwWireAction('chatwootSyncCaptainBtn', function() {ldelim}
 			return cwPost('{$syncCaptainResourcesUrl|escape:"javascript"}');
 		{rdelim}, function(resp) {ldelim}
-			return JSON.stringify(resp.content || resp, null, 2);
+			return cwFormatCaptainSync(resp.content || {ldelim}{rdelim});
 		{rdelim});
 
 		cwWireAction('chatwootRetryDeadLettersBtn', function() {ldelim}
 			return cwPost('{$retryDeadLetterEventsUrl|escape:"javascript"}');
 		{rdelim}, function(resp) {ldelim}
-			return JSON.stringify(resp.content || resp, null, 2);
+			var retried = (resp.content || {ldelim}{rdelim}).retried || 0;
+			return retried > 0
+				? {$retryRetriedLabel|json_encode_html_attribute}.replace('%d', retried)
+				: {$retryNoneLabel|json_encode_html_attribute};
 		{rdelim});
 
 		cwWireAction('chatwootSendMailTestBtn', function() {ldelim}
@@ -329,6 +406,20 @@
 			{rdelim}
 		{rdelim}
 
+		// Owner browser review 2026-09-04, finding #3: a discovered
+		// resource's human name must survive save + reload, not reset to
+		// "Not tested yet (ID X)" merely because the modal reopened.
+		// Persisted into a real hidden setting field (see SettingsRegistry's
+		// chatwootAccountName/chatwootInboxName/chatwootCaptainAssistantName/
+		// chatwootDiscoveryVerifiedAt) every time a select's real selection
+		// changes, not only right after a fresh discovery.
+		function cwSyncSelectName($select, hiddenId) {ldelim}
+			var $selected = $select.find('option:selected');
+			$('#' + hiddenId).val($selected.length ? $selected.text() : '');
+		{rdelim}
+		$('#chatwootInboxId').on('change', function() {ldelim} cwSyncSelectName($(this), 'chatwootInboxName'); {rdelim});
+		$('#chatwootCaptainAssistantId').on('change', function() {ldelim} cwSyncSelectName($(this), 'chatwootCaptainAssistantName'); {rdelim});
+
 		function cwRunDiscovery(extraData) {ldelim}
 			var $btn = $('#chatwootDiscoverBtn');
 			return cwPost('{$discoverChatwootResourcesUrl|escape:"javascript"}', $.extend({ldelim}
@@ -353,9 +444,13 @@
 				$('#chatwootAccountSelectorWrap').attr('hidden', true);
 				$('#chatwootAccountId').val(data.selectedAccountId);
 				var accountName = (data.accounts || []).filter(function(a) {ldelim} return String(a.id) === String(data.selectedAccountId); {rdelim})[0];
+				$('#chatwootAccountName').val(accountName ? accountName.name : '');
+				$('#chatwootDiscoveryVerifiedAt').val(new Date().toISOString());
 				$('#chatwootDiscoverSummary').text('Connected. Account: ' + (accountName ? accountName.name : data.selectedAccountId));
 				cwPopulateSelect($('#chatwootInboxId'), data.inboxes || [], 'Select a Website Inbox…', 'No Website inboxes found.');
 				cwPopulateSelect($('#chatwootCaptainAssistantId'), data.assistants || [], 'Select a Captain Assistant…', 'No Captain Assistants found.');
+				cwSyncSelectName($('#chatwootInboxId'), 'chatwootInboxName');
+				cwSyncSelectName($('#chatwootCaptainAssistantId'), 'chatwootCaptainAssistantName');
 				cwShowStatus($btn, 'Connected.', false);
 			{rdelim}).fail(function(jqXHR) {ldelim}
 				var message = (jqXHR.responseJSON && (jqXHR.responseJSON.content || jqXHR.responseJSON.errorMessage)) || 'Connection failed.';
@@ -468,6 +563,16 @@
 		<div role="tabpanel" id="cwPanel-overview" aria-labelledby="cwTab-overview">
 			{if $supportGatewayHealth}
 				<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.overview.description"}</p>
+
+				{if $overviewNeedsAttentionLabels|@count}
+					<div class="cwOverviewBanner cwOverviewBannerAttention">
+						{translate key="plugins.generic.chatwootIntegration.settings.overview.banner.needsAttention" attentionCount=$overviewNeedsAttentionLabels|@count|escape}
+						{$overviewNeedsAttentionLabels|@implode:", "|escape}
+					</div>
+				{else}
+					<div class="cwOverviewBanner cwOverviewBannerOk">{translate key="plugins.generic.chatwootIntegration.settings.overview.banner.noIssues"}</div>
+				{/if}
+
 				<div class="cwOverviewGrid">
 					{foreach from=$overviewCards item=card}
 						<div class="cwOverviewCard cwState-{$card.state|escape}">
@@ -477,17 +582,17 @@
 					{/foreach}
 				</div>
 
-				{if $supportGatewayHealth.deadLetterCount > 0 || $supportGatewayHealth.pendingEventCount > 0}
+				{if $supportGatewayHealth.deadLetterCount > 0}
 					<div class="cwSectionDescription">
-						{translate key="plugins.generic.chatwootIntegration.settings.health.pendingEventCount"} {$supportGatewayHealth.pendingEventCount|escape} &middot;
 						{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}
 						{if $supportGatewayHealth.queueHealth}
-							&middot; {translate key="plugins.generic.chatwootIntegration.settings.health.retryingEventCount"} {$supportGatewayHealth.queueHealth.retryingCount|escape}
 							{foreach from=$supportGatewayHealth.queueHealth.deadLetterErrorCodes key=errorCode item=errorCodeCount}
 								<br>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode" errorCode=$errorCode|escape deadLetterCount=$errorCodeCount|escape}
 							{/foreach}
 						{/if}
 					</div>
+					{fbvElement type="button" id="chatwootRetryDeadLettersBtn" label="plugins.generic.chatwootIntegration.settings.health.retryDeadLetters"}
+					<div class="cwActionStatus" id="chatwootRetryDeadLettersBtnStatus" role="status" hidden></div>
 				{/if}
 			{else}
 				<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.health.notChecked"}</p>
@@ -523,7 +628,13 @@
 			<div class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.discover.description"}</div>
 			{fbvElement type="button" id="chatwootDiscoverBtn" label="plugins.generic.chatwootIntegration.settings.discoverBtn"}
 			<div class="cwActionStatus" id="chatwootDiscoverBtnStatus" role="status" hidden></div>
-			<p id="chatwootDiscoverSummary" class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"}</p>
+			<p id="chatwootDiscoverSummary" class="cwSectionDescription">
+				{if $chatwootAccountName}
+					{translate key="plugins.generic.chatwootIntegration.settings.discover.connectedAccount"}{$chatwootAccountName|escape} — {translate key="plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"}{$chatwootDiscoveryVerifiedAt|escape}
+				{else}
+					{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"}
+				{/if}
+			</p>
 
 			<div id="chatwootAccountSelectorWrap" hidden>
 				{fbvFormSection title="plugins.generic.chatwootIntegration.settings.accountSelector"}
@@ -533,11 +644,19 @@
 				{/fbvFormSection}
 			</div>
 			<input type="hidden" id="chatwootAccountId" name="chatwootAccountId" value="{$chatwootAccountId|escape}">
+			<input type="hidden" id="chatwootAccountName" name="chatwootAccountName" value="{$chatwootAccountName|escape}">
+			<input type="hidden" id="chatwootInboxName" name="chatwootInboxName" value="{$chatwootInboxName|escape}">
+			<input type="hidden" id="chatwootDiscoveryVerifiedAt" name="chatwootDiscoveryVerifiedAt" value="{$chatwootDiscoveryVerifiedAt|escape}">
 
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootInboxId"}
 				<select id="chatwootInboxId" name="chatwootInboxId" class="cwDiscoverySelect" data-current-value="{$chatwootInboxId|escape}">
-					{if $chatwootInboxId}<option value="{$chatwootInboxId|escape}" selected>{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"} (ID {$chatwootInboxId|escape})</option>{/if}
+					{if $chatwootInboxId}
+						<option value="{$chatwootInboxId|escape}" selected>
+							{if $chatwootInboxName}{$chatwootInboxName|escape}{else}{translate key="plugins.generic.chatwootIntegration.settings.discover.savedNeedsVerify"} (ID {$chatwootInboxId|escape}){/if}
+						</option>
+					{/if}
 				</select>
+				{if $chatwootInboxName}<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"}{$chatwootDiscoveryVerifiedAt|escape}</p>{/if}
 			{/fbvFormSection}
 		</div>
 
@@ -689,13 +808,6 @@
 				{/fbvFormSection}
 			</div>
 
-			{if $supportGatewayHealth.deadLetterCount > 0}
-				<div class="cwSectionDescription">
-					{translate key="plugins.generic.chatwootIntegration.settings.health.retryDeadLettersDescription"}
-				</div>
-				{fbvElement type="button" id="chatwootRetryDeadLettersBtn" label="plugins.generic.chatwootIntegration.settings.health.retryDeadLetters"}
-				<div class="cwActionStatus" id="chatwootRetryDeadLettersBtnStatus" role="status" hidden></div>
-			{/if}
 		</div>
 
 		{* ================================================================ *}
@@ -704,8 +816,13 @@
 		<div role="tabpanel" id="cwPanel-aiKnowledge" aria-labelledby="cwTab-aiKnowledge" hidden>
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId"}
 				<select id="chatwootCaptainAssistantId" name="chatwootCaptainAssistantId" class="cwDiscoverySelect" data-current-value="{$chatwootCaptainAssistantId|escape}">
-					{if $chatwootCaptainAssistantId}<option value="{$chatwootCaptainAssistantId|escape}" selected>{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"} (ID {$chatwootCaptainAssistantId|escape})</option>{/if}
+					{if $chatwootCaptainAssistantId}
+						<option value="{$chatwootCaptainAssistantId|escape}" selected>
+							{if $chatwootCaptainAssistantName}{$chatwootCaptainAssistantName|escape}{else}{translate key="plugins.generic.chatwootIntegration.settings.discover.savedNeedsVerify"} (ID {$chatwootCaptainAssistantId|escape}){/if}
+						</option>
+					{/if}
 				</select>
+				<input type="hidden" id="chatwootCaptainAssistantName" name="chatwootCaptainAssistantName" value="{$chatwootCaptainAssistantName|escape}">
 				<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.description"}</p>
 			{/fbvFormSection}
 			<div class="cwSectionDescription">

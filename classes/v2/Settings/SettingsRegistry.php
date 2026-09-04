@@ -52,6 +52,25 @@ final class SettingsRegistry
             new SettingDefinition('chatwootAccountId', 'int', tab: 'chatwoot'),
             new SettingDefinition('chatwootInboxId', 'int', tab: 'chatwoot'),
             new SettingDefinition('chatwootCaptainAssistantId', 'int', tab: 'ai_knowledge'),
+            /**
+             * Owner browser review 2026-09-04, finding #3: cached
+             * safe display metadata (human names + a verification
+             * timestamp) for the resources above, so a successfully
+             * discovered/selected resource never regresses to
+             * "Not tested yet" merely because the settings modal
+             * reloaded. Never a secret, never a raw external payload —
+             * just a display-name cache; exportable: false keeps it out
+             * of ordinary import/export (it is meaningless without the
+             * live account it was verified against). globalEligible
+             * stays true (the default) to match chatwootAccountId's own
+             * precedent: a cached fact about a shared resource is
+             * consistent to copy alongside that shared resource, never a
+             * cross-journal leak.
+             */
+            new SettingDefinition('chatwootAccountName', 'string', exportable: false, tab: 'chatwoot'),
+            new SettingDefinition('chatwootInboxName', 'string', exportable: false, tab: 'chatwoot'),
+            new SettingDefinition('chatwootCaptainAssistantName', 'string', exportable: false, tab: 'ai_knowledge'),
+            new SettingDefinition('chatwootDiscoveryVerifiedAt', 'string', exportable: false, tab: 'chatwoot'),
             new SettingDefinition('chatwootSupportApiToken', 'string', secret: true, globalEligible: false, tab: 'api_mcp'),
             new SettingDefinition('mcpServiceToken', 'string', secret: true, exportable: false, globalEligible: false, tab: 'api_mcp'),
             new SettingDefinition('enableWidget', 'bool', tab: 'widget'),

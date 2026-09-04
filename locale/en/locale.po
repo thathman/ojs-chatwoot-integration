@@ -34,6 +34,12 @@ msgstr "Health has not been checked yet in this session. Use the check below."
 msgid "plugins.generic.chatwootIntegration.settings.overview.description"
 msgstr "What's connected, what's healthy, and what needs attention."
 
+msgid "plugins.generic.chatwootIntegration.settings.overview.banner.needsAttention"
+msgstr "{$attentionCount} item(s) need attention: "
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.banner.noIssues"
+msgstr "No issues detected."
+
 msgid "plugins.generic.chatwootIntegration.settings.overview.card.chatwoot"
 msgstr "Chatwoot Connection"
 
@@ -84,6 +90,93 @@ msgstr "Failed"
 
 msgid "plugins.generic.chatwootIntegration.settings.overview.state.actionRequired"
 msgstr "Action required"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.reachable"
+msgstr "Reachable"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.notReachable"
+msgstr "Not reachable"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.notConfigured"
+msgstr "Not configured"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.verified"
+msgstr "Verified"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.invalid"
+msgstr "Invalid"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.notChecked"
+msgstr "Not checked"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.complete"
+msgstr "Complete"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.incomplete"
+msgstr "Incomplete"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.label.justNow"
+msgstr "just now"
+
+msgid "plugins.generic.chatwootIntegration.settings.health.line.service"
+msgstr "Chatwoot widget service — "
+
+msgid "plugins.generic.chatwootIntegration.settings.health.line.api"
+msgstr "API access — "
+
+msgid "plugins.generic.chatwootIntegration.settings.health.line.identity"
+msgstr "Identity validation — "
+
+msgid "plugins.generic.chatwootIntegration.settings.health.line.settings"
+msgstr "Connection settings — "
+
+msgid "plugins.generic.chatwootIntegration.settings.health.line.lastChecked"
+msgstr "Last checked — "
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.synced"
+msgstr "Synced"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.created"
+msgstr "created"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.noop"
+msgstr "already current"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.conflict"
+msgstr "conflict — manual review needed"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.failed"
+msgstr "failed"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.unavailable"
+msgstr "Unavailable"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainStatus.none"
+msgstr "none"
+
+msgid "plugins.generic.chatwootIntegration.settings.captainSync.upToDate"
+msgstr "Captain is up to date."
+
+msgid "plugins.generic.chatwootIntegration.settings.captainSync.completed"
+msgstr "Captain sync completed."
+
+msgid "plugins.generic.chatwootIntegration.settings.captainSync.completedWithIssues"
+msgstr "Captain sync completed with issues."
+
+msgid "plugins.generic.chatwootIntegration.settings.captainSync.lineDocument"
+msgstr "Knowledge document: "
+
+msgid "plugins.generic.chatwootIntegration.settings.captainSync.lineTools"
+msgstr "Custom Tools: "
+
+msgid "plugins.generic.chatwootIntegration.settings.captainSync.lineScenarios"
+msgstr "Scenarios: "
+
+msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLetters.retried"
+msgstr "Retried %d failed delivery(ies)."
+
+msgid "plugins.generic.chatwootIntegration.settings.health.retryDeadLetters.none"
+msgstr "No deliveries needed retrying."
 
 msgid "plugins.generic.chatwootIntegration.settings.healthCheck.description"
 msgstr "Verify the Chatwoot connection and identity-validation secret are reachable and valid."
@@ -318,6 +411,15 @@ msgstr "Not tested yet."
 
 msgid "plugins.generic.chatwootIntegration.settings.discover.connected"
 msgstr "Connected. Account: %1$s"
+
+msgid "plugins.generic.chatwootIntegration.settings.discover.savedNeedsVerify"
+msgstr "Saved selection — verify connection to load its name"
+
+msgid "plugins.generic.chatwootIntegration.settings.discover.lastVerifiedPrefix"
+msgstr "Last verified: "
+
+msgid "plugins.generic.chatwootIntegration.settings.discover.connectedAccount"
+msgstr "Connected. Account: "
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootInboxId.selectPrompt"
 msgstr "Select a Website Inbox…"

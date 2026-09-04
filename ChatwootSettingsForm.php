@@ -241,13 +241,46 @@ class ChatwootSettingsForm extends Form
         // per-module states, never conflating configured with healthy or
         // optional/off with degraded — see OverviewCardStates's own note.
         $overviewCards = $healthArray !== null
-            ? OverviewCardStates::build($healthArray, trim((string) $this->getData('chatwootIdentityValidationSecret')) !== '')
+            ? array_map(
+                fn (array $card): array => $card + ['label' => __('plugins.generic.chatwootIntegration.settings.overview.card.' . $card['key'])],
+                OverviewCardStates::build($healthArray, trim((string) $this->getData('chatwootIdentityValidationSecret')) !== '')
+            )
             : [];
-        $templateMgr->assign('overviewCards', array_map(
-            fn (array $card): array => $card + ['label' => __('plugins.generic.chatwootIntegration.settings.overview.card.' . $card['key'])],
-            $overviewCards
-        ));
-        $templateMgr->assign('overviewStateLabels', [
+        $templateMgr->assign('overviewCards', $overviewCards);
+        // Owner browser review 2026-09-04: Health Check/Captain Sync/Retry
+        // Dead Letters human-text labels — see settingsForm.tpl's
+        // cwFormatHealthCheck()/cwFormatCaptainSync().
+        $templateMgr->assign('healthLabelReachable', __('plugins.generic.chatwootIntegration.settings.health.label.reachable'));
+        $templateMgr->assign('healthLabelNotReachable', __('plugins.generic.chatwootIntegration.settings.health.label.notReachable'));
+        $templateMgr->assign('healthLabelNotConfigured', __('plugins.generic.chatwootIntegration.settings.health.label.notConfigured'));
+        $templateMgr->assign('healthLabelVerified', __('plugins.generic.chatwootIntegration.settings.health.label.verified'));
+        $templateMgr->assign('healthLabelInvalid', __('plugins.generic.chatwootIntegration.settings.health.label.invalid'));
+        $templateMgr->assign('healthLabelNotChecked', __('plugins.generic.chatwootIntegration.settings.health.label.notChecked'));
+        $templateMgr->assign('healthLabelComplete', __('plugins.generic.chatwootIntegration.settings.health.label.complete'));
+        $templateMgr->assign('healthLabelIncomplete', __('plugins.generic.chatwootIntegration.settings.health.label.incomplete'));
+        $templateMgr->assign('healthLabelJustNow', __('plugins.generic.chatwootIntegration.settings.health.label.justNow'));
+        $templateMgr->assign('healthLineService', __('plugins.generic.chatwootIntegration.settings.health.line.service'));
+        $templateMgr->assign('healthLineApi', __('plugins.generic.chatwootIntegration.settings.health.line.api'));
+        $templateMgr->assign('healthLineIdentity', __('plugins.generic.chatwootIntegration.settings.health.line.identity'));
+        $templateMgr->assign('healthLineSettings', __('plugins.generic.chatwootIntegration.settings.health.line.settings'));
+        $templateMgr->assign('healthLineLastChecked', __('plugins.generic.chatwootIntegration.settings.health.line.lastChecked'));
+        $templateMgr->assign('captainStatusSynced', __('plugins.generic.chatwootIntegration.settings.captainStatus.synced'));
+        $templateMgr->assign('captainStatusCreated', __('plugins.generic.chatwootIntegration.settings.captainStatus.created'));
+        $templateMgr->assign('captainStatusNoop', __('plugins.generic.chatwootIntegration.settings.captainStatus.noop'));
+        $templateMgr->assign('captainStatusConflict', __('plugins.generic.chatwootIntegration.settings.captainStatus.conflict'));
+        $templateMgr->assign('captainStatusFailed', __('plugins.generic.chatwootIntegration.settings.captainStatus.failed'));
+        $templateMgr->assign('captainStatusUnavailable', __('plugins.generic.chatwootIntegration.settings.captainStatus.unavailable'));
+        $templateMgr->assign('captainNoneLabel', __('plugins.generic.chatwootIntegration.settings.captainStatus.none'));
+        $templateMgr->assign('captainUpToDateLabel', __('plugins.generic.chatwootIntegration.settings.captainSync.upToDate'));
+        $templateMgr->assign('captainCompletedLabel', __('plugins.generic.chatwootIntegration.settings.captainSync.completed'));
+        $templateMgr->assign('captainCompletedWithIssuesLabel', __('plugins.generic.chatwootIntegration.settings.captainSync.completedWithIssues'));
+        $templateMgr->assign('captainLineDocument', __('plugins.generic.chatwootIntegration.settings.captainSync.lineDocument'));
+        $templateMgr->assign('captainLineTools', __('plugins.generic.chatwootIntegration.settings.captainSync.lineTools'));
+        $templateMgr->assign('captainLineScenarios', __('plugins.generic.chatwootIntegration.settings.captainSync.lineScenarios'));
+        $templateMgr->assign('retryRetriedLabel', __('plugins.generic.chatwootIntegration.settings.health.retryDeadLetters.retried'));
+        $templateMgr->assign('retryNoneLabel', __('plugins.generic.chatwootIntegration.settings.health.retryDeadLetters.none'));
+
+        $overviewStateLabels = [
             OverviewCardStates::HEALTHY => __('plugins.generic.chatwootIntegration.settings.overview.state.healthy'),
             OverviewCardStates::CONFIGURED => __('plugins.generic.chatwootIntegration.settings.overview.state.configured'),
             OverviewCardStates::OPTIONAL_OFF => __('plugins.generic.chatwootIntegration.settings.overview.state.optionalOff'),
@@ -256,7 +289,20 @@ class ChatwootSettingsForm extends Form
             OverviewCardStates::DEGRADED => __('plugins.generic.chatwootIntegration.settings.overview.state.degraded'),
             OverviewCardStates::FAILED => __('plugins.generic.chatwootIntegration.settings.overview.state.failed'),
             OverviewCardStates::ACTION_REQUIRED => __('plugins.generic.chatwootIntegration.settings.overview.state.actionRequired'),
-        ]);
+        ];
+        $templateMgr->assign('overviewStateLabels', $overviewStateLabels);
+
+        // Owner browser review 2026-09-04: the overview needs one human
+        // banner sentence summarizing what actually needs attention,
+        // instead of making the admin read every card to find problems.
+        // Never claims "healthy" for the whole system — only that
+        // nothing here needs attention right now.
+        $needsAttentionStates = [OverviewCardStates::FAILED, OverviewCardStates::ACTION_REQUIRED, OverviewCardStates::DEGRADED];
+        $needsAttentionLabels = array_values(array_map(
+            fn (array $card): string => $card['label'],
+            array_filter($overviewCards, fn (array $card): bool => in_array($card['state'], $needsAttentionStates, true))
+        ));
+        $templateMgr->assign('overviewNeedsAttentionLabels', $needsAttentionLabels);
 
         return parent::fetch($request, $template, $display);
     }
