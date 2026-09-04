@@ -41,4 +41,32 @@ foreach ($matches[1] as $msgstr) {
     );
 }
 
+/**
+ * Real-browser-discovered bug #2 (same session): PKP's smartyTranslate()
+ * treats "key", "count", "locale", and "params" as RESERVED {translate}
+ * argument names — it strips them before merging into the substitution
+ * variables and, when "count" is present, routes to __p() (plural lookup)
+ * instead of __() (simple lookup). This plugin has no real msgid_plural
+ * entries, so passing count=... as an ordinary substitution value silently
+ * discarded it and the token was never substituted. Guard against ever
+ * passing these four reserved names as ordinary {translate} substitution
+ * parameters in a template.
+ */
+$templateDir = __DIR__ . '/../../templates';
+$templateFiles = glob($templateDir . '/*.tpl') ?: [];
+localePlaceholderCheck(count($templateFiles) > 0, 'expected at least one .tpl file under templates/');
+
+foreach ($templateFiles as $templateFile) {
+    $source = file_get_contents($templateFile);
+    localePlaceholderCheck($source !== false, "{$templateFile} must be readable");
+
+    preg_match_all('/\{translate\s+key="[^"]+"([^}]*)\}/', $source, $translateCalls);
+    foreach ($translateCalls[1] as $callArgs) {
+        localePlaceholderCheck(
+            preg_match('/(^|\s)count=/', $callArgs) !== 1,
+            basename($templateFile) . ": {translate} call passes reserved param 'count' as an ordinary substitution value — PKP strips it and routes to plural lookup instead of substituting it. Rename the param (and its {\$name} in locale.po)."
+        );
+    }
+}
+
 fwrite(STDOUT, "Locale placeholder substitution syntax test passed\n");
