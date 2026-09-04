@@ -219,14 +219,15 @@ Original source: event delivery found contacts by exact email and returned the f
 
 Fixed: `findContactByEmail()` now accepts an optional `$identifier`. Among the real email matches, the one whose own identifier equals it is preferred; only when no candidate carries that identifier (or none was supplied) does it fall back to the first email match, exactly as before. Both real call sites (v1's `sendChatwootEvent()`, v2's `v2DeliverQueuedEventRow()`) now pass the stable identifier/userId they already had available at the call site. `tests/v2/har-022-contact-identity-prefers-stable-identifier.php` proves the identifier-preference logic runs before the fallback and that both call sites pass it — structural/source-level evidence (Guzzle is not available in this local test harness); `ChatwootApiService`'s general HTTP behavior is live-verified via the CLI harness on dell elsewhere this session.
 
-### HAR-023 — VERIFY — widget injection multiplicity
+### HAR-023 — PARTIALLY ADDRESSED (PRs #245/#246) — widget injection multiplicity
 
-The plugin hooks `TemplateManager::display`, `TemplateManager::fetch` and a footer hook, adds frontend/backend headers, and can also append the script to rendered output. `window.__chatwootLoaded` prevents duplicate SDK boot, but multiple script blocks/listeners may still be registered.
+Original source: the plugin hooks `TemplateManager::display`, `TemplateManager::fetch` (which fires once per template/partial rendered — many times per real page, once per Smarty `{include}`) and a footer hook, adds frontend/backend headers, and can also append the script to rendered output. `window.__chatwootLoaded` prevents duplicate SDK boot, but nothing prevented `addChatwootWidget()` itself from running its full injection logic (including registering a fresh `chatwoot:ready` listener) more than once per request.
 
-Required:
-- discriminating DOM/runtime test proving one effective integration script/ready handler per full page;
-- no duplicate `setUser`/custom-attribute calls caused by hook multiplicity;
-- component/fetch rendering must not pollute unrelated responses.
+**Closed the "no duplicate listener registration" mechanism** (PR #245): added a plain, request-scoped instance flag (`$widgetInjectedThisRequest`) checked early and set only immediately before the real injection point, so the widget's own script/listener is registered at most once per request regardless of how many times the hooks fire.
+
+**Honesty correction** (PR #246): the original PR #245 commit overstated its evidence — a live GET of `https://ojs-demo.airixmedia.com/ajdsi` was checked, and a naive substring count initially looked like a real duplicate (`chatwoot:ready`/`__chatwootLoaded` each appearing twice), but closer inspection showed a false positive: one `chatwoot:ready` belonged to a completely separate, legitimate v2 support-context script with its own distinct purpose, and `__chatwootLoaded` appearing twice was just this widget's own single script referencing that one variable name twice (a check, then a set) within one script block. That specific page did not show an actual live duplication bug. The fix itself remains legitimate, low-risk preventive hardening against the real, well-documented architectural risk (Smarty's multiple-`fetch`-per-page behavior) — but it is not evidenced as closing an observed live bug, only a code-level risk. Corrected per CMP-001: never claim live-observed evidence beyond what was actually observed.
+
+**Still open**: an actual discriminating DOM/runtime test (real browser, real multi-partial page, proving exactly one effective ready-handler fires) — not yet built, and not possible from this environment without browser automation against a real page (blocked by the same AJDSI theme constraints noted elsewhere); "component/fetch rendering must not pollute unrelated responses" is a separate, not-yet-investigated item (TST-020's guard prevents fataling on a component-router request, but whether the widget's headers/output ever leak into an AJAX/JSON response has not been specifically checked).
 
 ---
 
