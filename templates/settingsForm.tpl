@@ -187,6 +187,18 @@
 	.pkpc-chatwootIntegrationSettings .cwState-degraded { border-left-color: #d97706; }
 	.pkpc-chatwootIntegrationSettings .cwState-failed { border-left-color: #dc2626; }
 	.pkpc-chatwootIntegrationSettings .cwState-action_required { border-left-color: #dc2626; }
+	.pkpc-chatwootIntegrationSettings .cwCredentialCard {
+		max-width: 280px;
+		margin-bottom: 0.5rem;
+	}
+	.pkpc-chatwootIntegrationSettings .cwMcpToolList {
+		max-height: 260px;
+		overflow-y: auto;
+		border: 1px solid #e5e7eb;
+		border-radius: 4px;
+		padding: 0.5rem 1rem;
+		font-size: 0.9em;
+	}
 	.pkpc-chatwootIntegrationSettings .cwCustomerVisibleWarning {
 		color: #92400e;
 		background: #fffbeb;
@@ -379,6 +391,27 @@
 		{rdelim}, function(resp) {ldelim}
 			return resp.content || 'Done.';
 		{rdelim});
+
+		// API & MCP tab (owner directive 2026-09-04, item H): Generate/
+		// Rotate persists the new value server-side immediately (see
+		// generateServiceCredential()) and shows the real plaintext
+		// exactly once here for the admin to copy now — the hidden field
+		// is updated too so a normal Save Settings doesn't silently
+		// revert it, but the value is never redisplayed on any later
+		// page load.
+		function cwWireCredentialGenerate(btnId, credentialKey, fieldId, isConfiguredAlready) {ldelim}
+			if (isConfiguredAlready) {ldelim} $('#' + btnId).text({$apiMcpRotateLabel|json_encode_html_attribute}); {rdelim}
+			cwWireAction(btnId, function() {ldelim}
+				return cwPost('{$generateServiceCredentialUrl|escape:"javascript"}', {ldelim}credentialKey: credentialKey{rdelim});
+			{rdelim}, function(resp) {ldelim}
+				var value = (resp.content || {ldelim}{rdelim}).value || '';
+				$('#' + fieldId).val(value);
+				$('#' + btnId).text({$apiMcpRotateLabel|json_encode_html_attribute});
+				return {$apiMcpGeneratedLabel|json_encode_html_attribute} + value;
+			{rdelim});
+		{rdelim}
+		cwWireCredentialGenerate('chatwootGenerateSupportApiTokenBtn', 'chatwootSupportApiToken', 'chatwootSupportApiToken', {if $supportApiTokenConfigured}true{else}false{/if});
+		cwWireCredentialGenerate('chatwootGenerateMcpTokenBtn', 'mcpServiceToken', 'mcpServiceToken', {if $mcpServiceTokenConfigured}true{else}false{/if});
 
 		// Chatwoot tab console (owner directive 2026-09-04): discovery
 		// populates the account/inbox/assistant selects from real
@@ -883,15 +916,43 @@
 		{* API & MCP — SettingsRegistry tab "api_mcp".                      *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-apiMcp" aria-labelledby="cwTab-apiMcp" hidden>
+			<div class="cwSecurityInvariant">
+				<strong>{translate key="plugins.generic.chatwootIntegration.settings.apiMcp.authVsAuthz.title"}</strong>
+				<p>{translate key="plugins.generic.chatwootIntegration.settings.apiMcp.authVsAuthz.description"}</p>
+			</div>
+
+			<h3>{translate key="plugins.generic.chatwootIntegration.settings.apiMcp.supportApi"}</h3>
+			<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.apiMcp.supportApi.description"}</p>
+			<div class="cwOverviewCard cwCredentialCard cwState-{if $supportApiTokenConfigured}configured{else}not_configured{/if}">
+				<div class="cwOverviewCardLabel">{translate key="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"}</div>
+				<div class="cwOverviewCardState">{if $supportApiTokenConfigured}{translate key="plugins.generic.chatwootIntegration.settings.overview.state.configured"}{else}{translate key="plugins.generic.chatwootIntegration.settings.overview.state.notConfigured"}{/if}</div>
+			</div>
+			{fbvElement type="button" id="chatwootGenerateSupportApiTokenBtn" label="plugins.generic.chatwootIntegration.settings.apiMcp.generate"}
+			<div class="cwActionStatus" id="chatwootGenerateSupportApiTokenBtnStatus" role="status" hidden></div>
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken"}
 				{fbvElement type="text" password=true id="chatwootSupportApiToken" value=$chatwootSupportApiToken label="plugins.generic.chatwootIntegration.settings.chatwootSupportApiToken.description"}
 			{/fbvFormSection}
+
+			<h3>{translate key="plugins.generic.chatwootIntegration.settings.apiMcp.mcp"}</h3>
 			<div class="cwSectionDescription">
 				{translate key="plugins.generic.chatwootIntegration.settings.mcpEndpoint.description" endpoint=$mcpEndpointUrl revision=$mcpProtocolRevision}
 			</div>
+			<div class="cwOverviewCard cwCredentialCard cwState-{if $mcpServiceTokenConfigured}configured{else}optional_off{/if}">
+				<div class="cwOverviewCardLabel">{translate key="plugins.generic.chatwootIntegration.settings.mcpServiceToken"}</div>
+				<div class="cwOverviewCardState">{if $mcpServiceTokenConfigured}{translate key="plugins.generic.chatwootIntegration.settings.overview.state.configured"}{else}{translate key="plugins.generic.chatwootIntegration.settings.overview.state.optionalOff"}{/if}</div>
+			</div>
+			{fbvElement type="button" id="chatwootGenerateMcpTokenBtn" label="plugins.generic.chatwootIntegration.settings.apiMcp.generate"}
+			<div class="cwActionStatus" id="chatwootGenerateMcpTokenBtnStatus" role="status" hidden></div>
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.mcpServiceToken"}
 				{fbvElement type="text" password=true id="mcpServiceToken" value=$mcpServiceToken label="plugins.generic.chatwootIntegration.settings.mcpServiceToken.description"}
 			{/fbvFormSection}
+
+			<h3>{translate key="plugins.generic.chatwootIntegration.settings.apiMcp.capabilities" mcpToolCount=$mcpToolCount|escape}</h3>
+			<ul class="cwMcpToolList">
+				{foreach from=$mcpToolSummaries item=tool}
+					<li><strong>{$tool.name|escape}</strong> — {$tool.description|escape}</li>
+				{/foreach}
+			</ul>
 		</div>
 
 		{* ================================================================ *}
