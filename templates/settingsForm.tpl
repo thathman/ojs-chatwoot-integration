@@ -317,14 +317,14 @@
 
 		cwWireAction('chatwootExportBtn', function() {ldelim}
 			return cwPost('{$exportSettingsUrl|escape:"javascript"}').done(function(resp) {ldelim}
-				$('#chatwootImportExport').val(JSON.stringify(resp.content || {ldelim}{rdelim}, null, 2));
+				$('[name="chatwootImportExport"]').val(JSON.stringify(resp.content || {ldelim}{rdelim}, null, 2));
 			{rdelim});
 		{rdelim}, function() {ldelim}
 			return 'Exported below.';
 		{rdelim});
 
 		cwWireAction('chatwootImportBtn', function() {ldelim}
-			return cwPost('{$importSettingsUrl|escape:"javascript"}', {ldelim}importPayload: $('#chatwootImportExport').val(){rdelim});
+			return cwPost('{$importSettingsUrl|escape:"javascript"}', {ldelim}importPayload: $('[name="chatwootImportExport"]').val(){rdelim});
 		{rdelim}, function(resp) {ldelim}
 			return resp.content || 'Imported.';
 		{rdelim});
@@ -399,13 +399,24 @@
 		// is updated too so a normal Save Settings doesn't silently
 		// revert it, but the value is never redisplayed on any later
 		// page load.
-		function cwWireCredentialGenerate(btnId, credentialKey, fieldId, isConfiguredAlready) {ldelim}
+		function cwWireCredentialGenerate(btnId, credentialKey, fieldName, isConfiguredAlready) {ldelim}
 			if (isConfiguredAlready) {ldelim} $('#' + btnId).text({$apiMcpRotateLabel|json_encode_html_attribute}); {rdelim}
 			cwWireAction(btnId, function() {ldelim}
 				return cwPost('{$generateServiceCredentialUrl|escape:"javascript"}', {ldelim}credentialKey: credentialKey{rdelim});
 			{rdelim}, function(resp) {ldelim}
 				var value = (resp.content || {ldelim}{rdelim}).value || '';
-				$('#' + fieldId).val(value);
+				// PKP's real textInput.tpl appends a unique suffix to the
+				// rendered id ("{$FBV_id}-{$FBV_uniqId}") but never to
+				// name — a plain "#id" selector silently matches nothing
+				// here. Select by [name=...] instead, which always
+				// equals the real posted field name exactly. Getting
+				// this wrong would be a real security-relevant bug, not
+				// just cosmetic: the just-generated value is already
+				// persisted server-side, but if this field still showed
+				// the stale old value and the admin then clicked Save,
+				// that stale value would silently overwrite the fresh
+				// credential.
+				$('[name="' + fieldName + '"]').val(value);
 				$('#' + btnId).text({$apiMcpRotateLabel|json_encode_html_attribute});
 				return {$apiMcpGeneratedLabel|json_encode_html_attribute} + value;
 			{rdelim});
@@ -456,8 +467,8 @@
 		function cwRunDiscovery(extraData) {ldelim}
 			var $btn = $('#chatwootDiscoverBtn');
 			return cwPost('{$discoverChatwootResourcesUrl|escape:"javascript"}', $.extend({ldelim}
-				chatwootBaseUrl: $('#chatwootBaseUrl').val(),
-				chatwootApiAccessToken: $('#chatwootApiAccessToken').val()
+				chatwootBaseUrl: $('[name="chatwootBaseUrl"]').val(),
+				chatwootApiAccessToken: $('[name="chatwootApiAccessToken"]').val()
 			{rdelim}, extraData || {ldelim}{rdelim})).done(function(resp) {ldelim}
 				var data = resp.content || resp;
 				if (!data || !data.connected) {ldelim}
@@ -515,7 +526,7 @@
 			var position = $('#widgetPosition').val();
 			var style = $('#widgetLauncherStyle').val();
 			var theme = $('#widgetTheme').val();
-			var title = $('#widgetLauncherTitle').val() || 'Chat with us';
+			var title = $('[name="widgetLauncherTitle"]').val() || 'Chat with us';
 
 			$bubble.toggleClass('cwPreviewLeft', position === 'left');
 			$bubble.toggleClass('cwPreviewDark', theme === 'dark');
@@ -524,7 +535,7 @@
 			$('#cwWidgetPreviewBubbleLabel').text(style === 'expanded_bubble' ? title : '');
 		{rdelim}
 
-		$('#widgetPosition, #widgetLauncherStyle, #widgetLauncherTitle, #widgetTheme, #widgetLanguageMode').on('change keyup', function() {ldelim}
+		$('#widgetPosition, #widgetLauncherStyle, [name="widgetLauncherTitle"], #widgetTheme, #widgetLanguageMode').on('change keyup', function() {ldelim}
 			cwUpdateWidgetFieldVisibility();
 			cwUpdateWidgetPreview();
 		{rdelim});
