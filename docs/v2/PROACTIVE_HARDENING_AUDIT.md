@@ -157,15 +157,15 @@ Original source: `VerificationEmailContentBuilder` interpolated `$journalName` r
 
 `PurgeExpiredSupportDataTask` currently purges sessions, verification challenges and audit rows only. Define/purge retention for delivered/dead-letter event rows, Knowledge/Captain sync records where appropriate, FAQ cache, legacy `apiQueue`, and future provider/payment caches. Retain only what has a product/audit purpose.
 
-### HAR-016 — MUST FIX — post-2.0 additive/versioned migration architecture
+### HAR-016 — PARTIALLY FIXED (already shipped this session; PR #237) — post-2.0 additive/versioned migration architecture
 
-`version.xml` remains `2.0.0.0`; `getInstallMigration()` returns `InstallSupportGatewayMigration`; the original migration has already been edited additively for a queue column and PR #196 attempted to add a whole FAQ table there. Once `2.0.0.0` is an immutable installed state, new schema must not depend on rewriting the original install definition.
+Original source: `getInstallMigration()` returned `InstallSupportGatewayMigration` directly; the original migration had already been edited additively for a queue column, and PR #196 attempted to add a whole FAQ table there. Once `2.0.0.0` is an immutable installed state, new schema must not depend on rewriting the original install definition.
 
-Required:
-- a real additive/versioned OJS plugin migration path;
-- exact `2.0.0.0 -> current candidate` upgrade test with existing data;
-- idempotency and supported DB-driver tests;
-- no destructive reinstall requirement.
+**Substantially closed earlier this session** (KNO-011/MIG-003, `docs/v2/TASKLIST.md`): `InstallSupportGatewayMigration` is now the frozen 2.0.0.0 baseline, never edited again; `AddFaqCacheTableMigration` is a standalone additive step; `SupportGatewayMigrationRunner` composes them, and `getInstallMigration()` returns the runner. Live-verified on dell: the runner upgraded a real 2.0.0.0 database in place (new `chatwoot_support_faq_cache` table, existing five tables untouched) — a real `2.0.0.0 -> current candidate` upgrade against real existing data, satisfying that specific required item.
+
+**Closed by PR #237** ("idempotency ... tests"): proved every real `Schema::create()` in both migrations is guarded by a real `Schema::hasTable()` check (re-running `up()` on an already-installed database is a safe no-op, never a "table already exists" fatal), the later additive `correlation_id` column (AUD-013) is separately guarded by `Schema::hasColumn()`, and the runner constructs the baseline exactly once in a fixed, real order.
+
+**Still open**: "supported DB-driver tests" — this installation and its evidence are MySQL-only; no PostgreSQL (or other OJS-supported driver) verification has been run.
 
 ---
 
