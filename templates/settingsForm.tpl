@@ -188,6 +188,76 @@
 		{rdelim}, function(resp) {ldelim}
 			return resp.content || 'Done.';
 		{rdelim});
+
+		// Chatwoot tab console (owner directive 2026-09-04): discovery
+		// populates the account/inbox/assistant selects from real
+		// Chatwoot data instead of requiring a raw numeric ID. Re-run
+		// automatically once an account is explicitly chosen from more
+		// than one candidate.
+		function cwPopulateSelect($select, items, placeholderKey, emptyKey) {ldelim}
+			var currentValue = $select.data('current-value') || $select.val();
+			$select.empty();
+			if (!items.length) {ldelim}
+				$select.append($('<option>').val('').text(emptyKey));
+				return;
+			{rdelim}
+			$select.append($('<option>').val('').text(placeholderKey));
+			var matched = false;
+			items.forEach(function(item) {ldelim}
+				var label = item.name || ('#' + item.id);
+				if (item.websiteUrl) {ldelim} label += ' (' + item.websiteUrl + ')'; {rdelim}
+				var $opt = $('<option>').val(item.id).text(label);
+				if (String(item.id) === String(currentValue)) {ldelim} $opt.prop('selected', true); matched = true; {rdelim}
+				$select.append($opt);
+			{rdelim});
+			if (!matched && currentValue) {ldelim}
+				$select.prepend($('<option>').val(currentValue).text('Current: #' + currentValue).prop('selected', true));
+			{rdelim}
+		{rdelim}
+
+		function cwRunDiscovery(extraData) {ldelim}
+			var $btn = $('#chatwootDiscoverBtn');
+			return cwPost('{$discoverChatwootResourcesUrl|escape:"javascript"}', $.extend({ldelim}
+				chatwootBaseUrl: $('#chatwootBaseUrl').val(),
+				chatwootApiAccessToken: $('#chatwootApiAccessToken').val()
+			{rdelim}, extraData || {ldelim}{rdelim})).done(function(resp) {ldelim}
+				var data = resp.content || resp;
+				if (!data || !data.connected) {ldelim}
+					cwShowStatus($btn, (typeof data === 'string' && data) || 'Connection failed.', true);
+					return;
+				{rdelim}
+				if (data.needsAccountSelection) {ldelim}
+					$('#chatwootAccountSelectorWrap').removeAttr('hidden');
+					var $accSelect = $('#chatwootAccountIdSelect');
+					$accSelect.empty();
+					(data.accounts || []).forEach(function(acc) {ldelim}
+						$accSelect.append($('<option>').val(acc.id).text(acc.name || ('#' + acc.id)));
+					{rdelim});
+					cwShowStatus($btn, 'Multiple accounts found — choose one below.', false);
+					return;
+				{rdelim}
+				$('#chatwootAccountSelectorWrap').attr('hidden', true);
+				$('#chatwootAccountId').val(data.selectedAccountId);
+				var accountName = (data.accounts || []).filter(function(a) {ldelim} return String(a.id) === String(data.selectedAccountId); {rdelim})[0];
+				$('#chatwootDiscoverSummary').text('Connected. Account: ' + (accountName ? accountName.name : data.selectedAccountId));
+				cwPopulateSelect($('#chatwootInboxId'), data.inboxes || [], 'Select a Website Inbox…', 'No Website inboxes found.');
+				cwPopulateSelect($('#chatwootCaptainAssistantId'), data.assistants || [], 'Select a Captain Assistant…', 'No Captain Assistants found.');
+				cwShowStatus($btn, 'Connected.', false);
+			{rdelim}).fail(function(jqXHR) {ldelim}
+				var message = (jqXHR.responseJSON && (jqXHR.responseJSON.content || jqXHR.responseJSON.errorMessage)) || 'Connection failed.';
+				cwShowStatus($btn, message, true);
+			{rdelim});
+		{rdelim}
+
+		$('#chatwootDiscoverBtn').on('click', function(e) {ldelim}
+			e.preventDefault();
+			cwRunDiscovery({ldelim}{rdelim});
+		{rdelim});
+
+		$('#chatwootUseAccountBtn').on('click', function(e) {ldelim}
+			e.preventDefault();
+			cwRunDiscovery({ldelim}discoverAccountId: $('#chatwootAccountIdSelect').val(){rdelim});
+		{rdelim});
 	{rdelim});
 </script>
 
@@ -267,8 +337,24 @@
 				{fbvElement type="text" password=true id="chatwootApiAccessToken" value=$chatwootApiAccessToken label="plugins.generic.chatwootIntegration.settings.chatwootApiAccessToken.description"}
 			{/fbvFormSection}
 
+			<div class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.discover.description"}</div>
+			{fbvElement type="button" id="chatwootDiscoverBtn" label="plugins.generic.chatwootIntegration.settings.discoverBtn"}
+			<div class="cwActionStatus" id="chatwootDiscoverBtnStatus" role="status" hidden></div>
+			<p id="chatwootDiscoverSummary" class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"}</p>
+
+			<div id="chatwootAccountSelectorWrap" hidden>
+				{fbvFormSection title="plugins.generic.chatwootIntegration.settings.accountSelector"}
+					<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.accountSelector.multiple"}</p>
+					<select id="chatwootAccountIdSelect" class="cwDiscoverySelect"></select>
+					{fbvElement type="button" id="chatwootUseAccountBtn" label="common.select"}
+				{/fbvFormSection}
+			</div>
+			<input type="hidden" id="chatwootAccountId" name="chatwootAccountId" value="{$chatwootAccountId|escape}">
+
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootInboxId"}
-				{fbvElement type="text" id="chatwootInboxId" value=$chatwootInboxId label="plugins.generic.chatwootIntegration.settings.chatwootInboxId.description"}
+				<select id="chatwootInboxId" name="chatwootInboxId" class="cwDiscoverySelect" data-current-value="{$chatwootInboxId|escape}">
+					{if $chatwootInboxId}<option value="{$chatwootInboxId|escape}" selected>{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"} (ID {$chatwootInboxId|escape})</option>{/if}
+				</select>
 			{/fbvFormSection}
 		</div>
 
@@ -336,7 +422,10 @@
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-aiKnowledge" aria-labelledby="cwTab-aiKnowledge" hidden>
 			{fbvFormSection title="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId"}
-				{fbvElement type="text" id="chatwootCaptainAssistantId" value=$chatwootCaptainAssistantId label="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.description"}
+				<select id="chatwootCaptainAssistantId" name="chatwootCaptainAssistantId" class="cwDiscoverySelect" data-current-value="{$chatwootCaptainAssistantId|escape}">
+					{if $chatwootCaptainAssistantId}<option value="{$chatwootCaptainAssistantId|escape}" selected>{translate key="plugins.generic.chatwootIntegration.settings.discover.notRunYet"} (ID {$chatwootCaptainAssistantId|escape})</option>{/if}
+				</select>
+				<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.chatwootCaptainAssistantId.description"}</p>
 			{/fbvFormSection}
 			<div class="cwSectionDescription">
 				{translate key="plugins.generic.chatwootIntegration.settings.health.syncCaptainDescription"}

@@ -33,6 +33,23 @@ final class SettingsRegistry
             new SettingDefinition('chatwootWebsiteToken', 'string', tab: 'chatwoot'),
             new SettingDefinition('chatwootIdentityValidationSecret', 'string', secret: true, globalEligible: false, tab: 'chatwoot'),
             new SettingDefinition('chatwootApiAccessToken', 'string', secret: true, globalEligible: false, tab: 'chatwoot'),
+            /**
+             * Chatwoot tab console (owner directive 2026-09-04): a token
+             * can belong to more than one Chatwoot account — HAR-001
+             * requires never silently guessing which one. Persisted only
+             * once explicitly resolved (auto-selected when exactly one
+             * account exists, or chosen by the admin when more than one
+             * does) via discoverChatwootResources(); every later resource
+             * (Inbox, Captain Assistant) is validated against this
+             * explicit account, never re-guessed per call. Global-eligible
+             * (unlike the trust-plane secrets above): the account a
+             * shared/global chatwootApiAccessToken resolves to is a fact
+             * about that token, not journal-specific, so copying it
+             * alongside a shared token is consistent, never a cross-
+             * journal leak — see tests/v2/har-008-global-profile-credential-isolation.php's
+             * "nonGlobalEligible === secret" invariant this must not violate.
+             */
+            new SettingDefinition('chatwootAccountId', 'int', tab: 'chatwoot'),
             new SettingDefinition('chatwootInboxId', 'int', tab: 'chatwoot'),
             new SettingDefinition('chatwootCaptainAssistantId', 'int', tab: 'ai_knowledge'),
             new SettingDefinition('chatwootSupportApiToken', 'string', secret: true, globalEligible: false, tab: 'api_mcp'),
