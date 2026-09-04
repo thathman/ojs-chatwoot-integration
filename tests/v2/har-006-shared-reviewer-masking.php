@@ -58,5 +58,18 @@ namespace {
     har006Check(str_contains($bindMethodBody, '$this->resolveReviewerMasking('), 'bindSupportSessionRequest() must call the shared resolveReviewerMasking() — the exact same decision the widget uses for the same request');
     har006Check(!preg_match('/\$privacy\s*&&\s*in_array\(\s*Role::ROLE_ID_REVIEWER/', $bindMethodBody), 'bindSupportSessionRequest() must no longer compute masking from the journal-wide Reviewer role alone — that is the real inconsistency HAR-006 found');
 
+    /**
+     * Real-browser-discovered defect (2026-09-04, item D): both call
+     * sites used to gate resolveReviewerMasking() behind
+     * "enablePrivacyMode", a togglable admin setting that defaulted to
+     * false — a fresh install (or an admin who never found the
+     * checkbox) exposed real reviewer identity to Chatwoot by default.
+     * Blind-review protection is a mandatory invariant, not an opt-in:
+     * neither call site may condition masking on that setting again.
+     */
+    har006Check(!preg_match('/(?:getEffectiveSetting|getSetting|v2EffectiveSetting)\([^)]*enablePrivacyMode/', $widgetMethodBody), 'addChatwootWidget() must not read the enablePrivacyMode setting — masking is unconditional');
+    har006Check(!preg_match('/(?:getEffectiveSetting|getSetting|v2EffectiveSetting)\([^)]*enablePrivacyMode/', $bindMethodBody), 'bindSupportSessionRequest() must not read the enablePrivacyMode setting — masking is unconditional');
+    har006Check(!isset(\APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry::all()['enablePrivacyMode']), 'enablePrivacyMode must be removed from SettingsRegistry entirely, not merely hidden from the UI');
+
     fwrite(STDOUT, "HAR-006 shared reviewer masking tests passed\n");
 }

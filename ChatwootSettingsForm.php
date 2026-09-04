@@ -25,6 +25,30 @@ class ChatwootSettingsForm extends Form
         return SettingsRegistry::secretKeys();
     }
 
+    /**
+     * Positive audience model (owner directive 2026-09-04): maps each
+     * "who can see the widget" audience key to the legacy negative
+     * setting it inverts. Exactly the same 8 real Role::ROLE_ID_
+     * values (plus guests) SettingsRegistry's hideForRole_ and
+     * hideForGuests keys already cover — see SettingsRegistry's own
+     * note on why no new setting key was added.
+     */
+    private const AUDIENCE_ROLE_KEYS = [
+        'guest' => 'hideForGuests',
+        'author' => 'hideForRole_65536',
+        'reviewer' => 'hideForRole_4096',
+        'reader' => 'hideForRole_1048576',
+        'manager' => 'hideForRole_16',
+        'subEditor' => 'hideForRole_17',
+        'assistant' => 'hideForRole_4097',
+        'siteAdmin' => 'hideForRole_1',
+    ];
+
+    private static function isChecked($rawValue): bool
+    {
+        return in_array($rawValue, [true, 1, '1', 'true'], true);
+    }
+
     public function __construct(private ChatwootIntegrationPlugin $plugin, private int $contextId)
     {
         parent::__construct($plugin->getTemplateResource('settingsForm.tpl'));
@@ -47,6 +71,14 @@ class ChatwootSettingsForm extends Form
             $this->setData($key, in_array($key, $secretKeys, true) ? SecretFieldMasking::displayValue($value) : $value);
         }
 
+        // Positive audience model: derive "allowed to see the widget"
+        // display checkboxes from the existing negative hideFor* values
+        // so a pre-existing install's effective audience renders
+        // correctly the first time this loads, with no migration step.
+        foreach (self::AUDIENCE_ROLE_KEYS as $audienceKey => $hideKey) {
+            $this->setData('audienceAllow_' . $audienceKey, !self::isChecked($plugin->getSetting($contextId, $hideKey)));
+        }
+
         parent::initData();
     }
 
@@ -55,6 +87,7 @@ class ChatwootSettingsForm extends Form
         // UX-024: SettingsRegistry::keys() already includes every
         // hideForRole_* key — see initData()'s note.
         $this->readUserVars(SettingsRegistry::keys());
+        $this->readUserVars(array_map(fn (string $audienceKey): string => 'audienceAllow_' . $audienceKey, array_keys(self::AUDIENCE_ROLE_KEYS)));
         $this->addCheck(new FormValidator($this, 'chatwootBaseUrl', 'required', 'plugins.generic.chatwootIntegration.settings.chatwootBaseUrlRequired'));
         $this->addCheck(new FormValidator($this, 'chatwootWebsiteToken', 'required', 'plugins.generic.chatwootIntegration.settings.chatwootWebsiteTokenRequired'));
     }
@@ -95,6 +128,20 @@ class ChatwootSettingsForm extends Form
             'light' => __('plugins.generic.chatwootIntegration.settings.widgetTheme.light'),
             'dark' => __('plugins.generic.chatwootIntegration.settings.widgetTheme.dark'),
         ]);
+
+        // Positive audience model (owner directive 2026-09-04, item D):
+        // human labels for the live "effective audience" summary — see
+        // AUDIENCE_ROLE_KEYS and settingsForm.tpl's cwUpdateEffectiveAudience().
+        $templateMgr->assign('audienceLabelGuest', __('plugins.generic.chatwootIntegration.settings.audience.guest'));
+        $templateMgr->assign('audienceLabelAuthor', __('plugins.generic.chatwootIntegration.settings.audience.author'));
+        $templateMgr->assign('audienceLabelReviewer', __('plugins.generic.chatwootIntegration.settings.audience.reviewer'));
+        $templateMgr->assign('audienceLabelReader', __('plugins.generic.chatwootIntegration.settings.audience.reader'));
+        $templateMgr->assign('audienceLabelManager', __('plugins.generic.chatwootIntegration.settings.audience.manager'));
+        $templateMgr->assign('audienceLabelSubEditor', __('plugins.generic.chatwootIntegration.settings.audience.subEditor'));
+        $templateMgr->assign('audienceLabelAssistant', __('plugins.generic.chatwootIntegration.settings.audience.assistant'));
+        $templateMgr->assign('audienceLabelSiteAdmin', __('plugins.generic.chatwootIntegration.settings.audience.siteAdmin'));
+        $templateMgr->assign('audienceNoOneLabel', __('plugins.generic.chatwootIntegration.settings.audience.noOne'));
+        $templateMgr->assign('audienceEffectivePrefix', __('plugins.generic.chatwootIntegration.settings.audience.effectivePrefix'));
 
         $templateMgr->assign('eventDeliveryGlobalModeOptions', [
             '' => __('plugins.generic.chatwootIntegration.settings.eventDeliveryGlobalMode.useLegacy'),
@@ -139,6 +186,15 @@ class ChatwootSettingsForm extends Form
             $submitted = (string) $this->getData($key);
             $existing = (string) $plugin->getSetting($contextId, $key);
             $this->setData($key, SecretFieldMasking::resolveSavedValue($submitted, $existing));
+        }
+
+        // Positive audience model: translate the submitted "allowed"
+        // checkboxes back into the underlying negative hideFor* values
+        // the runtime gate in addChatwootWidget() actually reads, so
+        // that gate never has to change.
+        foreach (self::AUDIENCE_ROLE_KEYS as $audienceKey => $hideKey) {
+            $allowed = self::isChecked($this->getData('audienceAllow_' . $audienceKey));
+            $this->setData($hideKey, !$allowed);
         }
 
         // UX-024: SettingsRegistry::keys()/::type() already includes

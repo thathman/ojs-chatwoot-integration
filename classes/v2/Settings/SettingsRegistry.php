@@ -56,7 +56,27 @@ final class SettingsRegistry
             new SettingDefinition('mcpServiceToken', 'string', secret: true, exportable: false, globalEligible: false, tab: 'api_mcp'),
             new SettingDefinition('enableWidget', 'bool', tab: 'widget'),
             new SettingDefinition('enableDebugMode', 'bool', tab: 'advanced'),
-            new SettingDefinition('enablePrivacyMode', 'bool', tab: 'widget'),
+            /**
+             * Positive audience model (owner directive 2026-09-04): the
+             * Widget tab now shows "Who can see the support widget?" with
+             * positive per-role checkboxes instead of these negative
+             * hideFor* ones. No new setting key was added — the settings
+             * form itself (ChatwootSettingsForm::initData()/execute())
+             * inverts these same eight keys on the way in and out, so the
+             * runtime gate in addChatwootWidget() (unchanged, still reads
+             * hideForGuests/hideForRole_*) and the audience-migration
+             * story stay identical: an existing install's effective
+             * audience never changes just because the UI redrew it.
+             *
+             * enablePrivacyMode is REMOVED (not merely hidden): it used
+             * to gate reviewer-identity masking behind an admin checkbox
+             * that defaulted to false, meaning blind-review protection
+             * was OFF by default on a fresh install. Masking is now an
+             * unconditional invariant in resolveReviewerMasking()'s
+             * callers (ChatwootIntegrationBasePlugin::addChatwootWidget(),
+             * ChatwootIntegrationV2Plugin's /bind handler) and can never
+             * be disabled through settings again.
+             */
             new SettingDefinition('hideForGuests', 'bool', tab: 'widget'),
             new SettingDefinition('hideForRole_1', 'bool', tab: 'widget'),
             new SettingDefinition('hideForRole_16', 'bool', tab: 'widget'),
