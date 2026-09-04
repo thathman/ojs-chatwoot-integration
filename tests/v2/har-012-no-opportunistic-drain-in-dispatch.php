@@ -84,5 +84,19 @@ namespace {
     har012Check(count($queueAfterSecond) === 2, 'a second dispatch must enqueue its own job, not merge/replace the first');
     har012Check((int) $queueAfterSecond[0]['attempts'] === 0, 'the first job must remain at zero attempts after a second, unrelated dispatchEvent() call — no more opportunistic self-drain');
 
+    /**
+     * HAR-012/HAR-013: syncEmailTemplates() also opportunistically
+     * drained the shared apiQueue (processApiQueue($contextId, 8))
+     * before running its own sync — but that queue mixes job types
+     * (canned_response_sync from this action, conversation_event from
+     * Send Test Message), so clicking "Sync Email Templates" could as
+     * a side effect redeliver an unrelated queued Test Message. Proves
+     * that call is gone; this action only ever enqueues its own jobs.
+     */
+    $syncStart = strpos($source, 'function syncEmailTemplates(');
+    har012Check($syncStart !== false, 'syncEmailTemplates() must exist');
+    $syncBody = substr($source, $syncStart, (int) strpos($source, "\n    }\n", $syncStart) - $syncStart);
+    har012Check(!str_contains($syncBody, 'processApiQueue('), 'syncEmailTemplates() must no longer opportunistically drain the shared apiQueue — it mixes unrelated job types, so this was a real "drain an unrelated queue as a side effect" bug');
+
     fwrite(STDOUT, "HAR-012 no-opportunistic-drain-in-dispatch tests passed\n");
 }

@@ -56,10 +56,10 @@ evt018Check(
     'registerSchedules() must actually register the new scheduled task with the real OJS scheduler, not just define the class'
 );
 
-// Real event-occurrence-triggered and explicit-admin-action drains remain
-// legitimate (bounded by real activity, not by arbitrary page views) and
-// are deliberately untouched by this fix.
-evt018Check(str_contains($v1Source, 'private function dispatchEvent(int $contextId, array $payload, bool $forceQueue = false): bool {'), 'dispatchEvent() must still exist unchanged — its own opportunistic drain on a genuine new event is not the EVT-018 defect');
-evt018Check(str_contains($v1Source, 'public function syncEmailTemplates($request)'), 'syncEmailTemplates() must still exist unchanged — its own opportunistic drain on an explicit admin action is not the EVT-018 defect');
+// dispatchEvent()/syncEmailTemplates() themselves are untouched by this
+// EVT-018 fix (their own opportunistic drains — since retired entirely
+// by HAR-012 — were never the widget-render defect this test covers).
+evt018Check(str_contains($v1Source, 'private function dispatchEvent(int $contextId, array $payload, bool $forceQueue = false): bool {'), 'dispatchEvent() must still exist unchanged by this fix');
+evt018Check(str_contains($v1Source, 'public function syncEmailTemplates($request)'), 'syncEmailTemplates() must still exist unchanged by this fix');
 
 fwrite(STDOUT, "PASS: evt-018-no-network-in-render\n");

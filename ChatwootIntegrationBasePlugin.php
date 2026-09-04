@@ -212,7 +212,14 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $token = (string) $this->getEffectiveSetting($contextId, 'chatwootApiAccessToken', '');
         if ($baseUrl === '' || $token === '') return new JSONMessage(false, __('plugins.generic.chatwootIntegration.error.missingSettings'));
 
-        $this->processApiQueue($contextId, 8);
+        // HAR-012/HAR-013: this used to also opportunistically drain the
+        // shared legacy queue before running its own sync — but that
+        // queue mixes job types (canned_response_sync from this action,
+        // and conversation_event from Send Test Message), so a Sync
+        // Email Templates click could as a side effect redeliver an
+        // unrelated queued Test Message. ProcessLegacyRetryQueueScheduledTask
+        // is now the sole drain path; this action only ever enqueues its
+        // own jobs, never drains someone else's.
         $api = new ChatwootApiService($baseUrl, $token);
         $templates = Repo::emailTemplate()->getCollector($contextId)->getMany();
         $count = 0; $queued = 0; $denied = 0;
