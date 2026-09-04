@@ -745,16 +745,20 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         $chatLocale = substr(Locale::getLocale(), 0, 2);
         $attrs = ['journal_id' => $contextId, 'journal_name' => $context->getLocalizedName(), 'requested_page' => $requestedPage, 'requested_op' => $requestedOp];
         $identifier = ''; $userHash = ''; $email = ''; $name = '';
-        $privacy = $this->toBool($this->getEffectiveSetting($contextId, 'enablePrivacyMode', false)) === true;
 
         if ($user) {
-            // HAR-006: shared resource-aware masking — see
-            // resolveReviewerMasking()'s own docblock. Never masks
-            // someone who isn't a reviewer anywhere in the journal;
-            // fails closed (stays masked) whenever no specific
-            // submission relationship evidence is available.
+            // Blind-review protection is a mandatory security invariant,
+            // not an admin-configurable option (owner directive 2026-09-04):
+            // it used to be gated behind a togglable 'enablePrivacyMode'
+            // setting that defaulted to false, meaning a fresh install (or
+            // an admin unaware of the checkbox) exposed real reviewer
+            // identity to Chatwoot by default. resolveReviewerMasking()'s
+            // own decision — see its docblock — is now unconditional: never
+            // masks someone who isn't a reviewer anywhere in the journal;
+            // fails closed (stays masked) whenever no specific submission
+            // relationship evidence is available.
             $supportContext = new SupportContext($contextId, (string) $context->getPath(), (int) $user->getId(), $roleIds, $requestedPage, $requestedOp, (string) Locale::getLocale());
-            $shouldMask = $privacy && $this->resolveReviewerMasking($request, $supportContext, $isReviewer);
+            $shouldMask = $this->resolveReviewerMasking($request, $supportContext, $isReviewer);
             if ($shouldMask) {
                 $identifier = 'reviewer_' . hash('sha256', $user->getId() . $contextId);
                 $name = 'Reviewer (Masked)';

@@ -113,6 +113,19 @@
 		color: #1f2937;
 		border: 1px solid #e5e7eb;
 	}
+	.pkpc-chatwootIntegrationSettings .cwSecurityInvariant {
+		background: #f0fdf4;
+		border: 1px solid #bbf7d0;
+		border-radius: 4px;
+		padding: 0.75rem 1rem;
+		margin-bottom: 1rem;
+	}
+	.pkpc-chatwootIntegrationSettings .cwSecurityInvariant strong {
+		color: #166534;
+	}
+	.pkpc-chatwootIntegrationSettings .cwSecurityInvariant p {
+		margin: 0.25rem 0 0;
+	}
 </style>
 <script>
 	$(function() {ldelim}
@@ -336,6 +349,29 @@
 		{rdelim});
 		cwUpdateWidgetFieldVisibility();
 		cwUpdateWidgetPreview();
+
+		// Positive audience model: live "effective audience" summary —
+		// owner directive 2026-09-04 item D ("show the effective audience").
+		var cwAudienceLabels = {ldelim}
+			guest: {$audienceLabelGuest|json_encode_html_attribute},
+			author: {$audienceLabelAuthor|json_encode_html_attribute},
+			reviewer: {$audienceLabelReviewer|json_encode_html_attribute},
+			reader: {$audienceLabelReader|json_encode_html_attribute},
+			manager: {$audienceLabelManager|json_encode_html_attribute},
+			subEditor: {$audienceLabelSubEditor|json_encode_html_attribute},
+			assistant: {$audienceLabelAssistant|json_encode_html_attribute},
+			siteAdmin: {$audienceLabelSiteAdmin|json_encode_html_attribute}
+		{rdelim};
+		function cwUpdateEffectiveAudience() {ldelim}
+			var allowed = [];
+			$.each(cwAudienceLabels, function(key, label) {ldelim}
+				if ($('#audienceAllow_' + key).is(':checked')) allowed.push(label);
+			{rdelim});
+			var summary = allowed.length ? allowed.join(', ') : {$audienceNoOneLabel|json_encode_html_attribute};
+			$('#cwEffectiveAudience').text({$audienceEffectivePrefix|json_encode_html_attribute} + summary);
+		{rdelim}
+		$('[id^="audienceAllow_"]').on('change', cwUpdateEffectiveAudience);
+		cwUpdateEffectiveAudience();
 	{rdelim});
 </script>
 
@@ -440,17 +476,38 @@
 		{* Widget: visibility/appearance — SettingsRegistry tab "widget".   *}
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-widget" aria-labelledby="cwTab-widget" hidden>
-			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.visibility"}
+			{fbvFormSection}
 				{fbvElement type="checkbox" id="enableWidget" value="1" checked=$enableWidget label="plugins.generic.chatwootIntegration.settings.enableWidget"}
-				{fbvElement type="checkbox" id="enablePrivacyMode" value="1" checked=$enablePrivacyMode label="plugins.generic.chatwootIntegration.settings.enablePrivacyMode"}
-				{fbvElement type="checkbox" id="hideForGuests" value="1" checked=$hideForGuests label="plugins.generic.chatwootIntegration.settings.hideForGuests"}
-				{fbvElement type="checkbox" id="hideForRole_1" value="1" checked=$hideForRole_1 label="plugins.generic.chatwootIntegration.settings.hideForRole_SiteAdmin"}
-				{fbvElement type="checkbox" id="hideForRole_16" value="1" checked=$hideForRole_16 label="plugins.generic.chatwootIntegration.settings.hideForRole_Manager"}
-				{fbvElement type="checkbox" id="hideForRole_17" value="1" checked=$hideForRole_17 label="plugins.generic.chatwootIntegration.settings.hideForRole_SubEditor"}
-				{fbvElement type="checkbox" id="hideForRole_4097" value="1" checked=$hideForRole_4097 label="plugins.generic.chatwootIntegration.settings.hideForRole_Assistant"}
-				{fbvElement type="checkbox" id="hideForRole_65536" value="1" checked=$hideForRole_65536 label="plugins.generic.chatwootIntegration.settings.hideForRole_Author"}
-				{fbvElement type="checkbox" id="hideForRole_4096" value="1" checked=$hideForRole_4096 label="plugins.generic.chatwootIntegration.settings.hideForRole_Reviewer"}
-				{fbvElement type="checkbox" id="hideForRole_1048576" value="1" checked=$hideForRole_1048576 label="plugins.generic.chatwootIntegration.settings.hideForRole_Reader"}
+			{/fbvFormSection}
+
+			{* ============================================================ *}
+			{* Blind-review protection: a frozen security invariant, never  *}
+			{* an optional checkbox (owner directive 2026-09-04). Reviewer  *}
+			{* identity masking is unconditional in resolveReviewerMasking()'s*}
+			{* callers — this is status text, not a control.                *}
+			{* ============================================================ *}
+			<div class="cwSecurityInvariant">
+				<strong>{translate key="plugins.generic.chatwootIntegration.settings.blindReview.title"}</strong>
+				<p>{translate key="plugins.generic.chatwootIntegration.settings.blindReview.description"}</p>
+			</div>
+
+			{* ============================================================ *}
+			{* Positive audience model: "who can see the widget?" replaces  *}
+			{* the old negative Hide-for-X checkboxes. Each audienceAllow_* *}
+			{* field is inverted to/from the legacy hideFor* settings by    *}
+			{* ChatwootSettingsForm — see its own note.                     *}
+			{* ============================================================ *}
+			{fbvFormSection list=true title="plugins.generic.chatwootIntegration.settings.audience"}
+				<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.audience.description"}</p>
+				{fbvElement type="checkbox" id="audienceAllow_guest" value="1" checked=$audienceAllow_guest label="plugins.generic.chatwootIntegration.settings.audience.guest"}
+				{fbvElement type="checkbox" id="audienceAllow_author" value="1" checked=$audienceAllow_author label="plugins.generic.chatwootIntegration.settings.audience.author"}
+				{fbvElement type="checkbox" id="audienceAllow_reviewer" value="1" checked=$audienceAllow_reviewer label="plugins.generic.chatwootIntegration.settings.audience.reviewer"}
+				{fbvElement type="checkbox" id="audienceAllow_reader" value="1" checked=$audienceAllow_reader label="plugins.generic.chatwootIntegration.settings.audience.reader"}
+				{fbvElement type="checkbox" id="audienceAllow_manager" value="1" checked=$audienceAllow_manager label="plugins.generic.chatwootIntegration.settings.audience.manager"}
+				{fbvElement type="checkbox" id="audienceAllow_subEditor" value="1" checked=$audienceAllow_subEditor label="plugins.generic.chatwootIntegration.settings.audience.subEditor"}
+				{fbvElement type="checkbox" id="audienceAllow_assistant" value="1" checked=$audienceAllow_assistant label="plugins.generic.chatwootIntegration.settings.audience.assistant"}
+				{fbvElement type="checkbox" id="audienceAllow_siteAdmin" value="1" checked=$audienceAllow_siteAdmin label="plugins.generic.chatwootIntegration.settings.audience.siteAdmin"}
+				<p id="cwEffectiveAudience" class="description"></p>
 			{/fbvFormSection}
 
 			{* ============================================================ *}

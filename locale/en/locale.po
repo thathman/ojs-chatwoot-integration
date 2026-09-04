@@ -322,8 +322,47 @@ msgstr "Enable Chat Widget"
 msgid "plugins.generic.chatwootIntegration.settings.enableDebugMode"
 msgstr "Enable Debug Mode"
 
-msgid "plugins.generic.chatwootIntegration.settings.enablePrivacyMode"
-msgstr "Enable Privacy Mode (Blind Review Protection)"
+msgid "plugins.generic.chatwootIntegration.settings.blindReview.title"
+msgstr "Blind-review protection: Always enforced"
+
+msgid "plugins.generic.chatwootIntegration.settings.blindReview.description"
+msgstr "Reviewer identity is automatically masked in Chatwoot based on the user's live relationship to the current submission. This cannot be disabled — it is not an optional privacy setting."
+
+msgid "plugins.generic.chatwootIntegration.settings.audience"
+msgstr "Who can see the support widget?"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.description"
+msgstr "Choose which visitors see the support widget. Blind-review protection above applies automatically regardless of these choices."
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.guest"
+msgstr "Visitors / Guests (not logged in)"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.author"
+msgstr "Authors"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.reviewer"
+msgstr "Reviewers"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.reader"
+msgstr "Readers"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.manager"
+msgstr "Journal Managers"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.subEditor"
+msgstr "Section Editors"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.assistant"
+msgstr "Editorial Assistants"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.siteAdmin"
+msgstr "Site Administrators"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.noOne"
+msgstr "no one"
+
+msgid "plugins.generic.chatwootIntegration.settings.audience.effectivePrefix"
+msgstr "Currently visible to: "
 
 msgid "plugins.generic.chatwootIntegration.settings.chatwootBaseUrlRequired"
 msgstr "Chatwoot Base URL is required."

@@ -81,13 +81,31 @@ namespace {
     }
     settingsFormTabsCheck(count($panels) === count($expectedTabs), 'must have parsed exactly one panel body per rendered tab');
 
+    // Positive audience model (owner directive 2026-09-04, item D): these
+    // 8 negative keys are no longer rendered directly — ChatwootSettingsForm
+    // inverts each to/from its own audienceAllow_* checkbox (see its
+    // AUDIENCE_ROLE_KEYS), which the template renders instead. Still real
+    // SettingsRegistry keys (export/import/global-profile round-tripping
+    // must keep working), just represented by a positive proxy field.
+    $audienceProxyIds = [
+        'hideForGuests' => 'audienceAllow_guest',
+        'hideForRole_65536' => 'audienceAllow_author',
+        'hideForRole_4096' => 'audienceAllow_reviewer',
+        'hideForRole_1048576' => 'audienceAllow_reader',
+        'hideForRole_16' => 'audienceAllow_manager',
+        'hideForRole_17' => 'audienceAllow_subEditor',
+        'hideForRole_4097' => 'audienceAllow_assistant',
+        'hideForRole_1' => 'audienceAllow_siteAdmin',
+    ];
+
     foreach (SettingsRegistry::all() as $key => $definition) {
         $expectedPanelId = $panelMap[$definition->tab] ?? null;
         settingsFormTabsCheck($expectedPanelId !== null, "SettingsRegistry declares an unmapped tab '{$definition->tab}' for '{$key}' — this test's panelMap must cover every real registry tab");
         settingsFormTabsCheck(isset($panels[$expectedPanelId]), "expected panel '{$expectedPanelId}' was not found in the template");
+        $renderedId = $audienceProxyIds[$key] ?? $key;
         settingsFormTabsCheck(
-            str_contains($panels[$expectedPanelId] ?? '', "id=\"{$key}\""),
-            "SettingsRegistry places '{$key}' on tab '{$definition->tab}', but the template does not render it inside {$expectedPanelId} — drift"
+            str_contains($panels[$expectedPanelId] ?? '', "id=\"{$renderedId}\""),
+            "SettingsRegistry places '{$key}' on tab '{$definition->tab}', but the template does not render '{$renderedId}' inside {$expectedPanelId} — drift"
         );
     }
 
