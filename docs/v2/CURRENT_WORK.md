@@ -24,34 +24,27 @@ Do **not** return to unrelated HAR work, Knowledge expansion, Staff Plane, Provi
 
 Only interrupt this sequence for a genuinely inseparable production-safety defect. Fix it, document it, and resume the console immediately.
 
-### Current state at this redirect
+### Current state at this redirect (updated 2026-09-04, post theme-root-cause fix)
 
-- B — Chatwoot tab: **partial**. Human account/Inbox/Captain discovery shipped, but Website Token ↔ Inbox consistency, resource-ownership completion, Chatwoot-owned vs OJS-owned status presentation, and `Open in Chatwoot` remain.
+- **Theme override root cause found and fixed.** The effective legacy page in the owner's screenshot was `/home/hendrix/ojs-fresh/plugins-src/ajdsiProduction/templates/plugins/generic/chatwootIntegration/templates/settingsForm.tpl` — a stale 223-line pre-console copy of this exact template shadowing the real 619-line console template via OJS/PKP's standard theme-template-override lookup. Not version-controlled (no `.git` in that theme directory — a plain filesystem override, confirmed via a `.bak` file already present there from an earlier manual edit). Moved aside (renamed `.stale-2026-09-04.bak`, not deleted) on dell; verified `ajdsiproduction` is the real active theme for context 1 via a live CLI-harness check. Smarty compile/opcode caches cleared and Apache reloaded. **The real console now renders live** — confirmed via a real logged-in browser session opening the Chatwoot Integration settings modal.
+- B — Chatwoot tab: **partial, core discovery live-verified**. Test Connection & Discover, single-account auto-resolution ("Connected. Account: Airix Media"), and the Website Inbox selector by human name ("OJS Demo (AJDSI)") all confirmed working in the real browser against the real Chatwoot account. Website Token ↔ Inbox consistency check, resource-ownership completion, Chatwoot-owned vs OJS-owned status presentation, and `Open in Chatwoot` remain.
 - C — Widget Appearance: **implementation shipped**. Structured controls + local preview shipped; real frontend-vs-preview browser acceptance remains under K.
-- D — Audience/privacy: **next**. Positive audience model + blind-review always-on framing + real HAR-006 Author-A/Reviewer-B acceptance.
+- D — Audience/privacy: **shipped and live-verified**. See "Item D" section below.
 - E through J: **must be completed next, in order**.
-- K — real browser acceptance: **mandatory and currently FAIL** based on the owner's screenshot.
+- K — real browser acceptance: the original screenshot's specific defects (legacy single-scroll layout, raw `##plugins...##` keys in the Overview health block) are now fixed and live-verified fixed; the console itself now renders. Full K checklist still open (see `docs/v2/SETTINGS_CONSOLE_COMPLETION_DIRECTIVE.md`).
 
-### Screenshot FAIL evidence
+### Item D — Audience/privacy (shipped, PR #257/#258/#259 — live-verified 2026-09-04)
 
-The owner's screenshot visibly shows the effective page still contains:
+- **Real security fix, found while building item D**: `enablePrivacyMode` used to gate reviewer-identity masking in both `addChatwootWidget()` and the `/bind` handshake behind an admin checkbox defaulting to `false` — a fresh install (or an admin who never found the checkbox) exposed real reviewer identity to Chatwoot by default. Masking is now unconditional in both call sites; the setting is removed from `SettingsRegistry` entirely (PR #257).
+- Positive audience model: the Widget tab's negative `Hide for X` checkboxes replaced with "Who can see the support widget?" (8 positive role checkboxes) + a live "Currently visible to: ..." effective-audience summary. `ChatwootSettingsForm` inverts to/from the existing `hideForRole_*`/`hideForGuests` settings on load/save — no new setting key, no change to the runtime gate, no existing install's effective audience changes.
+- "Blind-review protection: Always enforced" now shown as a frozen status banner, never an optional checkbox.
+- **Two real regressions found and fixed live, both from this same change**, each its own PR: (1) PR #258 — `resolveReviewerMasking()` becoming unconditional exposed a pre-existing crash in `CurrentSubmissionResolver::resolve()`, which called `$request->getRequestedPage()` unconditionally; that method exists on `Request` but delegates to the router, and `PKPComponentRouter` (any AJAX/grid render) has no such method — crashed the plugin management grid for any reviewer-role user. (2) PR #259 — splitting the old combined `fbvFormSection` dropped `list=true` from the section still wrapping `enableWidget` alone, causing PKP's FormBuilderVocabulary to throw an uncaught fatal (silent HTTP 500, empty body, **no application log line at all** — had to temporarily enable `log_errors` via a reversible `.htaccess` override to capture the real stack trace) the moment the settings modal was opened.
+- Live-verified end-to-end: opened the real settings modal as a real logged-in admin/reviewer user on dell, confirmed the Widget tab renders the always-on banner + all 8 positive checkboxes + effective-audience summary, and confirmed the summary updates live when a checkbox is toggled (reviewer unchecked → summary correctly dropped "Reviewers").
+- HAR-006 real Author-A/Reviewer-B Dell fixture acceptance is still open — see PROACTIVE_HARDENING_AUDIT.md's HAR-006 entry.
 
-- legacy single-scroll layout;
-- untranslated `##plugins...##` keys;
-- raw/manual Chatwoot numeric IDs;
-- negative `Hide for ...` controls;
-- optional `Enable Privacy Mode (Blind Review Protection)`;
-- legacy retry controls;
-- raw per-event JSON;
-- raw Widget Settings JSON;
-- CSP/lazy-load/route internals in the main workflow;
-- old import/export/global-profile presentation.
+### Evidence discipline reminder (reinforced this session)
 
-This is real-browser **FAIL** evidence. HTTP 200 or “deployed healthy” does not override it.
-
-### Theme override rule
-
-A stale AJDSI theme override may explain the screenshot, but it is **not an acceptable stopping condition**. Trace the effective render path and resolve the owner-visible page in the correct owning repository/configuration using normal protected-branch workflow. The acceptance target is the **effective rendered OJS page**, not only this repository's `templates/settingsForm.tpl`.
+A silent HTTP 500 with an empty body and zero log output is real production-safety FAIL evidence, even when nothing appears in `docker logs`. When a real-browser action fails with no visible cause, check the actual HTTP response status/body via the browser's own network tools before concluding "it must be fine" — and if logs are silent, a temporary, reversible `log_errors`/`error_log` override (removed immediately after capture) is a legitimate way to get a real stack trace rather than guessing.
 
 ## Owner goal
 

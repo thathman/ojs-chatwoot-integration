@@ -64,13 +64,15 @@ Current `requestJson()` collapses Guzzle failures to a message string and many c
 
 ## Identity, privacy and cross-journal safety
 
-### HAR-006 — PARTIALLY FIXED (PR #215; multi-role Dell acceptance still open) — resource-aware reviewer masking must be consistent across widget and bind
+### HAR-006 — PARTIALLY FIXED (PRs #215, #257; multi-role Dell acceptance still open) — resource-aware reviewer masking must be consistent across widget and bind
 
 The widget path used `ReviewerMaskingPolicy`, but `bindSupportSessionRequest()` still computed the expected Chatwoot identifier from `enablePrivacyMode && has Reviewer journal role`. This reintroduced the old role-wide logic in a second security-sensitive path and could make widget identity projection and binding disagree for multi-role users.
 
-Fixed: both call sites now go through one new shared method, `ChatwootIntegrationBasePlugin::resolveReviewerMasking()` — the widget's own previous inline `ReviewerMaskingPolicy` construction was removed and replaced with a call to it, and bind's `enablePrivacyMode && in_array(Role::ROLE_ID_REVIEWER, ...)` check was replaced with the same call, reusing its own already-resolved `SupportContext` so it can never disagree with what the widget rendered for the same page. `tests/v2/har-006-shared-reviewer-masking.php` proves both real call sites use the shared method and the old role-wide check in bind is gone. Live-verified on dell: the branch was checked out directly, real frontend widget-path requests returned 200 with no new errors, and the shared method was confirmed present in the deployed source.
+Fixed (PR #215): both call sites now go through one new shared method, `ChatwootIntegrationBasePlugin::resolveReviewerMasking()` — the widget's own previous inline `ReviewerMaskingPolicy` construction was removed and replaced with a call to it, and bind's `enablePrivacyMode && in_array(Role::ROLE_ID_REVIEWER, ...)` check was replaced with the same call, reusing its own already-resolved `SupportContext` so it can never disagree with what the widget rendered for the same page. `tests/v2/har-006-shared-reviewer-masking.php` proves both real call sites use the shared method and the old role-wide check in bind is gone. Live-verified on dell: the branch was checked out directly, real frontend widget-path requests returned 200 with no new errors, and the shared method was confirmed present in the deployed source.
 
-**Implementation: fixed.** **Acceptance: still open.** The pure decision logic is proven (`tests/v2/pol-011-resource-aware-reviewer-masking.php`) and the two call sites are provably consistent with each other at the source level, but the discriminating real-user acceptance has not been run:
+**A real, separate security defect was found and fixed while building the Settings Console's Audience/privacy UX (2026-09-04, PR #257):** both call sites still gated the shared `resolveReviewerMasking()` decision behind `$privacy = enablePrivacyMode` (default `false`). This meant a fresh install — or any admin who never found the checkbox — had blind-review protection **OFF by default**, exposing real reviewer identity to Chatwoot in both the widget and `/bind`. Fixed: masking is now unconditional in both call sites; `enablePrivacyMode` is removed from `SettingsRegistry` entirely, not merely hidden from the UI. This also resolved the "blind-review protection must not depend on a generic Privacy Mode toggle" product decision noted below as still open — it is now closed. Fixing this unconditional call also exposed and required fixing two further real live-browser crashes (both fixed same day, see `docs/v2/CURRENT_WORK.md`'s "Item D" section): `CurrentSubmissionResolver::resolve()` calling `$request->getRequestedPage()` unconditionally (fataled under any component-routed/AJAX request — PR #258), and a missing `list=true` on the Widget tab's `enableWidget` form section (PR #259).
+
+**Implementation: fixed, including the always-on invariant.** **Acceptance: still open.** The pure decision logic is proven (`tests/v2/pol-011-resource-aware-reviewer-masking.php`), the two call sites are provably consistent with each other at the source level, and the "always enforced, not a toggle" UI/runtime invariant is live-verified in a real browser session on dell (Widget tab shows the frozen "Blind-review protection: Always enforced" status). What remains is the discriminating real-user acceptance walkthrough — not yet run:
 
 ```
 One real user — author on Submission A, reviewer assigned to Submission B.
@@ -78,8 +80,6 @@ On Submission A: widget projects normal author identity; /bind expects the same 
 On Submission B (legitimate reviewer context): widget projects masked reviewer identity; /bind expects the exact same masked identity.
 No reviewer identity leakage. No journal-role-wide overmasking.
 ```
-
-Also still open: the separate "blind-review protection must not depend on a generic Privacy Mode toggle" product decision — see HAR-018's `enablePrivacyMode` note.
 
 ### HAR-007 — FIXED (PR #213) — ambiguous widget context must fail closed, not pick the first enabled journal
 
@@ -191,7 +191,7 @@ Not yet done: `chatwootConfigured`'s own "configuration fact vs proof of live he
 
 Confirmed/suspect examples to close during Settings Console work:
 - ~~`skipBackendPages` is saved/exposed but the inspected widget injection path does not check it; prove/wire or remove it.~~ **Fixed (PR #211).** Confirmed it was a genuine placebo — saved by the form, never read anywhere, and its companion `isBackendPage()` helper existed but was never called either. `addChatwootWidget()` now consults it via `getEffectiveSetting()` and calls `isBackendPage($requestedPage)` (the already-safely-resolved page string, not `$request` directly — avoids reintroducing TST-020's `PKPComponentRouter` crash), gated behind the same `$isPageRequest` guard `excludedPages` already uses. `tests/v2/har-018-skip-backend-pages.php` covers the real classification behavior and the wiring. Live-deployed to dell; the public frontend widget still injects normally (confirmed via a real page fetch), and backend pages are outside this session's live-browser reach (blocked by the same AJDSI theme constraint noted elsewhere) so the negative case (widget suppressed on a real `workflow`/`management` page) is structural/source-verified only, not yet browser-confirmed.
-- `enablePrivacyMode` is not a truthful label for general privacy and must not make blind-review safety optional.
+- ~~`enablePrivacyMode` is not a truthful label for general privacy and must not make blind-review safety optional.~~ **Fixed (PR #257) — see HAR-006's own entry.** Removed entirely; masking is now unconditional in both the widget and `/bind` call sites, and the Widget tab shows a frozen "Blind-review protection: Always enforced" status instead.
 - Base URL + Website Token validation is unconditional despite the product now having non-widget modules.
 - `widgetSettingsJson` and per-event JSON are implementation details, not normal UX.
 - legacy retry/event controls remain visible after v2 ownership transfer.
