@@ -586,6 +586,7 @@
 		<button type="button" role="tab" id="cwTab-verification" aria-controls="cwPanel-verification" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.verification"}</button>
 		<button type="button" role="tab" id="cwTab-aiKnowledge" aria-controls="cwPanel-aiKnowledge" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.aiKnowledge"}</button>
 		<button type="button" role="tab" id="cwTab-apiMcp" aria-controls="cwPanel-apiMcp" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.apiMcp"}</button>
+		<button type="button" role="tab" id="cwTab-integrations" aria-controls="cwPanel-integrations" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.integrations"}</button>
 		<button type="button" role="tab" id="cwTab-advanced" aria-controls="cwPanel-advanced" aria-selected="false" tabindex="-1">{translate key="plugins.generic.chatwootIntegration.settings.tab.advanced"}</button>
 	</div>
 
@@ -953,6 +954,45 @@
 					<li><strong>{$tool.name|escape}</strong> — {$tool.description|escape}</li>
 				{/foreach}
 			</ul>
+		</div>
+
+		{* ================================================================ *}
+		{* Integrations — Settings Console item I. Real installed/enabled  *}
+		{* state for real, verified sibling plugins only (IntegrationCatalog)*}
+		{* — no setting keys of its own, status + link-out only.           *}
+		{* ================================================================ *}
+		<div role="tabpanel" id="cwPanel-integrations" aria-labelledby="cwTab-integrations" hidden>
+			<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.integrations.description"}</p>
+			<table class="cwEventMatrix">
+				<thead>
+					<tr>
+						<th>{translate key="plugins.generic.chatwootIntegration.settings.integrations.name"}</th>
+						<th>{translate key="plugins.generic.chatwootIntegration.settings.integrations.status"}</th>
+						<th>{translate key="plugins.generic.chatwootIntegration.settings.integrations.version"}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{foreach from=$integrationEntries item=entry}
+						<tr>
+							<td>{$entry.label|escape}</td>
+							<td>
+								{if !$entry.installed}
+									<span class="cwOverviewCardState">{translate key="plugins.generic.chatwootIntegration.settings.overview.state.notConfigured"}</span>
+								{elseif $entry.enabled}
+									<span class="cwOverviewCardState">{translate key="plugins.generic.chatwootIntegration.settings.integrations.enabled"}</span>
+								{else}
+									<span class="cwOverviewCardState">{translate key="plugins.generic.chatwootIntegration.settings.integrations.installedNotEnabled"}</span>
+								{/if}
+							</td>
+							<td>{if $entry.versionString}{$entry.versionString|escape}{else}&mdash;{/if}</td>
+						</tr>
+					{/foreach}
+				</tbody>
+			</table>
+			<p class="cwSectionDescription">
+				{translate key="plugins.generic.chatwootIntegration.settings.integrations.openPlugins.description"}
+				<a href="{$pluginsPageUrl|escape}" target="_blank" rel="noopener">{translate key="plugins.generic.chatwootIntegration.settings.integrations.openPlugins"}</a>
+			</p>
 		</div>
 
 		{* ================================================================ *}

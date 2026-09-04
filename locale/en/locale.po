@@ -97,6 +97,33 @@ msgstr "New credential generated — copy it now, it will not be shown again: "
 msgid "plugins.generic.chatwootIntegration.settings.apiMcp.capabilities"
 msgstr "Available tools ({$mcpToolCount})"
 
+msgid "plugins.generic.chatwootIntegration.settings.tab.integrations"
+msgstr "Integrations"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.description"
+msgstr "Real installed Airix/OJS sibling plugins this journal can use alongside the support gateway. Their own configuration and credentials live in their own settings — never duplicated here."
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.name"
+msgstr "Integration"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.status"
+msgstr "Status"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.version"
+msgstr "Version"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.enabled"
+msgstr "Enabled"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.installedNotEnabled"
+msgstr "Installed, not enabled"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.openPlugins"
+msgstr "Open Plugins settings"
+
+msgid "plugins.generic.chatwootIntegration.settings.integrations.openPlugins.description"
+msgstr "Enable, configure, or update any of these through the journal's own Plugins page: "
+
 msgid "plugins.generic.chatwootIntegration.settings.tab.advanced"
 msgstr "Advanced"
 

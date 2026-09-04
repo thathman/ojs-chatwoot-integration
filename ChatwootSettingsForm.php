@@ -7,6 +7,7 @@ use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettin
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Health\OverviewCardStates;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Mcp\Tool\McpToolCatalog;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Provider\IntegrationCatalog;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateKeys;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Verification\VerificationEmailTemplateService;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
@@ -248,6 +249,15 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('mcpToolCount', McpToolCatalog::count());
         $templateMgr->assign('apiMcpGeneratedLabel', __('plugins.generic.chatwootIntegration.settings.apiMcp.generatedLabel'));
         $templateMgr->assign('apiMcpRotateLabel', __('plugins.generic.chatwootIntegration.settings.apiMcp.rotate'));
+
+        // Integrations tab (owner directive 2026-09-04, item I): real
+        // installed/enabled state for real, verified sibling Airix/OJS
+        // plugins only — see IntegrationCatalog's own note on why this
+        // list is fixed and narrow, never speculative.
+        $templateMgr->assign('integrationEntries', IntegrationCatalog::resolve($context ? (int) $context->getId() : 0));
+        $templateMgr->assign('pluginsPageUrl', $context
+            ? $request->getDispatcher()->url($request, \PKP\core\PKPApplication::ROUTE_PAGE, $context->getPath(), 'management', 'settings', ['website'], ['anchor' => 'plugins'])
+            : '');
 
         // Verification tab (owner directive 2026-09-04, item G / HAR-014
         // remainder): real EmailTemplate customization state — never
