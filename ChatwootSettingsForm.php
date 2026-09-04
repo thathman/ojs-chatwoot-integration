@@ -5,6 +5,7 @@ namespace APP\plugins\generic\chatwootIntegration;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliveryMode;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\EventDeliverySettingsResolver;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Event\SupportEventType;
+use APP\plugins\generic\chatwootIntegration\classes\v2\Health\OverviewCardStates;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SecretFieldMasking;
 use APP\plugins\generic\chatwootIntegration\classes\v2\Settings\SettingsRegistry;
 use APP\template\TemplateManager;
@@ -233,7 +234,29 @@ class ChatwootSettingsForm extends Form
         $templateMgr->assign('mcpProtocolRevision', '2026-07-28');
 
         $healthSummary = method_exists($this->plugin, 'supportGatewayHealthSummary') ? $this->plugin->supportGatewayHealthSummary($request) : null;
-        $templateMgr->assign('supportGatewayHealth', $healthSummary?->toArray());
+        $healthArray = $healthSummary?->toArray();
+        $templateMgr->assign('supportGatewayHealth', $healthArray);
+
+        // Overview dashboard (owner directive 2026-09-04, item F): real
+        // per-module states, never conflating configured with healthy or
+        // optional/off with degraded — see OverviewCardStates's own note.
+        $overviewCards = $healthArray !== null
+            ? OverviewCardStates::build($healthArray, trim((string) $this->getData('chatwootIdentityValidationSecret')) !== '')
+            : [];
+        $templateMgr->assign('overviewCards', array_map(
+            fn (array $card): array => $card + ['label' => __('plugins.generic.chatwootIntegration.settings.overview.card.' . $card['key'])],
+            $overviewCards
+        ));
+        $templateMgr->assign('overviewStateLabels', [
+            OverviewCardStates::HEALTHY => __('plugins.generic.chatwootIntegration.settings.overview.state.healthy'),
+            OverviewCardStates::CONFIGURED => __('plugins.generic.chatwootIntegration.settings.overview.state.configured'),
+            OverviewCardStates::OPTIONAL_OFF => __('plugins.generic.chatwootIntegration.settings.overview.state.optionalOff'),
+            OverviewCardStates::NOT_CONFIGURED => __('plugins.generic.chatwootIntegration.settings.overview.state.notConfigured'),
+            OverviewCardStates::NEVER_CHECKED => __('plugins.generic.chatwootIntegration.settings.overview.state.neverChecked'),
+            OverviewCardStates::DEGRADED => __('plugins.generic.chatwootIntegration.settings.overview.state.degraded'),
+            OverviewCardStates::FAILED => __('plugins.generic.chatwootIntegration.settings.overview.state.failed'),
+            OverviewCardStates::ACTION_REQUIRED => __('plugins.generic.chatwootIntegration.settings.overview.state.actionRequired'),
+        ]);
 
         return parent::fetch($request, $template, $display);
     }

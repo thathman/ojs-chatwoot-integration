@@ -141,6 +141,35 @@
 	.pkpc-chatwootIntegrationSettings .cwEventMatrix th {
 		background: #f9fafb;
 	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewGrid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+		gap: 0.75rem;
+		margin: 0.75rem 0 1.25rem;
+	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewCard {
+		border: 1px solid #e5e7eb;
+		border-left-width: 4px;
+		border-radius: 4px;
+		padding: 0.6rem 0.75rem;
+		background: #fff;
+	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewCardLabel {
+		font-weight: 600;
+		font-size: 0.9em;
+	}
+	.pkpc-chatwootIntegrationSettings .cwOverviewCardState {
+		font-size: 0.85em;
+		margin-top: 0.15rem;
+	}
+	.pkpc-chatwootIntegrationSettings .cwState-healthy { border-left-color: #16a34a; }
+	.pkpc-chatwootIntegrationSettings .cwState-configured { border-left-color: #2563eb; }
+	.pkpc-chatwootIntegrationSettings .cwState-optional_off { border-left-color: #9ca3af; }
+	.pkpc-chatwootIntegrationSettings .cwState-not_configured { border-left-color: #9ca3af; }
+	.pkpc-chatwootIntegrationSettings .cwState-never_checked { border-left-color: #d97706; }
+	.pkpc-chatwootIntegrationSettings .cwState-degraded { border-left-color: #d97706; }
+	.pkpc-chatwootIntegrationSettings .cwState-failed { border-left-color: #dc2626; }
+	.pkpc-chatwootIntegrationSettings .cwState-action_required { border-left-color: #dc2626; }
 	.pkpc-chatwootIntegrationSettings .cwCustomerVisibleWarning {
 		color: #92400e;
 		background: #fffbeb;
@@ -438,28 +467,28 @@
 		{* ================================================================ *}
 		<div role="tabpanel" id="cwPanel-overview" aria-labelledby="cwTab-overview">
 			{if $supportGatewayHealth}
-				<div id="chatwootSupportGatewayHealth" class="pkp_notification pkp_notification_{if $supportGatewayHealth.overallState == 'healthy'}success{elseif $supportGatewayHealth.overallState == 'degraded'}warning{else}error{/if}">
-					<ul>
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.overallState"} <strong>{$supportGatewayHealth.overallState|escape}</strong></li>
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.chatwootConfigured"} {if $supportGatewayHealth.chatwootConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.supportApiConfigured"} {if $supportGatewayHealth.supportApiConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.mcpConfigured"} {if $supportGatewayHealth.mcpConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.verificationConfigured"} {if $supportGatewayHealth.verificationConfigured}{translate key="common.yes"}{else}{translate key="common.no"}{/if}</li>
-						{if $supportGatewayHealth.knowledgeState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.knowledgeState"} {$supportGatewayHealth.knowledgeState|escape}</li>{/if}
-						{if $supportGatewayHealth.captainState}<li>{translate key="plugins.generic.chatwootIntegration.settings.health.captainState"} {$supportGatewayHealth.captainState|escape}</li>{/if}
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.pendingEventCount"} {$supportGatewayHealth.pendingEventCount|escape}</li>
-						<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}</li>
+				<p class="description">{translate key="plugins.generic.chatwootIntegration.settings.overview.description"}</p>
+				<div class="cwOverviewGrid">
+					{foreach from=$overviewCards item=card}
+						<div class="cwOverviewCard cwState-{$card.state|escape}">
+							<div class="cwOverviewCardLabel">{$card.label|escape}</div>
+							<div class="cwOverviewCardState">{$overviewStateLabels[$card.state]|escape}</div>
+						</div>
+					{/foreach}
+				</div>
+
+				{if $supportGatewayHealth.deadLetterCount > 0 || $supportGatewayHealth.pendingEventCount > 0}
+					<div class="cwSectionDescription">
+						{translate key="plugins.generic.chatwootIntegration.settings.health.pendingEventCount"} {$supportGatewayHealth.pendingEventCount|escape} &middot;
+						{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterCount"} {$supportGatewayHealth.deadLetterCount|escape}
 						{if $supportGatewayHealth.queueHealth}
-							<li>{translate key="plugins.generic.chatwootIntegration.settings.health.retryingEventCount"} {$supportGatewayHealth.queueHealth.retryingCount|escape}</li>
-							{if $supportGatewayHealth.queueHealth.oldestPendingAgeSeconds !== null}
-								<li>{translate key="plugins.generic.chatwootIntegration.settings.health.oldestPendingAge"} {$supportGatewayHealth.queueHealth.oldestPendingAgeSeconds|escape}s</li>
-							{/if}
+							&middot; {translate key="plugins.generic.chatwootIntegration.settings.health.retryingEventCount"} {$supportGatewayHealth.queueHealth.retryingCount|escape}
 							{foreach from=$supportGatewayHealth.queueHealth.deadLetterErrorCodes key=errorCode item=errorCodeCount}
-								<li>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode" errorCode=$errorCode|escape deadLetterCount=$errorCodeCount|escape}</li>
+								<br>{translate key="plugins.generic.chatwootIntegration.settings.health.deadLetterErrorCode" errorCode=$errorCode|escape deadLetterCount=$errorCodeCount|escape}
 							{/foreach}
 						{/if}
-					</ul>
-				</div>
+					</div>
+				{/if}
 			{else}
 				<p class="cwSectionDescription">{translate key="plugins.generic.chatwootIntegration.settings.health.notChecked"}</p>
 			{/if}

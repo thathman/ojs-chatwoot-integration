@@ -31,6 +31,60 @@ msgstr "Advanced"
 msgid "plugins.generic.chatwootIntegration.settings.health.notChecked"
 msgstr "Health has not been checked yet in this session. Use the check below."
 
+msgid "plugins.generic.chatwootIntegration.settings.overview.description"
+msgstr "What's connected, what's healthy, and what needs attention."
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.chatwoot"
+msgstr "Chatwoot Connection"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.identity"
+msgstr "Identity Validation"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.knowledge"
+msgstr "Knowledge"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.captain"
+msgstr "Captain"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.eventBridge"
+msgstr "Event Bridge"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.verification"
+msgstr "Verification / Mail"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.supportApi"
+msgstr "Support API"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.mcp"
+msgstr "MCP"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.card.integrations"
+msgstr "Integrations"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.healthy"
+msgstr "Healthy"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.configured"
+msgstr "Configured"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.optionalOff"
+msgstr "Optional / Off"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.notConfigured"
+msgstr "Not configured"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.neverChecked"
+msgstr "Never checked"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.degraded"
+msgstr "Degraded"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.failed"
+msgstr "Failed"
+
+msgid "plugins.generic.chatwootIntegration.settings.overview.state.actionRequired"
+msgstr "Action required"
+
 msgid "plugins.generic.chatwootIntegration.settings.healthCheck.description"
 msgstr "Verify the Chatwoot connection and identity-validation secret are reachable and valid."
 
