@@ -69,7 +69,18 @@ final class CaptainScenarioProvisioner
         }
 
         $slugByTitle = [];
-        foreach ($this->client->listCaptainCustomTools() as $existingTool) {
+        try {
+            $existingTools = $this->client->listCaptainCustomTools();
+        } catch (\Throwable $e) {
+            // HAR-002: a failed listing here must resolve to "no tool
+            // references available" (the pre-existing, already-safe
+            // fail-closed behavior) — every scenario referencing an
+            // unresolvable tool already fails closed via
+            // resolveInstruction() returning null below, never a
+            // destructive or duplicate-creating action.
+            $existingTools = [];
+        }
+        foreach ($existingTools as $existingTool) {
             $title = (string) ($existingTool['title'] ?? '');
             $slug = $existingTool['slug'] ?? null;
             if ($title !== '' && is_string($slug) && $slug !== '') {
@@ -129,10 +140,18 @@ final class CaptainScenarioProvisioner
         }
 
         if ($existingScenarioTitles === null) {
-            $existingScenarioTitles = array_map(
-                static fn (array $s): string => (string) ($s['title'] ?? ''),
-                $this->client->listCaptainScenarios($assistantId)
-            );
+            try {
+                $existingScenarioTitles = array_map(
+                    static fn (array $s): string => (string) ($s['title'] ?? ''),
+                    $this->client->listCaptainScenarios($assistantId)
+                );
+            } catch (\Throwable $e) {
+                // HAR-002: this listing is a dedup check before create —
+                // a failed request must never be treated as "zero
+                // existing scenarios," which would create a real
+                // duplicate on retry after a transient outage.
+                return CaptainSyncResult::failed('existing_scenarios_unknown');
+            }
         }
 
         if (in_array($scenario->title(), $existingScenarioTitles, true)) {

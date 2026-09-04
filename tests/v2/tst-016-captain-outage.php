@@ -123,9 +123,14 @@ final class RealHttpCaptainClient implements ChatwootCaptainClientInterface
         return $this->post("/documents/{$documentId}/sync", []) !== null;
     }
 
+    /** HAR-002: the interface now requires throwing on a real request failure — see ChatwootCaptainClientInterface::listCaptainCustomTools(). */
     public function listCaptainCustomTools(): array
     {
-        return $this->get('/custom_tools') ?? [];
+        $result = $this->get('/custom_tools');
+        if ($result === null) {
+            throw new \RuntimeException('custom_tools request failed');
+        }
+        return $result;
     }
 
     public function createCaptainCustomTool(array $definition): ?array
@@ -138,9 +143,14 @@ final class RealHttpCaptainClient implements ChatwootCaptainClientInterface
         return $this->post("/custom_tools/{$toolId}", $definition) !== null;
     }
 
+    /** HAR-002: the interface now requires throwing on a real request failure — see ChatwootCaptainClientInterface::listCaptainScenarios(). */
     public function listCaptainScenarios(int $assistantId): array
     {
-        return $this->get("/assistants/{$assistantId}/scenarios") ?? [];
+        $result = $this->get("/assistants/{$assistantId}/scenarios");
+        if ($result === null) {
+            throw new \RuntimeException('scenarios request failed');
+        }
+        return $result;
     }
 
     public function createCaptainScenario(int $assistantId, array $definition): ?array
