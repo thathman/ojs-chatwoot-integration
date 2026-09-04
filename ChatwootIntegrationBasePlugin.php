@@ -468,7 +468,7 @@ class ChatwootIntegrationBasePlugin extends GenericPlugin {
         if ($baseUrl === '' || $apiToken === '' || empty($payload['email'])) return false;
 
         $api = new ChatwootApiService($baseUrl, $apiToken);
-        $contact = $api->findContactByEmail((string) $payload['email']);
+        $contact = $api->findContactByEmail((string) $payload['email'], (string) ($payload['identifier'] ?? ''));
         $mode = (string) ($payload['eventAction'] ?? 'note');
         if (!$contact && $mode === 'open_update') $contact = $api->createContact((string) $payload['email'], (string) ($payload['name'] ?? ''), (string) ($payload['identifier'] ?? ''));
         if (!$contact || empty($contact['id'])) return false;

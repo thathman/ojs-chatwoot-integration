@@ -649,7 +649,7 @@ class ChatwootIntegrationV2Plugin extends ChatwootIntegrationBasePlugin implemen
         $mayCreateContactOrConversation = in_array($mode, [EventDeliveryMode::OPEN_UPDATE_CONVERSATION, EventDeliveryMode::OPT_IN_CUSTOMER_MESSAGE], true);
 
         $api = new ChatwootApiService($baseUrl, $apiToken);
-        $contact = $api->findContactByEmail($author['email']);
+        $contact = $api->findContactByEmail($author['email'], (string) $author['userId']);
         if (!$contact && $mayCreateContactOrConversation) {
             $contact = $api->createContact($author['email'], $author['name'], (string) $author['userId']);
         }
