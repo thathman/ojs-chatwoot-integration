@@ -21,10 +21,11 @@ Original source: `ChatwootApiService::__construct()` initialized `$accountId = 1
 - a deliberately invalid token: `isAccountResolved()` → `false`, `getCannedResponses()` → `[]` (refused, not a guessed-account result) — confirms the fail-closed path fires against Chatwoot's real API, not just structurally.
 - the real production token/account: `isAccountResolved()` → `true`, `getAccountId()` → `2` (the real account, unchanged) — confirms no regression against the account the plugin has run against all session.
 
-**Still open** (not addressed by PR #217, tracked here for the next slice):
+**Also closed by PR #229**: "cache/reuse resolved account identity rather than performing hidden account discovery in every API-service constructor" — added a static per-`(baseUrl, token)` cache consulted before `getProfile()` is ever called; a resolution failure is never cached (self-heals once Chatwoot recovers). Live-verified on dell against the real production account: first construction 768ms (real `/profile` round trip), second construction with identical credentials 0ms, same real account ID (2) both times.
+
+**Still open** (not addressed by PRs #217/#229, tracked here for the next slice):
 - when a token belongs to multiple accounts, surface human-readable account selection or prove the current account deterministically — no multi-account UX exists yet, only single-account fail-closed/fail-open;
 - validate selected Inbox/Captain resources belong to the resolved account;
-- cache/reuse resolved account identity rather than performing hidden network I/O in every `ChatwootApiService` constructor — this remains a real hidden-constructor-I/O issue (see HAR-021), just no longer a silent-fallback one;
 - multi-account real acceptance test.
 
 ### HAR-002 — MUST FIX — remote list calls must distinguish empty from failed and must be complete
