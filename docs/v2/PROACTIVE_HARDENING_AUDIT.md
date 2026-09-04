@@ -148,18 +148,22 @@ Original source: `syncEmailTemplates()` iterated the journal's OJS EmailTemplate
 
 **Still open**: the larger product-redesign question — an explicit opt-in **Support Canned Responses** feature with template selection/classification, vs. removing the button entirely if there is no compelling product requirement.
 
-### HAR-014 — PARTIALLY FIXED (PR #235) — verification email composition / EmailTemplates
+### HAR-014 — SUBSTANTIALLY FIXED (PRs #235, #266) — verification email composition / EmailTemplates
 
 Original source: `VerificationEmailContentBuilder` interpolated `$journalName` raw into HTML (the URL was escaped, the journal name was not) and into the mail subject with no CRLF/header normalization — real header-injection and HTML-injection surfaces via an admin-configurable journal name.
 
-**Closed by PR #235** ("context-correct HTML escaping and subject/header normalization"): `pinBody()`/`linkBody()` now HTML-escape the journal name (and, defensively, the PIN); `subject()` strips CRLF/control characters before use. `tests/v2/har-014-verification-email-safe-composition.php` proves both attack shapes are neutralized with real malicious-looking journal-name fixtures (`<script>`/`<img onerror>` for HTML injection, embedded CRLF + smuggled `Bcc:`/`X-Injected:` for header injection), and that an ordinary journal name renders identically to before.
+**Closed by PR #235** ("context-correct HTML escaping and subject/header normalization"): `pinBody()`/`linkBody()` now HTML-escape the journal name (and, defensively, the PIN); `subject()` strips CRLF/control characters before use.
 
-**Still open** (the other four required items — a larger localization/architecture effort, not a single-file fix):
-- proper OJS 3.5 EmailTemplate lifecycle for PIN and secure-link mail (this content remains fixed-English hand-built HTML, not a real `EmailTemplate`);
-- locale/fallback behavior;
-- strict variable allowlist;
-- exclude verification/security templates from any canned-response sync — moot for this exact content today (it never goes through `syncEmailTemplates()`, only real OJS `EmailTemplate`s do, per HAR-013), but becomes a real requirement the moment this content is migrated to a real `EmailTemplate` per the item above;
-- real Mailpit acceptance including a special-character/malicious journal-name fixture — this session's evidence is unit-level (real function calls, real malicious input, real assertions on the output), not a captured real SMTP send.
+**Closed by PR #266** (Settings Console item G): the remaining architecture items.
+- **Real OJS 3.5 EmailTemplate lifecycle**: `AddVerificationEmailTemplatesMigration` seeds `email_templates_default_data` (the same mechanism the real core installer uses — verified against the real deployed `lib/pkp` source) for two real keys, `CHATWOOT_SUPPORT_VERIFICATION_PIN`/`_LINK`. Both are now real, first-class OJS EmailTemplates, visible and editable per-journal under Settings > Workflow > Emails.
+- **Locale/fallback behavior**: `VerificationEmailTemplateService::compose()` reads subject/body via `EmailTemplate::getLocalizedData()`, which gives real OJS locale precedence (preferred locale → context primary → site primary → first available) for free — no bespoke fallback logic written.
+- **Strict variable allowlist**: `VerificationEmailTemplateKeys::allowedVariables()` — PIN allows exactly `journalName`/`pinCode`/`expiryMinutes`; LINK allows exactly `journalName`/`verificationLink`/`expiryMinutes`. Substitution is a plain `str_replace` keyed to these exact names, never Smarty/`eval` — an admin-edited template body is still just data; an unrecognized `{$anything}` token is left as inert literal text. Every substituted value is escaped exactly as HAR-014 already proved safe for the journal name (HTML-escaped for the body, CRLF-stripped for the subject via the same, reused `safeSubjectText()`), now applied to every variable since the surrounding template text is itself admin-editable.
+- **Canned-response exclusion**: confirmed still moot — these two keys never go through `syncEmailTemplates()` (HAR-013's own deny-list only ever sees real journal `EmailTemplate` sync targets a manager explicitly configures for that separate feature); no change needed.
+- **Real Mailpit acceptance — done, live-verified on dell (2026-09-04)**: sent two real emails via the exact production code path (`VerificationEmailTemplateService::compose()` → `Mail::send(new SupportVerificationMailable(...))` → real SMTP → the real `ojs-fresh-mailpit-1` container) and inspected the actual received messages via Mailpit's own API:
+  - **Ordinary case**: PIN email arrived with the correct real journal name, PIN, and expiry text.
+  - **Malicious-journal-name case**: journal name `Real Journal <script>alert(1)</script>` + embedded CRLF + `Bcc: attacker@example.com` (the exact HAR-014 fixture shape). The raw MIME source (fetched via Mailpit's `/api/v1/message/{id}/raw`) proves the CRLF was flattened so `Bcc: attacker@example.com` appears only as folded continuation text *inside* the `Subject:` header — there is no real `Bcc:` mail header anywhere in the message, and the `<script>` tag is HTML-escaped (`&lt;script&gt;`) in the body. This is real, end-to-end proof the header-injection and HTML-injection defenses hold through actual `Mail::send()`/SMTP delivery, not just at the PHP string level.
+
+**Still open**: the fuller Mailpit acceptance matrix the owner's directive lists beyond this composition-safety case — link/failure/expiry/wrong-PIN/max-attempts/resend/anti-enumeration/success — requires exercising the real rate-limited `/verify/request` and `/verify/confirm` API endpoints end-to-end (not just the mail-composition step tested here), which needs real Chatwoot account/contact/conversation IDs wired up; not yet attempted.
 
 ### HAR-015 — MUST FIX — complete retention lifecycle
 
